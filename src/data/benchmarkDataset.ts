@@ -518,3 +518,5 @@ export const SCHEDULED_ECONOMIC_EVENTS: EconomicEvent[] = [
     status: 'UPCOMING'
   }
 ];
+
+export const INITIAL_EVENTS = SCHEDULED_ECONOMIC_EVENTS;

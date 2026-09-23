@@ -6,6 +6,10 @@ import { getActiveSessionOverview, MARKET_SESSIONS } from '../data/sessions';
 import { ECONOMIC_INDICATORS } from '../data/indicators';
 import { marketDataService } from '../marketData/service/marketDataService';
 import { analyzeObservationExpectations } from '../engines/expectations/expectationsEngine';
+import { fundamentalService } from '../fundamentals/service/fundamentalService';
+import { evaluateCurrencyFundamentalIntelligence } from '../fundamentals/engine/currencyIntelligenceEngine';
+import { buildCentralBankProfile, getAllCoreCentralBankProfiles } from '../fundamentals/centralBank/centralBankProfiles';
+import { FUNDAMENTAL_CATEGORIES } from '../types/fundamentals';
 import {
   Currency,
   CurrencyState,
@@ -134,7 +138,7 @@ export class VelqoarathApiService {
   }
 
   public static getCentralBanks(): CentralBankPolicy[] {
-    return globalStore.getState().centralBanks;
+    return getAllCoreCentralBankProfiles() as any;
   }
 
   public static getEconomicEvents(): EconomicEvent[] {
@@ -143,6 +147,7 @@ export class VelqoarathApiService {
 
   public static getFundamentalsStatus() {
     const state = globalStore.getState();
+    const providerStatus = fundamentalService.getStatus();
     const macroSources = state.dataSources.filter((s) => s.id !== 'src-twelvedata');
     const connectedMacroCount = macroSources.filter((s) => s.status === 'CONNECTED').length;
 
@@ -151,26 +156,23 @@ export class VelqoarathApiService {
       connectedSourcesCount: connectedMacroCount,
       totalSourcesCount: macroSources.length,
       lastUpdated: state.lastUpdated,
-      sources: macroSources,
+      provider: providerStatus,
+      categoriesCount: FUNDAMENTAL_CATEGORIES.length,
+      categories: FUNDAMENTAL_CATEGORIES,
       coverage: {
         currenciesCount: state.currencies.length,
-        centralBanksCount: state.centralBanks.length,
+        centralBanksCount: 8,
         indicatorsCount: ECONOMIC_INDICATORS.length,
-        observationsCount: state.observations.length
-      }
+        observationsCount: state.observations.length,
+        categoriesAvailableCount: providerStatus.categoriesAvailable.length
+      },
+      sources: macroSources
     };
   }
 
   public static getFundamentalCurrencies() {
-    return this.getAllCurrencyStates().map((c) => ({
-      currency: c.currency,
-      fundamentalState: c.fundamentalState,
-      centralBank: c.centralBank,
-      overallState: c.overallState,
-      supportingEvidence: c.supportingEvidence,
-      conflictingEvidence: c.conflictingEvidence,
-      confidenceMetadata: c.confidenceMetadata
-    }));
+    const state = globalStore.getState();
+    return state.currencies.map((currency) => this.getFundamentalCurrency(currency.code)).filter(Boolean);
   }
 
   public static getFundamentalCurrency(code: string) {
@@ -187,13 +189,52 @@ export class VelqoarathApiService {
       return analyzeObservationExpectations(obs, meta);
     });
 
+    const cbProfile = buildCentralBankProfile(code);
+    const fundamentalIntel = evaluateCurrencyFundamentalIntelligence({
+      currency: currState.currency,
+      observations: observations.map((o) => ({
+        id: o.id,
+        currency: o.currency.toUpperCase(),
+        indicatorId: o.indicatorId,
+        indicatorName: o.indicatorName,
+        category: (o.category as any) || 'GROWTH',
+        value: o.actual,
+        unit: o.unit,
+        period: o.period,
+        previous: o.previous,
+        forecast: o.forecast,
+        actual: o.actual,
+        surprise: o.actual !== null && o.forecast !== null ? Math.round((o.actual - o.forecast) * 100) / 100 : null,
+        surpriseType: 'IN_LINE',
+        releaseDate: o.releaseDate,
+        source: o.sourceName || 'Official Statistics',
+        sourceUrl: o.sourceUrl,
+        fetchedAt: state.lastUpdated,
+        dataStatus: 'AVAILABLE',
+        provenance: 'Official verified macroeconomic statistics',
+        classification: 'FACT',
+        statements: {
+          fact: `FACT: ${o.indicatorName} printed at ${o.actual}${o.unit}.`,
+          expectation: `EXPECTATION: Consensus was ${o.forecast}${o.unit}.`,
+          interpretation: `INTERPRETATION: Release recorded for ${o.period}.`,
+          engineAnalysis: 'ENGINE_ANALYSIS: Policy transmission assessed by macroeconomic engine.'
+        }
+      })),
+      centralBank: cbProfile,
+      marketStrength: currState.marketStrength,
+      upcomingEvents: state.events,
+      isDataFeedConnected: state.isDataFeedConnected
+    });
+
     return {
+      ...fundamentalIntel,
+      // Legacy compatibility properties
       currency: currState.currency,
       fundamentalState: currState.fundamentalState,
       centralBank: currState.centralBank,
       overallState: currState.overallState,
-      supportingEvidence: currState.supportingEvidence,
-      conflictingEvidence: currState.conflictingEvidence,
+      supportingEvidence: fundamentalIntel.supportingFactors,
+      conflictingEvidence: fundamentalIntel.opposingFactors,
       confidenceMetadata: currState.confidenceMetadata,
       observations,
       expectations
@@ -298,6 +339,7 @@ export class VelqoarathApiService {
       weakCurrencies,
       allCurrencies: allStates,
       topPairToWatch,
+      topPair: topPairToWatch,
       sessions: {
         activeSessions: sessionOverview.openSessions.map((s) => s.session),
         upcomingSessions: sessionOverview.closedSessions.map((s) => s.session),

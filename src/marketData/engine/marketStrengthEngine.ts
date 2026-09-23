@@ -6,6 +6,7 @@ import {
 import {
   MarketQuote,
   CurrencyMarketStrength,
+  CurrencyCoverageInfo,
   PairContribution,
   StrengthThresholds,
   StrengthEngineOptions,
@@ -91,13 +92,34 @@ export function calculateCurrencyMarketStrengths(
   const resultMap = new Map<string, CurrencyMarketStrength>();
   const nowIso = new Date().toISOString();
 
-  // Edge case: No quotes provided or provider is completely down/not configured
-  if (quotes.length === 0 || providerStatus === 'NOT_CONFIGURED' || providerStatus === 'ERROR' || providerStatus === 'DISCONNECTED') {
+  // 1. Separate required quotes into fresh vs stale
+  const requiredSet = new Set(requiredPairs);
+  const freshQuotes = quotes.filter(
+    (q) => requiredSet.has(q.symbol) && !q.stale && q.changePercent !== null && !isNaN(q.changePercent)
+  );
+  const staleQuotes = quotes.filter(
+    (q) => requiredSet.has(q.symbol) && Boolean(q.stale)
+  );
+  const stalePairSymbols = new Set(staleQuotes.map((q) => q.symbol));
+
+  // Edge case: No usable fresh quotes provided, or provider is completely down/not configured
+  if (
+    freshQuotes.length === 0 ||
+    quotes.length === 0 ||
+    providerStatus === 'NOT_CONFIGURED' ||
+    providerStatus === 'ERROR' ||
+    providerStatus === 'DISCONNECTED'
+  ) {
     for (const code of currencies) {
       const requiredForCurrency = requiredPairs.filter((p) => {
         const [b, q] = p.split('/');
         return b === code || q === code;
       });
+
+      const stalePairsForCode = requiredForCurrency.filter((p) => stalePairSymbols.has(p));
+      const missingPairsForCode = requiredForCurrency.filter(
+        (p) => !stalePairSymbols.has(p)
+      );
 
       resultMap.set(code, {
         currency: code,
@@ -110,7 +132,8 @@ export function calculateCurrencyMarketStrengths(
           available: 0,
           required: requiredForCurrency.length,
           percent: 0,
-          missingPairs: [...requiredForCurrency],
+          missingPairs: missingPairsForCode,
+          stalePairs: stalePairsForCode,
           validPairs: [],
           status: 'INSUFFICIENT'
         },
@@ -118,6 +141,8 @@ export function calculateCurrencyMarketStrengths(
         explanation:
           providerStatus === 'NOT_CONFIGURED'
             ? 'MARKET DATA NOT CONFIGURED: Primary provider is awaiting initialization. Market strength is unavailable.'
+            : freshQuotes.length === 0 && staleQuotes.length > 0
+            ? `MARKET DATA UNAVAILABLE: Zero fresh quotes available (${staleQuotes.length} pairs stale). Provider status is ${providerStatus}.`
             : `MARKET DATA UNAVAILABLE: Provider status is ${providerStatus}. No synthetic data substituted.`,
         calculatedAt: nowIso,
         providerStatus,
@@ -127,16 +152,11 @@ export function calculateCurrencyMarketStrengths(
     return resultMap;
   }
 
-  // 1. Filter quotes to valid, non-stale quotes belonging to the required pairs set
-  const requiredSet = new Set(requiredPairs);
-  const validQuotes = quotes.filter(
-    (q) => requiredSet.has(q.symbol) && q.changePercent !== null && !isNaN(q.changePercent)
-  );
-
   interface CurrencyIntermediate {
     code: string;
     requiredPairs: string[];
     validPairs: string[];
+    stalePairs: string[];
     missingPairs: string[];
     contributors: PairContribution[];
     avgReturn: number | null;
@@ -156,7 +176,7 @@ export function calculateCurrencyMarketStrengths(
     const contributors: PairContribution[] = [];
     const validPairs: string[] = [];
 
-    for (const q of validQuotes) {
+    for (const q of freshQuotes) {
       const contrib = calculatePairContribution(code, q);
       if (contrib !== null) {
         contributors.push(contrib);
@@ -164,12 +184,16 @@ export function calculateCurrencyMarketStrengths(
       }
     }
 
-    const missingPairs = requiredForCurrency.filter((p) => !validPairs.includes(p));
+    const stalePairsForCode = requiredForCurrency.filter((p) => stalePairSymbols.has(p));
+    const missingPairs = requiredForCurrency.filter(
+      (p) => !validPairs.includes(p) && !stalePairSymbols.has(p)
+    );
     const availableCount = contributors.length;
     const requiredCount = requiredForCurrency.length;
     const coverageRatio = requiredCount > 0 ? availableCount / requiredCount : 0;
     const coveragePercent = Math.round(coverageRatio * 1000) / 10;
-    const hasSufficientCoverage = availableCount > 0 && coverageRatio >= minCoverageThreshold;
+    const hasSufficientCoverage =
+      availableCount > 0 && (minCoverageThreshold === 0 || coverageRatio >= minCoverageThreshold);
 
     let avgReturn: number | null = null;
     if (contributors.length > 0) {
@@ -181,6 +205,7 @@ export function calculateCurrencyMarketStrengths(
       code,
       requiredPairs: requiredForCurrency,
       validPairs,
+      stalePairs: stalePairsForCode,
       missingPairs,
       contributors,
       avgReturn,
@@ -190,8 +215,8 @@ export function calculateCurrencyMarketStrengths(
     });
   }
 
-  // 2. Basket Mean across valid currencies
-  const validIntermediates = intermediates.filter((i) => i.avgReturn !== null);
+  // 2. Basket Mean across valid currencies with sufficient coverage
+  const validIntermediates = intermediates.filter((i) => i.hasSufficientCoverage && i.avgReturn !== null);
   const basketMean =
     validIntermediates.length > 0
       ? validIntermediates.reduce((acc, i) => acc + (i.avgReturn as number), 0) / validIntermediates.length
@@ -202,17 +227,18 @@ export function calculateCurrencyMarketStrengths(
     const availableCount = item.contributors.length;
     const requiredCount = item.requiredPairs.length;
     const coverageStatus =
-      availableCount === requiredCount
+      availableCount === requiredCount && item.stalePairs.length === 0
         ? 'COMPLETE'
         : item.hasSufficientCoverage
         ? 'PARTIAL'
         : 'INSUFFICIENT';
 
-    const coverageInfo = {
+    const coverageInfo: CurrencyCoverageInfo = {
       available: availableCount,
       required: requiredCount,
       percent: item.coveragePercent,
       missingPairs: item.missingPairs,
+      stalePairs: item.stalePairs,
       validPairs: item.validPairs,
       status: coverageStatus as 'COMPLETE' | 'PARTIAL' | 'INSUFFICIENT'
     };
@@ -224,6 +250,8 @@ export function calculateCurrencyMarketStrengths(
         ? 'DATA_UNAVAILABLE'
         : 'INSUFFICIENT_COVERAGE';
 
+      const staleNotice = item.stalePairs.length > 0 ? ` Stale pairs excluded: ${item.stalePairs.join(', ')}.` : '';
+
       resultMap.set(item.code, {
         currency: item.code,
         marketStrength: null,
@@ -234,8 +262,8 @@ export function calculateCurrencyMarketStrengths(
         coverage: coverageInfo,
         contributors: item.contributors,
         explanation: isZero
-          ? `MARKET DATA UNAVAILABLE: Zero valid pair quotes observed for ${item.code} out of ${requiredCount} required pairs.`
-          : `INSUFFICIENT COVERAGE: Only ${availableCount}/${requiredCount} pairs observed (${item.coveragePercent}% < minimum required ${(minCoverageThreshold * 100).toFixed(0)}%). Strength score withheld.`,
+          ? `MARKET DATA UNAVAILABLE: Zero fresh pair quotes observed for ${item.code} out of ${requiredCount} required pairs.${staleNotice}`
+          : `INSUFFICIENT COVERAGE: Only ${availableCount}/${requiredCount} fresh pairs observed (${item.coveragePercent}% < minimum required ${(minCoverageThreshold * 100).toFixed(0)}%). Strength score withheld.${staleNotice}`,
         calculatedAt: nowIso,
         providerStatus,
         source: providerSource,
@@ -275,7 +303,8 @@ export function calculateCurrencyMarketStrengths(
 
     const signPrefix = marketStrength >= 0 ? '+' : '';
     const formulaSummary = `Formula: Mean (${item.avgReturn >= 0 ? '+' : ''}${item.avgReturn.toFixed(3)}%) - Basket Mean (${basketMean >= 0 ? '+' : ''}${basketMean.toFixed(3)}%) = ${rawRelativeReturn >= 0 ? '+' : ''}${rawRelativeReturn.toFixed(3)}% × ${scaleFactor} = ${signPrefix}${marketStrength.toFixed(2)}.`;
-    const coverageSummary = `Coverage: ${availableCount}/${requiredCount} pairs (${item.coveragePercent}%).`;
+    const staleNotice = item.stalePairs.length > 0 ? ` (Stale excluded: ${item.stalePairs.join(', ')})` : '';
+    const coverageSummary = `Coverage: ${availableCount}/${requiredCount} pairs (${item.coveragePercent}%)${staleNotice}.`;
 
     let driverText = '';
     if (topGainers && topDraggers) {

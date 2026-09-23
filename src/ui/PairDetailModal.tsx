@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, TrendingUp, TrendingDown, Clock, ShieldAlert, ArrowLeftRight } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, Clock, ShieldAlert, ArrowLeftRight, Scale } from 'lucide-react';
 import { PairIntelligence } from '../types';
 
 interface PairDetailModalProps {
@@ -34,7 +34,7 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
     invalidationConditions,
     sessionRelevance,
     watchWindow,
-    lastUpdated
+    fundamentalDifferential
   } = intelligence;
 
   const delta = relativeStrengthDelta ?? 0;
@@ -103,6 +103,59 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
             </div>
             <p className="text-neutral-300 leading-relaxed font-sans">{orientationExplanation}</p>
           </div>
+
+          {/* Phase B: Fundamental Differential Section */}
+          {fundamentalDifferential && (
+            <div className="p-3 bg-neutral-900/60 border border-neutral-800 rounded space-y-2.5">
+              <div className="flex items-center justify-between pb-1.5 border-b border-neutral-800 font-mono text-xs">
+                <span className="font-bold text-neutral-200 uppercase tracking-wider flex items-center gap-1.5">
+                  <Scale className="w-3.5 h-3.5 text-sky-400" /> Fundamental Differential ({pair.baseCurrency} vs {pair.quoteCurrency})
+                </span>
+                <span className="text-[10px] text-sky-400 font-bold">
+                  QUALITY: {fundamentalDifferential.dataQuality}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 font-mono text-[11px]">
+                <div className="p-2 bg-neutral-950/70 border border-neutral-800/70 rounded">
+                  <span className="text-[10px] text-neutral-500 block uppercase">MARKET STRENGTH Δ</span>
+                  <span className="font-bold text-neutral-200">
+                    {fundamentalDifferential.marketStrengthDifferential !== null
+                      ? `${fundamentalDifferential.marketStrengthDifferential >= 0 ? '+' : ''}${fundamentalDifferential.marketStrengthDifferential.toFixed(2)}`
+                      : 'N/A'}
+                  </span>
+                </div>
+                <div className="p-2 bg-neutral-950/70 border border-neutral-800/70 rounded">
+                  <span className="text-[10px] text-neutral-500 block uppercase">FUNDAMENTAL Δ</span>
+                  <span className="font-bold text-neutral-200">
+                    {fundamentalDifferential.fundamentalDifferential.delta !== null
+                      ? `${fundamentalDifferential.fundamentalDifferential.delta >= 0 ? '+' : ''}${fundamentalDifferential.fundamentalDifferential.delta.toFixed(2)}`
+                      : 'N/A'}
+                  </span>
+                </div>
+                <div className="p-2 bg-neutral-950/70 border border-neutral-800/70 rounded">
+                  <span className="text-[10px] text-neutral-500 block uppercase">POLICY RATE SPREAD</span>
+                  <span className="font-bold text-neutral-200">
+                    {fundamentalDifferential.policyDifferential.rateSpread !== null
+                      ? `${fundamentalDifferential.policyDifferential.rateSpread >= 0 ? '+' : ''}${fundamentalDifferential.policyDifferential.rateSpread.toFixed(2)}%`
+                      : 'N/A'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Policy Stance Comparison */}
+              <div className="p-2 bg-neutral-950/70 border border-neutral-800/70 rounded text-[11px] font-sans text-neutral-300">
+                <span className="font-mono text-[10px] text-neutral-500 uppercase block mb-0.5">CENTRAL BANK POLICY DIVERGENCE</span>
+                {fundamentalDifferential.policyDifferential.stanceDelta}
+              </div>
+
+              {/* Expectations Comparison */}
+              <div className="p-2 bg-neutral-950/70 border border-neutral-800/70 rounded text-[11px] font-sans text-neutral-300">
+                <span className="font-mono text-[10px] text-neutral-500 uppercase block mb-0.5">EXPECTATIONS MOMENTUM</span>
+                {fundamentalDifferential.expectationsDifferential.comparison}
+              </div>
+            </div>
+          )}
 
           {/* Convergence / Divergence */}
           <div className="p-3 bg-neutral-900/60 border border-neutral-800 rounded">
@@ -199,10 +252,10 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
             ) : (
               <div className="space-y-1.5 font-mono text-[11px]">
                 {catalysts.map((cat) => (
-                  <div key={cat.id} className="p-2 bg-neutral-900/60 border border-neutral-800 rounded flex items-center justify-between">
+                  <div key={cat.id} className="p-2 bg-neutral-900/50 border border-neutral-800 rounded flex justify-between items-center">
                     <div>
-                      <span className="text-neutral-200 font-sans font-medium">{cat.currency} {cat.name}</span>
-                      <span className="text-neutral-500 text-[10px] block">{new Date(cat.scheduledTime).toUTCString()}</span>
+                      <span className="font-bold text-neutral-200 block text-xs">{cat.name}</span>
+                      <span className="text-neutral-500 text-[10px]">Date: {new Date(cat.scheduledTime).toUTCString()}</span>
                     </div>
                     <span className={`text-[10px] font-bold ${cat.importance === 'HIGH' ? 'text-rose-400' : 'text-amber-400'}`}>
                       {cat.importance}
@@ -211,11 +264,6 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
                 ))}
               </div>
             )}
-          </div>
-
-          <div className="pt-2 border-t border-neutral-800/80 text-[10px] font-mono text-neutral-600 flex justify-between">
-            <span>VELQOARATH Macro Engine</span>
-            <span>Updated: {new Date(lastUpdated).toUTCString()}</span>
           </div>
         </div>
       </div>

@@ -63,20 +63,34 @@ export const CurrencyMatrix: React.FC<CurrencyMatrixProps> = ({
                   </td>
                   <td className="py-2.5 px-2 tabular-nums">
                     {mScore === null ? (
-                      <span className="text-neutral-600">UNAVAILABLE</span>
-                    ) : (
-                      <span
-                        className={`font-semibold ${
-                          c.marketState === 'STRONG'
-                            ? 'text-emerald-400'
-                            : c.marketState === 'WEAK'
-                            ? 'text-rose-400'
-                            : 'text-neutral-300'
-                        }`}
-                      >
-                        {mScore >= 0 ? '+' : ''}
-                        {mScore.toFixed(2)}
+                      <span className="text-neutral-600">
+                        {c.marketState === 'INSUFFICIENT_COVERAGE'
+                          ? 'INSUFFICIENT'
+                          : 'UNAVAILABLE'}
                       </span>
+                    ) : (
+                      <div className="inline-flex items-center gap-1.5">
+                        <span
+                          className={`font-semibold ${
+                            c.marketState === 'STRONG'
+                              ? 'text-emerald-400'
+                              : c.marketState === 'WEAK'
+                              ? 'text-rose-400'
+                              : 'text-neutral-300'
+                          }`}
+                        >
+                          {mScore >= 0 ? '+' : ''}
+                          {mScore.toFixed(2)}
+                        </span>
+                        {c.relativeStrengthBreakdown?.coverage &&
+                          c.relativeStrengthBreakdown.coverage.available <
+                            c.relativeStrengthBreakdown.coverage.required && (
+                            <span className="text-[9px] text-neutral-500 font-mono">
+                              ({c.relativeStrengthBreakdown.coverage.available}/
+                              {c.relativeStrengthBreakdown.coverage.required})
+                            </span>
+                          )}
+                      </div>
                     )}
                   </td>
                   <td className="py-2.5 px-2 tabular-nums">

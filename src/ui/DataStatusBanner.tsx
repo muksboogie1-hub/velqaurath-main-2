@@ -62,7 +62,15 @@ export const DataStatusBanner: React.FC<DataStatusBannerProps> = ({
                       : 'bg-neutral-800 border-neutral-700 text-neutral-400'
                   }`}
                 >
-                  FX: {marketProviderStatus.activeProvider || marketProviderStatus.providerName} ({health})
+                  FX: {marketProviderStatus.activeProvider || marketProviderStatus.providerName} ({health}
+                  {health === 'DEGRADED' && marketProviderStatus.quotesCount > 0
+                    ? ` — ${marketProviderStatus.quotesCount - (marketProviderStatus.stalePairs?.length || 0)}/${marketProviderStatus.quotesCount} fresh${
+                        (marketProviderStatus.stalePairs?.length || 0) > 0
+                          ? `, ${marketProviderStatus.stalePairs.length} stale`
+                          : ''
+                      }`
+                    : ''}
+                  )
                 </span>
               )}
             </div>

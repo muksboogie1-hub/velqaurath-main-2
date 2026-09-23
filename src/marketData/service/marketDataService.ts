@@ -199,7 +199,14 @@ export class MarketDataService {
   public getCachedCurrencyStrengths(
     thresholds: StrengthThresholds = { strongThreshold: 0.1, weakThreshold: -0.1 }
   ): Map<string, CurrencyMarketStrength> {
-    const cachedQuotes = this.cache.getQuotes();
+    const providerQuotes =
+      this.activeProvider && typeof (this.activeProvider as any).getQuotes === 'function'
+        ? (this.activeProvider as any).getQuotes()
+        : [];
+    const cachedQuotes =
+      this.cache.getQuotes() ||
+      (providerQuotes.length > 0 ? providerQuotes : null) ||
+      this.cache.getQuotesEvenIfExpired();
     const providerStatus = this.getStatus();
 
     if (!cachedQuotes || cachedQuotes.length === 0) {

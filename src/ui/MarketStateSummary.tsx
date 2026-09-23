@@ -19,13 +19,18 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
   thresholds,
   onSelectCurrency
 }) => {
-  const isDataUnavailable =
-    allCurrencies.length > 0 &&
-    allCurrencies.every((c) => c.marketState === 'DATA_UNAVAILABLE');
+  const hasUsableMarketData = allCurrencies.some((c) => c.marketStrength !== null);
+  const isDataUnavailable = allCurrencies.length === 0 || !hasUsableMarketData;
+
+  const stalePairsList = Array.from(
+    new Set(
+      allCurrencies.flatMap((c) => c.relativeStrengthBreakdown?.coverage?.stalePairs ?? [])
+    )
+  );
 
   return (
     <section className="bg-neutral-900/60 border border-neutral-800 rounded-lg p-4">
-      <div className="flex items-center justify-between pb-3 border-b border-neutral-800/80 mb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-neutral-800/80 mb-3">
         <div>
           <h2 className="text-sm font-semibold text-neutral-200 tracking-wide uppercase">
             Current Market State
@@ -35,6 +40,11 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
             {thresholds.strongThreshold.toFixed(2)} · Weak ≤ {thresholds.weakThreshold.toFixed(2)}
           </p>
         </div>
+        {stalePairsList.length > 0 && (
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 text-amber-300">
+            Stale: {stalePairsList.join(', ')} (Excluded)
+          </span>
+        )}
       </div>
 
       {isDataUnavailable ? (
@@ -71,7 +81,14 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
                     onClick={() => onSelectCurrency(c.currency.code)}
                     className="w-full flex items-center justify-between p-1.5 rounded hover:bg-neutral-900 border border-neutral-800/50 font-mono text-xs text-left transition-colors"
                   >
-                    <span className="font-bold text-neutral-100">{c.currency.code}</span>
+                    <span className="font-bold text-neutral-100 flex items-center gap-1.5">
+                      {c.currency.code}
+                      {c.relativeStrengthBreakdown?.coverage && (
+                        <span className="text-[9px] font-normal text-neutral-500">
+                          ({c.relativeStrengthBreakdown.coverage.available}/{c.relativeStrengthBreakdown.coverage.required})
+                        </span>
+                      )}
+                    </span>
                     <span className="text-emerald-400 font-semibold tabular-nums">
                       {c.marketStrength !== null ? `+${c.marketStrength.toFixed(2)}` : 'N/A'}
                     </span>
@@ -101,7 +118,14 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
                     onClick={() => onSelectCurrency(c.currency.code)}
                     className="w-full flex items-center justify-between p-1.5 rounded hover:bg-neutral-900 border border-neutral-800/50 font-mono text-xs text-left transition-colors"
                   >
-                    <span className="font-bold text-neutral-100">{c.currency.code}</span>
+                    <span className="font-bold text-neutral-100 flex items-center gap-1.5">
+                      {c.currency.code}
+                      {c.relativeStrengthBreakdown?.coverage && (
+                        <span className="text-[9px] font-normal text-neutral-500">
+                          ({c.relativeStrengthBreakdown.coverage.available}/{c.relativeStrengthBreakdown.coverage.required})
+                        </span>
+                      )}
+                    </span>
                     <span className="text-neutral-400 font-semibold tabular-nums">
                       {c.marketStrength !== null ? `${c.marketStrength >= 0 ? '+' : ''}${c.marketStrength.toFixed(2)}` : 'N/A'}
                     </span>
@@ -131,7 +155,14 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
                     onClick={() => onSelectCurrency(c.currency.code)}
                     className="w-full flex items-center justify-between p-1.5 rounded hover:bg-neutral-900 border border-neutral-800/50 font-mono text-xs text-left transition-colors"
                   >
-                    <span className="font-bold text-neutral-100">{c.currency.code}</span>
+                    <span className="font-bold text-neutral-100 flex items-center gap-1.5">
+                      {c.currency.code}
+                      {c.relativeStrengthBreakdown?.coverage && (
+                        <span className="text-[9px] font-normal text-neutral-500">
+                          ({c.relativeStrengthBreakdown.coverage.available}/{c.relativeStrengthBreakdown.coverage.required})
+                        </span>
+                      )}
+                    </span>
                     <span className="text-rose-400 font-semibold tabular-nums">
                       {c.marketStrength !== null ? c.marketStrength.toFixed(2) : 'N/A'}
                     </span>

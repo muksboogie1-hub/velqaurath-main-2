@@ -4,8 +4,10 @@ import {
   ProviderStatus,
   StrengthClassification
 } from '../marketData/types';
+import { FundamentalDataStatus, FundamentalDifferential } from './fundamentals';
 
 export * from '../marketData/types';
+export * from './fundamentals';
 
 export type ObservationClassification =
   | 'FACT'
@@ -74,15 +76,23 @@ export interface CentralBank {
   id: string;
   institution: string;
   associatedCurrency: string;
+  currency?: string;
   currentPolicyRate: number | null;
+  policyRate?: number | null;
   previousPolicyRate: number | null;
   latestDecisionDate: string | null;
   nextKnownDecisionDate: string | null;
   stance: CentralBankStance;
   stanceEvidence: string[];
   guidanceSummary: string | null;
+  latestPolicyStatement?: string | null;
   majorRisks: string[];
   sourceMetadata: CentralBankSourceMetadata;
+  source?: string;
+  sourceUrl?: string;
+  fetchedTimestamp?: string;
+  dataStatus?: FundamentalDataStatus;
+  provenance?: string;
 }
 
 export type CentralBankPolicy = CentralBank;
@@ -196,7 +206,15 @@ export interface RelativeStrengthBreakdown {
   timeframe: string;
   explanation: string;
   source: string;
-  coverage?: { available: number; required: number; percent: number };
+  coverage?: {
+    available: number;
+    required: number;
+    percent: number;
+    missingPairs?: string[];
+    validPairs?: string[];
+    stalePairs?: string[];
+    status?: string;
+  };
   contributors?: {
     pairSymbol: string;
     pairReturnPercent: number;
@@ -270,6 +288,7 @@ export interface PairIntelligence {
   watchWindow: WatchWindow;
   lastUpdated: string;
   sources: { name: string; url: string; classification: ObservationClassification }[];
+  fundamentalDifferential?: FundamentalDifferential;
 }
 
 export interface MarketSession {
@@ -323,6 +342,7 @@ export interface DashboardPayload {
   weakCurrencies: CurrencyState[];
   allCurrencies: CurrencyState[];
   topPairToWatch: PairIntelligence | null;
+  topPair?: PairIntelligence | null;
   sessions: {
     activeSessions: MarketSession[];
     upcomingSessions: MarketSession[];

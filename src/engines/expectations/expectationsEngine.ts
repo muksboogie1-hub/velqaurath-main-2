@@ -1,4 +1,22 @@
-import { EconomicObservation, EconomicIndicator } from '../../types';
+/**
+ * VELQOARATH — EXPECTATIONS ENGINE (PHASE B)
+ *
+ * Deterministic calculation of macroeconomic expectation surprises:
+ * - surprise = actual - forecast
+ * - Classifications: ABOVE_EXPECTATION, BELOW_EXPECTATION, IN_LINE, UNKNOWN
+ * - Preserves previous, forecast, actual, surprise as separate distinct values
+ * - Strict Fact vs Expectation vs Interpretation vs Engine Analysis separation
+ * - Never assumes a positive surprise is automatically bullish for the currency
+ * - Zero fabrication: returns UNKNOWN if forecast or actual is missing
+ */
+
+import {
+  EconomicObservation,
+  EconomicIndicator,
+  FactInterpretationBundle,
+  ExpectationSurpriseType,
+  AnalyticalClassification
+} from '../../types';
 
 export interface ExpectationAnalysis {
   observationId: string;
@@ -7,20 +25,214 @@ export interface ExpectationAnalysis {
   actual: number | null;
   forecast: number | null;
   previous: number | null;
-  unit: string;
-  surpriseType: 'ABOVE' | 'BELOW' | 'IN_LINE' | 'NO_FORECAST' | 'UNAVAILABLE';
+  surprise: number | null;
   surpriseDelta: number | null;
   percentageSurprise: number | null;
+  unit: string;
+  // Preserves backward compatibility while supporting Phase B classifications
+  surpriseType:
+    | 'ABOVE'
+    | 'BELOW'
+    | 'IN_LINE'
+    | 'NO_FORECAST'
+    | 'UNAVAILABLE'
+    | ExpectationSurpriseType;
+  expectationStatus: ExpectationSurpriseType;
   directionSummary: string;
   monetaryPolicyImplication: string;
-  classification: 'ENGINE_ANALYSIS';
+  classification: AnalyticalClassification;
+  statements: FactInterpretationBundle;
 }
 
+export interface ExpectationEvaluationInput {
+  previous: number | null;
+  forecast: number | null;
+  actual: number | null;
+  unit?: string;
+  indicatorName?: string;
+  period?: string;
+  category?: string;
+  currency?: string;
+  highIsHawkish?: boolean;
+}
+
+export interface ExpectationEvaluationResult {
+  previous: number | null;
+  forecast: number | null;
+  actual: number | null;
+  surprise: number | null;
+  surpriseDelta: number | null;
+  percentageSurprise: number | null;
+  expectationStatus: ExpectationSurpriseType;
+  statements: FactInterpretationBundle;
+  directionSummary: string;
+  monetaryPolicyImplication: string;
+}
+
+/**
+ * Pure mathematical expectation calculation engine.
+ */
+export function calculateExpectationSurprise(
+  previous: number | null,
+  forecast: number | null,
+  actual: number | null
+): {
+  surprise: number | null;
+  percentageSurprise: number | null;
+  status: ExpectationSurpriseType;
+} {
+  // If actual or forecast is null, expectation surprise cannot be calculated
+  if (actual === null || forecast === null) {
+    return {
+      surprise: null,
+      percentageSurprise: null,
+      status: 'UNKNOWN'
+    };
+  }
+
+  // Exact arithmetic rounding to 2 decimal places to avoid IEEE 754 precision drift
+  const surprise = Math.round((actual - forecast) * 100) / 100;
+
+  const percentageSurprise =
+    forecast !== 0
+      ? Math.round(((actual - forecast) / Math.abs(forecast)) * 1000) / 10
+      : null;
+
+  // Tolerance threshold: 2% of forecast or 0.05 absolute (whichever is smaller, minimum 0.01)
+  const tolerance = Math.max(0.01, Math.min(0.05, Math.abs(forecast) * 0.02));
+
+  let status: ExpectationSurpriseType = 'IN_LINE';
+  if (surprise > tolerance) {
+    status = 'ABOVE_EXPECTATION';
+  } else if (surprise < -tolerance) {
+    status = 'BELOW_EXPECTATION';
+  } else {
+    status = 'IN_LINE';
+  }
+
+  return {
+    surprise,
+    percentageSurprise,
+    status
+  };
+}
+
+/**
+ * Generates the strictly typed 4-layer analytical bundle.
+ */
+export function generateFactInterpretationStatements(
+  input: ExpectationEvaluationInput,
+  calc: {
+    surprise: number | null;
+    percentageSurprise: number | null;
+    status: ExpectationSurpriseType;
+  }
+): FactInterpretationBundle {
+  const ind = input.indicatorName || 'Indicator';
+  const unit = input.unit || '';
+  const period = input.period ? ` (${input.period})` : '';
+  const highIsHawkish = input.highIsHawkish ?? true;
+
+  // Layer 1: FACT
+  let fact = '';
+  if (input.actual !== null) {
+    fact = `FACT: ${ind}${period} was reported at ${input.actual}${unit}.`;
+  } else {
+    fact = `FACT: Official release data for ${ind}${period} is currently unavailable.`;
+  }
+
+  // Layer 2: EXPECTATION
+  let expectation = '';
+  if (input.forecast !== null) {
+    const prevStr = input.previous !== null ? ` (Previous: ${input.previous}${unit})` : '';
+    expectation = `EXPECTATION: Consensus forecast was ${input.forecast}${unit}${prevStr}.`;
+  } else {
+    expectation = `EXPECTATION: No consensus forecast recorded for this release.`;
+  }
+
+  // Layer 3: INTERPRETATION
+  let interpretation = '';
+  if (calc.status === 'ABOVE_EXPECTATION' && calc.surprise !== null) {
+    const pctStr = calc.percentageSurprise !== null ? ` (+${calc.percentageSurprise}%)` : '';
+    interpretation = `INTERPRETATION: Reported print exceeded consensus expectations by +${calc.surprise}${unit}${pctStr}.`;
+  } else if (calc.status === 'BELOW_EXPECTATION' && calc.surprise !== null) {
+    const pctStr = calc.percentageSurprise !== null ? ` (${calc.percentageSurprise}%)` : '';
+    interpretation = `INTERPRETATION: Reported print missed consensus expectations by ${calc.surprise}${unit}${pctStr}.`;
+  } else if (calc.status === 'IN_LINE') {
+    interpretation = `INTERPRETATION: Reported print landed in line with consensus forecast (${input.forecast}${unit}).`;
+  } else {
+    interpretation = `INTERPRETATION: Cannot interpret surprise without verified forecast and actual data.`;
+  }
+
+  // Layer 4: ENGINE_ANALYSIS (Monetary Policy & Economic Meaning)
+  let engineAnalysis = '';
+  if (calc.status === 'ABOVE_EXPECTATION') {
+    if (input.category === 'INFLATION') {
+      engineAnalysis =
+        'ENGINE_ANALYSIS: Upside inflation pressure increases likelihood of central bank holding rates higher for longer or delaying easing.';
+    } else if (input.category === 'EMPLOYMENT') {
+      engineAnalysis = highIsHawkish
+        ? 'ENGINE_ANALYSIS: Strong labor demand supports consumer resilience, keeping restrictive policy stance viable.'
+        : 'ENGINE_ANALYSIS: Rising unemployment increases pressure for central bank policy accommodation.';
+    } else if (input.category === 'GROWTH') {
+      engineAnalysis =
+        'ENGINE_ANALYSIS: Resilient domestic output dampens recession risk, supporting neutral-to-restrictive policy settings.';
+    } else {
+      engineAnalysis = `ENGINE_ANALYSIS: Indicator print came in stronger than market consensus baseline.`;
+    }
+  } else if (calc.status === 'BELOW_EXPECTATION') {
+    if (input.category === 'INFLATION') {
+      engineAnalysis =
+        'ENGINE_ANALYSIS: Downside inflation surprise reinforces room for central bank monetary easing.';
+    } else if (input.category === 'EMPLOYMENT') {
+      engineAnalysis = highIsHawkish
+        ? 'ENGINE_ANALYSIS: Softening labor conditions accelerate market pricing of policy rate reductions.'
+        : 'ENGINE_ANALYSIS: Tightening labor availability keeps hawkish wage pressure concerns active.';
+    } else if (input.category === 'GROWTH') {
+      engineAnalysis =
+        'ENGINE_ANALYSIS: Subdued output growth weakens inflationary pressure, skewing forward rate expectations dovish.';
+    } else {
+      engineAnalysis = `ENGINE_ANALYSIS: Indicator print lagged consensus expectations baseline.`;
+    }
+  } else if (calc.status === 'IN_LINE') {
+    engineAnalysis =
+      'ENGINE_ANALYSIS: Data meets baseline projections; minimal repricing of prevailing central bank trajectory expected.';
+  } else {
+    engineAnalysis =
+      'ENGINE_ANALYSIS: Fundamental analysis suspended until authenticated release and consensus expectations are verified.';
+  }
+
+  return {
+    fact,
+    expectation,
+    interpretation,
+    engineAnalysis
+  };
+}
+
+/**
+ * Main evaluation entry point for a single observation.
+ */
 export function analyzeObservationExpectations(
   obs: EconomicObservation,
   indicatorMeta?: EconomicIndicator
 ): ExpectationAnalysis {
-  if (obs.actual === null || obs.sourceStatus !== 'CONNECTED') {
+  const isConnected = obs.sourceStatus === 'CONNECTED';
+  const hasActual = obs.actual !== null;
+  const hasForecast = obs.forecast !== null;
+
+  if (!isConnected || !hasActual) {
+    const fallbackStatements: FactInterpretationBundle = {
+      fact: `FACT: Factual release data for ${obs.indicatorName} is unavailable / disconnected.`,
+      expectation:
+        obs.forecast !== null
+          ? `EXPECTATION: Consensus forecast was ${obs.forecast}${obs.unit}.`
+          : 'EXPECTATION: Consensus forecast unavailable.',
+      interpretation: 'INTERPRETATION: Cannot evaluate print against market expectations.',
+      engineAnalysis:
+        'ENGINE_ANALYSIS: Macroeconomic analysis suspended until verified data release is connected.'
+    };
+
     return {
       observationId: obs.id,
       currency: obs.currency,
@@ -28,17 +240,28 @@ export function analyzeObservationExpectations(
       actual: obs.actual,
       forecast: obs.forecast,
       previous: obs.previous,
-      unit: obs.unit,
-      surpriseType: 'UNAVAILABLE',
+      surprise: null,
       surpriseDelta: null,
       percentageSurprise: null,
+      unit: obs.unit,
+      surpriseType: 'UNAVAILABLE',
+      expectationStatus: 'UNKNOWN',
       directionSummary: 'DATA UNAVAILABLE / NOT CONNECTED',
-      monetaryPolicyImplication: 'No interpretation possible without authenticated factual data release.',
-      classification: 'ENGINE_ANALYSIS'
+      monetaryPolicyImplication:
+        'No interpretation possible without authenticated factual data release.',
+      classification: 'ENGINE_ANALYSIS',
+      statements: fallbackStatements
     };
   }
 
-  if (obs.forecast === null) {
+  if (!hasForecast) {
+    const fallbackStatements: FactInterpretationBundle = {
+      fact: `FACT: ${obs.indicatorName} printed at ${obs.actual}${obs.unit} (${obs.period}).`,
+      expectation: 'EXPECTATION: No consensus forecast recorded for this release.',
+      interpretation: 'INTERPRETATION: Print must be evaluated against historical trend and central bank target.',
+      engineAnalysis: 'ENGINE_ANALYSIS: Assess release against long-run macroeconomic trend without forecast baseline.'
+    };
+
     return {
       observationId: obs.id,
       currency: obs.currency,
@@ -46,67 +269,40 @@ export function analyzeObservationExpectations(
       actual: obs.actual,
       forecast: null,
       previous: obs.previous,
-      unit: obs.unit,
-      surpriseType: 'NO_FORECAST',
+      surprise: null,
       surpriseDelta: null,
       percentageSurprise: null,
+      unit: obs.unit,
+      surpriseType: 'NO_FORECAST',
+      expectationStatus: 'UNKNOWN',
       directionSummary: `Actual printed at ${obs.actual}${obs.unit} without market consensus forecast.`,
       monetaryPolicyImplication: 'Assess historical trend and central bank target band.',
-      classification: 'ENGINE_ANALYSIS'
+      classification: 'ENGINE_ANALYSIS',
+      statements: fallbackStatements
     };
   }
 
-  const delta = Math.round((obs.actual - obs.forecast) * 100) / 100;
-  const pctDelta =
-    obs.forecast !== 0
-      ? Math.round(((obs.actual - obs.forecast) / Math.abs(obs.forecast)) * 1000) / 10
-      : 0;
-
-  let surpriseType: 'ABOVE' | 'BELOW' | 'IN_LINE' = 'IN_LINE';
-  const tolerance = Math.abs(obs.forecast) * 0.02 > 0.05 ? 0.05 : 0.02;
-
-  if (delta > tolerance) {
-    surpriseType = 'ABOVE';
-  } else if (delta < -tolerance) {
-    surpriseType = 'BELOW';
-  }
-
-  let directionSummary = '';
-  let monetaryPolicyImplication = '';
   const highIsHawkish = indicatorMeta?.highIsHawkish ?? true;
+  const calc = calculateExpectationSurprise(obs.previous, obs.forecast, obs.actual);
+  const statements = generateFactInterpretationStatements(
+    {
+      previous: obs.previous,
+      forecast: obs.forecast,
+      actual: obs.actual,
+      unit: obs.unit,
+      indicatorName: obs.indicatorName,
+      period: obs.period,
+      category: obs.category,
+      currency: obs.currency,
+      highIsHawkish
+    },
+    calc
+  );
 
-  if (surpriseType === 'ABOVE') {
-    directionSummary = `Actual (${obs.actual}${obs.unit}) exceeded consensus forecast (${obs.forecast}${obs.unit}) by +${delta}${obs.unit} (+${pctDelta}%).`;
-    if (obs.category === 'INFLATION') {
-      monetaryPolicyImplication =
-        'Upside inflation surprise pressures central bank to prolong restrictive stance or delay rate cuts.';
-    } else if (obs.category === 'EMPLOYMENT') {
-      monetaryPolicyImplication = highIsHawkish
-        ? 'Labor market resilience reduces urgency for policy accommodation.'
-        : 'Rising unemployment increases pressure for central bank easing.';
-    } else if (obs.category === 'GROWTH') {
-      monetaryPolicyImplication = 'Stronger domestic demand supports neutral-to-tight monetary posture.';
-    } else {
-      monetaryPolicyImplication = 'Data print exceeds consensus baseline.';
-    }
-  } else if (surpriseType === 'BELOW') {
-    directionSummary = `Actual (${obs.actual}${obs.unit}) missed consensus forecast (${obs.forecast}${obs.unit}) by ${delta}${obs.unit} (${pctDelta}%).`;
-    if (obs.category === 'INFLATION') {
-      monetaryPolicyImplication =
-        'Disinflation surprise reinforces room for central bank monetary easing.';
-    } else if (obs.category === 'EMPLOYMENT') {
-      monetaryPolicyImplication = highIsHawkish
-        ? 'Softening labor market accelerates expectations of rate reductions.'
-        : 'Tightening unemployment metric keeps hawkish bias active.';
-    } else if (obs.category === 'GROWTH') {
-      monetaryPolicyImplication = 'Subdued growth dampens inflationary momentum, skewing expectations dovish.';
-    } else {
-      monetaryPolicyImplication = 'Data print lagged consensus expectations.';
-    }
-  } else {
-    directionSummary = `Actual (${obs.actual}${obs.unit}) landed broadly in line with consensus forecast (${obs.forecast}${obs.unit}).`;
-    monetaryPolicyImplication = 'Maintains prevailing policy path with minimal expectation repricing.';
-  }
+  // Map to legacy surpriseType for existing callers/tests
+  let legacyType: 'ABOVE' | 'BELOW' | 'IN_LINE' = 'IN_LINE';
+  if (calc.status === 'ABOVE_EXPECTATION') legacyType = 'ABOVE';
+  else if (calc.status === 'BELOW_EXPECTATION') legacyType = 'BELOW';
 
   return {
     observationId: obs.id,
@@ -115,12 +311,15 @@ export function analyzeObservationExpectations(
     actual: obs.actual,
     forecast: obs.forecast,
     previous: obs.previous,
+    surprise: calc.surprise,
+    surpriseDelta: calc.surprise,
+    percentageSurprise: calc.percentageSurprise,
     unit: obs.unit,
-    surpriseType,
-    surpriseDelta: delta,
-    percentageSurprise: pctDelta,
-    directionSummary,
-    monetaryPolicyImplication,
-    classification: 'ENGINE_ANALYSIS'
+    surpriseType: legacyType,
+    expectationStatus: calc.status,
+    directionSummary: statements.interpretation.replace('INTERPRETATION: ', ''),
+    monetaryPolicyImplication: statements.engineAnalysis.replace('ENGINE_ANALYSIS: ', ''),
+    classification: 'ENGINE_ANALYSIS',
+    statements
   };
 }

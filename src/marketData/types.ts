@@ -69,6 +69,7 @@ export interface CurrencyCoverageInfo {
   percent: number;
   missingPairs?: string[];
   validPairs?: string[];
+  stalePairs?: string[];
   status?: 'COMPLETE' | 'PARTIAL' | 'INSUFFICIENT';
 }
 

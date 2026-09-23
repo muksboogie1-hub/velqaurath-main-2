@@ -7,6 +7,9 @@ import {
   OrientationDirection,
   ConvergenceDivergenceType
 } from '../../types';
+import { evaluateFundamentalDifferential } from '../../fundamentals/engine/pairDifferentialEngine';
+import { evaluateCurrencyFundamentalIntelligence } from '../../fundamentals/engine/currencyIntelligenceEngine';
+import { buildCentralBankProfile } from '../../fundamentals/centralBank/centralBankProfiles';
 
 export function evaluatePairIntelligence(
   pair: CurrencyPair,
@@ -62,7 +65,27 @@ export function evaluatePairIntelligence(
       },
       watchWindow,
       lastUpdated: new Date().toISOString(),
-      sources: []
+      sources: [],
+      fundamentalDifferential: evaluateFundamentalDifferential({
+        pair,
+        baseIntel: evaluateCurrencyFundamentalIntelligence({
+          currency: baseState.currency,
+          observations: [],
+          centralBank: buildCentralBankProfile(pair.baseCurrency),
+          marketStrength: baseState.marketStrength,
+          upcomingEvents: events,
+          isDataFeedConnected
+        }),
+        quoteIntel: evaluateCurrencyFundamentalIntelligence({
+          currency: quoteState.currency,
+          observations: [],
+          centralBank: buildCentralBankProfile(pair.quoteCurrency),
+          marketStrength: quoteState.marketStrength,
+          upcomingEvents: events,
+          isDataFeedConnected
+        }),
+        upcomingEvents: events
+      })
     };
   }
 
@@ -263,6 +286,31 @@ export function evaluatePairIntelligence(
     }
   ];
 
+  const baseCb = buildCentralBankProfile(pair.baseCurrency);
+  const quoteCb = buildCentralBankProfile(pair.quoteCurrency);
+  const baseIntel = evaluateCurrencyFundamentalIntelligence({
+    currency: baseState.currency,
+    observations: [],
+    centralBank: baseCb,
+    marketStrength: baseState.marketStrength,
+    upcomingEvents: events,
+    isDataFeedConnected: true
+  });
+  const quoteIntel = evaluateCurrencyFundamentalIntelligence({
+    currency: quoteState.currency,
+    observations: [],
+    centralBank: quoteCb,
+    marketStrength: quoteState.marketStrength,
+    upcomingEvents: events,
+    isDataFeedConnected: true
+  });
+  const fundamentalDifferential = evaluateFundamentalDifferential({
+    pair,
+    baseIntel,
+    quoteIntel,
+    upcomingEvents: events
+  });
+
   return {
     pair,
     baseCurrency: baseState.currency,
@@ -287,6 +335,7 @@ export function evaluatePairIntelligence(
     },
     watchWindow,
     lastUpdated: new Date().toISOString(),
-    sources
+    sources,
+    fundamentalDifferential
   };
 }

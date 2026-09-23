@@ -35,6 +35,14 @@ app.get('/api/pairs', (_req, res) => {
   res.json(VelqoarathApiService.getPairs());
 });
 
+app.get('/api/pairs/intelligence', (_req, res) => {
+  res.json(VelqoarathApiService.getAllPairIntelligences());
+});
+
+app.get('/api/pairs-intelligence', (_req, res) => {
+  res.json(VelqoarathApiService.getAllPairIntelligences());
+});
+
 app.get('/api/pairs/:symbol', (req, res) => {
   const pair = VelqoarathApiService.getPairBySymbol(req.params.symbol);
   if (!pair) return res.status(404).json({ error: 'Pair not found' });

@@ -45,17 +45,44 @@ export function App() {
       try {
         const [dashRes, pairsRes] = await Promise.all([
           fetch('/api/dashboard'),
-          fetch('/api/pairs')
+          fetch('/api/pairs/intelligence')
         ]);
 
         if (dashRes.ok) {
           const dashData: DashboardPayload = await dashRes.json();
           setDashboard(dashData);
 
-          if (dashData.marketProviderStatus) {
+          if (dashData.marketProviderStatus && dashData.allCurrencies) {
+            const strengthsMap = new Map();
+            dashData.allCurrencies.forEach((c) => {
+              strengthsMap.set(c.currency.code, {
+                currency: c.currency.code,
+                marketStrength: c.marketStrength,
+                classification: c.marketState,
+                rawRelativeReturn: null,
+                avgReturn: null,
+                momentum: c.relativeStrengthBreakdown?.momentum ?? null,
+                coverage: c.relativeStrengthBreakdown?.coverage ?? {
+                  available: 0,
+                  required: 0,
+                  percent: 0
+                },
+                contributors: (c.relativeStrengthBreakdown?.contributors || []).map((contrib) => ({
+                  pairSymbol: contrib.pairSymbol,
+                  pairReturnPercent: contrib.pairReturnPercent,
+                  role: contrib.role as any,
+                  signedContribution: contrib.signedContribution,
+                  timestamp: Date.now()
+                })),
+                explanation: c.relativeStrengthBreakdown?.explanation ?? '',
+                calculatedAt: dashData.lastUpdated,
+                providerStatus: dashData.marketProviderStatus?.health || 'CONNECTED',
+                source: c.relativeStrengthBreakdown?.source || dashData.marketProviderStatus?.activeProvider || 'Biquote'
+              });
+            });
             globalStore.setMarketData(
               [],
-              new Map(),
+              strengthsMap,
               dashData.marketProviderStatus
             );
           }

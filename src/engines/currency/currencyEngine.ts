@@ -67,12 +67,13 @@ export function evaluateCurrencyState(
     marketStrengthResult.marketStrength !== null;
 
   if (!hasValidMarketStrength) {
+    const fallbackClassification = marketStrengthResult?.classification || 'DATA_UNAVAILABLE';
     const unavailMsg =
       marketStrengthResult?.explanation ||
       'MARKET DATA UNAVAILABLE: Market strength data feed not connected or provider key missing.';
     const unavailBreakdown: RelativeStrengthBreakdown = {
       marketStrength: null,
-      classification: 'DATA_UNAVAILABLE',
+      classification: fallbackClassification,
       thresholds,
       momentum: null,
       timeframe: 'D1 / Awaiting Feed',
@@ -84,11 +85,11 @@ export function evaluateCurrencyState(
     return {
       currency,
       marketStrength: null,
-      marketState: 'DATA_UNAVAILABLE',
+      marketState: fallbackClassification,
       relativeStrengthBreakdown: unavailBreakdown,
       fundamentalState: fundamentals,
       centralBank,
-      overallState: 'DATA_UNAVAILABLE',
+      overallState: fallbackClassification,
       confidenceMetadata: {
         dataStatus: 'CONNECTED',
         observationCount: relevantObs.length,
