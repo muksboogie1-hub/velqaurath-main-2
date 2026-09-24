@@ -8,8 +8,46 @@ import { refreshScheduler } from './src/services/refreshScheduler.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Process-level safety: prevent external network drops or unhandled rejections from terminating the server
+process.on('uncaughtException', (err) => {
+  console.error('[VELQOARATH] Uncaught exception:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.warn('[VELQOARATH] Unhandled promise rejection:', reason);
+});
+
+function resolvePort(): number {
+  // 1. Inspect CLI arguments for explicit --port <val> or --port=<val> (e.g., from AI Studio dev runner)
+  for (let i = 0; i < process.argv.length; i++) {
+    if (process.argv[i] === '--port' && process.argv[i + 1]) {
+      const p = Number(process.argv[i + 1]);
+      if (!isNaN(p) && p > 0) return p;
+    }
+    if (process.argv[i]?.startsWith('--port=')) {
+      const p = Number(process.argv[i].split('=')[1]);
+      if (!isNaN(p) && p > 0) return p;
+    }
+  }
+
+  // 2. DEFAULT_APP_PORT set by AI Studio container control plane
+  if (process.env.DEFAULT_APP_PORT) {
+    const p = Number(process.env.DEFAULT_APP_PORT);
+    if (!isNaN(p) && p > 0) return p;
+  }
+
+  // 3. Environment PORT (guard against Cloud Run PORT=8080 which is reserved by Nginx reverse proxy)
+  if (process.env.PORT && process.env.PORT !== '8080') {
+    const p = Number(process.env.PORT);
+    if (!isNaN(p) && p > 0) return p;
+  }
+
+  // 4. Default AI Studio application dev port
+  return 3000;
+}
+
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = resolvePort();
 
 app.use(express.json());
 
@@ -240,12 +278,16 @@ async function startServer() {
     app.use(vite.middlewares);
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`[VELQOARATH] Market Intelligence Server listening on port ${PORT}`);
     // Start unified automatic background refresh scheduler
     refreshScheduler.start().catch((err) => {
       console.warn('[VELQOARATH] RefreshScheduler startup warning:', err?.message || err);
     });
+  });
+
+  server.on('error', (err) => {
+    console.error('[VELQOARATH] Server listen error:', err);
   });
 }
 

@@ -491,12 +491,31 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
         const normalizedEvents: EconomicEvent[] = [];
         const normalizedObservations: (FundamentalObservation & EconomicObservation)[] = [];
         const nowIso = new Date().toISOString();
+        const seenEventIds = new Set<string>();
 
         for (const item of items) {
           const currency = detectCurrencyFromEvent(item);
           if (!currency) continue;
 
-          const eventId = String(item.id || item.slug || `fc-${currency.toLowerCase()}-${item.date || Date.now()}`);
+          const baseSlug = (item.slug || item.name || item.title || item.event || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .slice(0, 30);
+          const rawId = item.id ? String(item.id) : null;
+          let eventId = rawId
+            ? `fc-${rawId}`
+            : baseSlug
+            ? `fc-${currency.toLowerCase()}-${item.date || item.time_utc || 'evt'}-${baseSlug}`
+            : `fc-${currency.toLowerCase()}-${item.date || item.time_utc || 'evt'}`;
+
+          if (seenEventIds.has(eventId)) {
+            let counter = 1;
+            while (seenEventIds.has(`${eventId}-${counter}`)) {
+              counter++;
+            }
+            eventId = `${eventId}-${counter}`;
+          }
+          seenEventIds.add(eventId);
           const eventName = String(item.name || item.title || item.event || 'Macroeconomic Release');
           const category = detectCategoryFromEvent(item);
           const impactRaw = String(item.impact || item.importance || 'MEDIUM').toUpperCase();

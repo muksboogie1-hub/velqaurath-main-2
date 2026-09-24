@@ -367,8 +367,8 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
               <p className="text-neutral-500 italic font-mono text-[11px]">No scheduled upcoming events in horizon.</p>
             ) : (
               <div className="space-y-1.5 font-mono text-[11px]">
-                {upcomingEvents.map((e) => (
-                  <div key={e.id} className="p-2 bg-neutral-900/50 border border-neutral-800/80 rounded flex items-center justify-between">
+                {upcomingEvents.map((e, idx) => (
+                  <div key={`${e.id || 'evt'}-${idx}`} className="p-2 bg-neutral-900/50 border border-neutral-800/80 rounded flex items-center justify-between">
                     <div>
                       <span className="font-semibold text-neutral-200 font-sans block text-xs">{e.name}</span>
                       <span className="text-neutral-500 text-[10px]">Scheduled: {new Date(e.scheduledTime).toUTCString()}</span>

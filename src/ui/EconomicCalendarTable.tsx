@@ -40,7 +40,7 @@ export const EconomicCalendarTable: React.FC<EconomicCalendarTableProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-800/60">
-            {events.map((e) => {
+            {events.map((e, idx) => {
               const timeStr = new Date(e.scheduledTime).toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -53,7 +53,7 @@ export const EconomicCalendarTable: React.FC<EconomicCalendarTableProps> = ({
               });
 
               return (
-                <tr key={e.id} className="hover:bg-neutral-800/40 transition-colors">
+                <tr key={`${e.id || 'evt'}-${idx}`} className="hover:bg-neutral-800/40 transition-colors">
                   <td className="py-2.5 px-2 text-neutral-400 whitespace-nowrap">
                     {dateStr} {timeStr}
                   </td>
