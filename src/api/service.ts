@@ -118,7 +118,8 @@ export class VelqoarathApiService {
       quoteState,
       state.events,
       date,
-      state.isDataFeedConnected
+      state.isDataFeedConnected,
+      state.observations
     );
   }
 
@@ -149,11 +150,26 @@ export class VelqoarathApiService {
   public static getFundamentalsStatus() {
     const state = globalStore.getState();
     const providerStatus = fundamentalService.getStatus();
+    const schedulerStatus = refreshScheduler.getStatus();
     const macroSources = state.dataSources.filter((s) => s.id !== 'src-twelvedata');
     const connectedMacroCount = macroSources.filter((s) => s.status === 'CONNECTED').length;
 
     return {
       status: state.isDataFeedConnected ? 'CONNECTED' : 'DISCONNECTED',
+      datasetMode: state.fundamentalDatasetMode || providerStatus.datasetMode || 'LIVE',
+      providerStatus: providerStatus.health,
+      lifecycleState: providerStatus.lifecycleState || providerStatus.health,
+      health: providerStatus.health,
+      isConfigured: providerStatus.isConfigured,
+      lastSuccessfulFetch: providerStatus.lastSuccessfulUpdate || null,
+      lastAttemptedFetch: providerStatus.lastAttemptAt || null,
+      datasetFetchedAt: providerStatus.lastFetchedAt || null,
+      oldestObservationTimestamp: providerStatus.oldestObservationTimestamp || null,
+      nextScheduledRefresh: providerStatus.nextRefreshAt || schedulerStatus.fundamentals.nextRefresh || null,
+      datasetFreshness: providerStatus.freshness || 'FRESH',
+      isStale: providerStatus.isStale || false,
+      observationsCount: state.observations.length,
+      eventsCount: state.events.length,
       connectedSourcesCount: connectedMacroCount,
       totalSourcesCount: macroSources.length,
       lastUpdated: state.lastUpdated,
@@ -165,10 +181,20 @@ export class VelqoarathApiService {
         centralBanksCount: 8,
         indicatorsCount: ECONOMIC_INDICATORS.length,
         observationsCount: state.observations.length,
+        eventsCount: state.events.length,
         categoriesAvailableCount: providerStatus.categoriesAvailable.length
       },
       sources: macroSources
     };
+  }
+
+  public static async setFundamentalMode(mode: 'LIVE' | 'BENCHMARK') {
+    if (mode === 'BENCHMARK') {
+      await fundamentalService.useBenchmarkProvider();
+    } else {
+      await fundamentalService.useLiveProvider();
+    }
+    return this.getFundamentalsStatus();
   }
 
   public static getFundamentalCurrencies() {

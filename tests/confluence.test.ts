@@ -207,18 +207,21 @@ console.log('================================================================\n'
 {
   console.log('\n--- Section 4: Fundamental Providers (Finance Calendar & Benchmark) ---');
 
-  // Unconfigured Finance Calendar provider
-  const unconfiguredProvider = new FinanceCalendarProvider({ apiKey: '' });
+  // Unconfigured Finance Calendar provider (explicitly disabled)
+  const unconfiguredProvider = new FinanceCalendarProvider({ enabled: false });
   const statusUnconf = unconfiguredProvider.getStatus();
   assert(statusUnconf.isConfigured === false, 'Test 4.1: Unconfigured provider isConfigured is false');
   assert(statusUnconf.health === 'NOT_CONFIGURED', 'Test 4.2: Unconfigured provider health is NOT_CONFIGURED');
   assert(statusUnconf.categoriesAvailable.length === 0, 'Test 4.3: Unconfigured provider reports 0 categories');
 
-  // Configured Finance Calendar provider
-  const configuredProvider = new FinanceCalendarProvider({ apiKey: 'fc_test_secret_key_123' });
+  // Configured Finance Calendar provider without invented API key requirement
+  const configuredProvider = new FinanceCalendarProvider();
   const statusConf = configuredProvider.getStatus();
-  assert(statusConf.isConfigured === true, 'Test 4.4: Configured provider isConfigured is true');
-  assert(statusConf.health === 'AVAILABLE', 'Test 4.5: Configured provider health is AVAILABLE');
+  assert(statusConf.isConfigured === true, 'Test 4.4: Configured provider isConfigured is true without API key');
+  assert(
+    statusConf.health === 'DISCONNECTED' || statusConf.health === 'AVAILABLE' || statusConf.health === 'CONNECTED',
+    'Test 4.5: Configured provider lifecycle health initialized honestly'
+  );
   assert(statusConf.categoriesAvailable.length === 10, 'Test 4.6: Configured provider reports 10 categories');
   assert(statusConf.currenciesAvailable.length === 8, 'Test 4.7: Configured provider reports 8 currencies');
 

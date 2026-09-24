@@ -1,18 +1,52 @@
 import React from 'react';
 import { Settings2 } from 'lucide-react';
+import { FundamentalProviderStatus } from '../fundamentals/providers/IFundamentalDataProvider';
+import { FundamentalDatasetMode } from '../types/fundamentals';
 
 interface HeaderProps {
   dataStatus: string;
+  fundamentalProviderStatus?: FundamentalProviderStatus;
+  fundamentalDatasetMode?: FundamentalDatasetMode;
   onOpenSources: () => void;
   onOpenThresholds: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   dataStatus,
+  fundamentalProviderStatus,
+  fundamentalDatasetMode = 'LIVE',
   onOpenSources,
   onOpenThresholds
 }) => {
   const isConnected = dataStatus === 'CONNECTED';
+  const fundHealth = fundamentalProviderStatus?.health ?? 'DISCONNECTED';
+  const isStale = fundamentalProviderStatus?.isStale ?? false;
+
+  let badgeLabel = 'LIVE FEED';
+  let badgeColor = 'border-emerald-500/30 text-emerald-400';
+  let dotColor = 'bg-emerald-400 animate-pulse';
+
+  if (!isConnected) {
+    badgeLabel = 'DISCONNECTED';
+    badgeColor = 'border-rose-500/40 text-rose-400';
+    dotColor = 'bg-rose-500';
+  } else if (fundamentalDatasetMode === 'BENCHMARK') {
+    badgeLabel = 'BENCHMARK';
+    badgeColor = 'border-purple-500/40 text-purple-400';
+    dotColor = 'bg-purple-400';
+  } else if (fundHealth === 'DEGRADED') {
+    badgeLabel = 'DEGRADED LIVE';
+    badgeColor = 'border-amber-500/40 text-amber-400';
+    dotColor = 'bg-amber-400';
+  } else if (isStale) {
+    badgeLabel = 'STALE LIVE';
+    badgeColor = 'border-amber-500/40 text-amber-400';
+    dotColor = 'bg-amber-400';
+  } else {
+    badgeLabel = 'LIVE FEED';
+    badgeColor = 'border-emerald-500/30 text-emerald-400';
+    dotColor = 'bg-emerald-400 animate-pulse';
+  }
 
   return (
     <header className="sticky top-0 z-30 w-full bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800/80 px-4 py-3">
@@ -34,21 +68,11 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={onOpenSources}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-mono transition-colors border ${
-              isConnected
-                ? 'bg-neutral-900/90 border-emerald-500/30 text-emerald-400 hover:border-emerald-500/60'
-                : 'bg-neutral-900/90 border-rose-500/40 text-rose-400 hover:border-rose-500/60'
-            }`}
-            title="Inspect Data Sources and Connection Status"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-mono transition-colors border bg-neutral-900/90 ${badgeColor} hover:border-neutral-500`}
+            title="Inspect Data Sources, Fundamental Feeds, and Pipeline Status"
           >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'
-              }`}
-            />
-            <span className="text-[11px] tracking-tight">
-              {isConnected ? 'LIVE FEED' : 'DISCONNECTED'}
-            </span>
+            <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+            <span className="text-[11px] tracking-tight">{badgeLabel}</span>
           </button>
 
           <button

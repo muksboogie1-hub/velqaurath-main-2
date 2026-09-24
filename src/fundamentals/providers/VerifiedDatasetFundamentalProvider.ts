@@ -63,7 +63,8 @@ export function mapLegacyCategoryToFundamental(legacyCategory?: string): Fundame
 }
 
 export class VerifiedDatasetFundamentalProvider implements IFundamentalDataProvider {
-  public readonly name = 'Verified Macroeconomic Baseline Provider';
+  public readonly name = 'Verified Macroeconomic Baseline Provider (Benchmark)';
+  public readonly mode = 'BENCHMARK' as const;
   private observationsCache: FundamentalObservation[] = [];
   private lastFetchedAt: string;
 
@@ -143,10 +144,16 @@ export class VerifiedDatasetFundamentalProvider implements IFundamentalDataProvi
       providerName: this.name,
       isConfigured: true,
       health: 'AVAILABLE',
+      lifecycleState: 'CONNECTED',
+      datasetMode: 'BENCHMARK',
       categoriesAvailable: Array.from(categoriesSet),
       currenciesAvailable: Array.from(currenciesSet),
       lastFetchedAt: this.lastFetchedAt,
-      message: `Verified fundamental dataset active with ${this.observationsCache.length} official macroeconomic observations across ${currenciesSet.size} currencies.`
+      lastSuccessfulUpdate: this.lastFetchedAt,
+      freshness: 'FRESH',
+      isStale: false,
+      count: this.observationsCache.length,
+      message: `Verified fundamental benchmark dataset active with ${this.observationsCache.length} official macroeconomic observations across ${currenciesSet.size} currencies.`
     };
   }
 

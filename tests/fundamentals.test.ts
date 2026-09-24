@@ -219,7 +219,10 @@ console.log('================================================================\n'
   // Verify singleton service
   const serviceStatus = fundamentalService.getStatus();
   assert(
-    serviceStatus.health === 'AVAILABLE' || serviceStatus.health === 'NOT_CONFIGURED',
+    serviceStatus.health === 'AVAILABLE' ||
+      serviceStatus.health === 'NOT_CONFIGURED' ||
+      serviceStatus.health === 'DISCONNECTED' ||
+      serviceStatus.health === 'CONNECTED',
     'Test 7.2: FundamentalService exposes active provider status'
   );
 }
@@ -357,10 +360,14 @@ console.log('================================================================\n'
 // 11. API ENDPOINTS INTEGRATION
 // -------------------------------------------------------------
 {
+  await fundamentalService.useBenchmarkProvider();
+
   const status = VelqoarathApiService.getFundamentalsStatus();
   assert(status.categoriesCount === 10, 'Test 11.1: API status reports 10 categories');
   assert(
-    status.provider.health === 'AVAILABLE' || status.provider.health === 'NOT_CONFIGURED',
+    status.provider.health === 'AVAILABLE' ||
+      status.provider.health === 'NOT_CONFIGURED' ||
+      status.provider.health === 'CONNECTED',
     'Test 11.1: API provider status is AVAILABLE or NOT_CONFIGURED'
   );
 

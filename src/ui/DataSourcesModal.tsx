@@ -1,29 +1,40 @@
 import React from 'react';
-import { Database, Power, Activity, ExternalLink, X } from 'lucide-react';
+import { Database, Power, Activity, Calendar, ExternalLink, X, RefreshCw } from 'lucide-react';
 import { DataSource, ProviderStatus } from '../types';
+import { FundamentalProviderStatus } from '../fundamentals/providers/IFundamentalDataProvider';
+import { FundamentalDatasetMode } from '../types/fundamentals';
 
 interface DataSourcesModalProps {
   dataSources: DataSource[];
   dataStatus: string;
   marketProviderStatus?: ProviderStatus;
+  fundamentalProviderStatus?: FundamentalProviderStatus;
+  fundamentalDatasetMode?: FundamentalDatasetMode;
   isOpen: boolean;
   onClose: () => void;
   onToggleConnection: () => void;
+  onToggleBenchmarkMode?: (enableBenchmark: boolean) => void;
 }
 
 export const DataSourcesModal: React.FC<DataSourcesModalProps> = ({
   dataSources,
   dataStatus,
   marketProviderStatus,
+  fundamentalProviderStatus,
+  fundamentalDatasetMode = 'LIVE',
   isOpen,
   onClose,
-  onToggleConnection
+  onToggleConnection,
+  onToggleBenchmarkMode
 }) => {
   if (!isOpen) return null;
 
   const isConnected = dataStatus === 'CONNECTED';
   const macroSources = dataSources.filter((s) => s.id !== 'src-twelvedata');
-  const health = marketProviderStatus?.health ?? 'NOT_CONFIGURED';
+  const fxHealth = marketProviderStatus?.health ?? 'NOT_CONFIGURED';
+
+  const fundHealth = fundamentalProviderStatus?.health ?? 'DISCONNECTED';
+  const isBenchmark = fundamentalDatasetMode === 'BENCHMARK';
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -32,7 +43,7 @@ export const DataSourcesModal: React.FC<DataSourcesModalProps> = ({
           <div className="flex items-center gap-2">
             <Database className="w-4 h-4 text-emerald-400" />
             <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-100">
-              Primary Data Sources & Provenance
+              Primary Data Sources & Pipeline Architecture
             </h2>
           </div>
           <button onClick={onClose} className="text-neutral-400 hover:text-neutral-100 p-1">
@@ -46,17 +57,17 @@ export const DataSourcesModal: React.FC<DataSourcesModalProps> = ({
             <span className="font-bold text-neutral-100 block mb-1">
               VELQOARATH Data Integrity Principle:
             </span>
-            VELQOARATH never fabricates CPI, GDP, employment, central bank decisions, or FX market quotes. When real feeds are offline or unconfigured, the engine explicitly displays <span className="font-mono text-rose-400">DATA SOURCE NOT CONNECTED</span> or <span className="font-mono text-amber-400">DATA UNAVAILABLE</span> rather than generating placeholder numbers. Every observation retains full provenance.
+            VELQOARATH never fabricates CPI, GDP, employment, central bank decisions, or FX market quotes. When real feeds are offline or unconfigured, the engine explicitly displays <span className="font-mono text-rose-400">DATA SOURCE NOT CONNECTED</span> or <span className="font-mono text-amber-400">DATA UNAVAILABLE</span> rather than generating placeholder numbers. Every observation retains verified provenance and fact vs expectation separation.
           </div>
 
           {/* Macro Connection Toggle */}
           <div className="flex items-center justify-between p-3 bg-neutral-900/50 border border-neutral-800 rounded font-mono">
             <div>
               <span className="text-[11px] text-neutral-400 block uppercase">
-                Macro Feed Connection State
+                Macro Pipeline Connection State
               </span>
               <span className={`font-bold ${isConnected ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {isConnected ? 'LIVE FEED CONNECTED (OFFICIAL DATA)' : 'DISCONNECTED (DATA UNAVAILABLE)'}
+                {isConnected ? 'LIVE PIPELINE CONNECTED (OFFICIAL DATA)' : 'DISCONNECTED (DATA UNAVAILABLE)'}
               </span>
             </div>
             <button
@@ -68,8 +79,106 @@ export const DataSourcesModal: React.FC<DataSourcesModalProps> = ({
               }`}
             >
               <Power className="w-3.5 h-3.5" />
-              {isConnected ? 'Disconnect Macro Feed' : 'Connect Verified Macro Feed'}
+              {isConnected ? 'Disconnect Macro Feeds' : 'Connect Verified Macro Feeds'}
             </button>
+          </div>
+
+          {/* Fundamental Data Provider: Finance Calendar */}
+          <div className="p-3 bg-neutral-900/70 border border-neutral-800 rounded">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-800 mb-2.5">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-emerald-400" />
+                <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-200">
+                  Fundamental Data Provider: Finance Calendar
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`font-mono text-[10px] px-2 py-0.5 rounded border font-bold ${
+                    isBenchmark
+                      ? 'bg-purple-950/40 border-purple-500/40 text-purple-300'
+                      : fundHealth === 'CONNECTED' || fundHealth === 'AVAILABLE'
+                      ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
+                      : fundHealth === 'DEGRADED'
+                      ? 'bg-amber-950/40 border-amber-500/30 text-amber-300'
+                      : 'bg-rose-950/40 border-rose-500/30 text-rose-300'
+                  }`}
+                >
+                  {isBenchmark ? 'BENCHMARK (TEST)' : `LIVE (${fundHealth})`}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 font-mono text-[11px] text-neutral-300">
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Live Provider Base URL:</span>
+                <span className="text-emerald-400 font-bold truncate max-w-xs">
+                  https://www.financecalendar.com/wp-json/fc/v1
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500">API Key Requirement:</span>
+                <span className="text-neutral-300">None (Public REST API, edge-cached)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Dataset Mode:</span>
+                <span className={isBenchmark ? 'text-purple-400 font-bold' : 'text-emerald-400 font-bold'}>
+                  {fundamentalDatasetMode}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Freshness Status:</span>
+                <span className={fundamentalProviderStatus?.freshness === 'FRESH' ? 'text-emerald-400' : 'text-amber-400'}>
+                  {fundamentalProviderStatus?.freshness || 'UNAVAILABLE'}
+                  {fundamentalProviderStatus?.isStale ? ' (Stale threshold exceeded)' : ''}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Currencies Supported:</span>
+                <span className="text-neutral-200">8 (USD, EUR, GBP, JPY, CHF, CAD, AUD, NZD)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Last Successful Sync:</span>
+                <span>
+                  {fundamentalProviderStatus?.lastSuccessfulUpdate
+                    ? new Date(fundamentalProviderStatus.lastSuccessfulUpdate).toUTCString()
+                    : 'None'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Provider Message:</span>
+                <span className="text-neutral-400 text-right max-w-xs line-clamp-1">
+                  {fundamentalProviderStatus?.message || 'Awaiting initial connection.'}
+                </span>
+              </div>
+            </div>
+
+            {/* Benchmark / Live Mode Toggle */}
+            <div className="mt-3 pt-2.5 border-t border-neutral-800 flex items-center justify-between">
+              <span className="text-[10px] text-neutral-400">
+                Mode: {isBenchmark ? 'Baseline Benchmark (Isolated)' : 'Finance Calendar Live Pipeline'}
+              </span>
+              {onToggleBenchmarkMode && (
+                <button
+                  onClick={() => onToggleBenchmarkMode(!isBenchmark)}
+                  className="px-2.5 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-[10px] font-mono border border-neutral-700 transition-colors"
+                >
+                  {isBenchmark ? 'Switch to LIVE Pipeline' : 'Switch to Benchmark (Test)'}
+                </button>
+              )}
+            </div>
+
+            <div className="mt-2 text-[10px] text-neutral-500 flex items-center gap-1 font-sans">
+              <span>Data provided by Finance Calendar.</span>
+              <a
+                href="https://www.financecalendar.com"
+                target="_blank"
+                rel="noreferrer"
+                className="text-emerald-400 hover:underline inline-flex items-center gap-0.5"
+              >
+                financecalendar.com <ExternalLink className="w-2.5 h-2.5" />
+              </a>
+            </div>
           </div>
 
           {/* FX Provider Status */}
@@ -83,16 +192,16 @@ export const DataSourcesModal: React.FC<DataSourcesModalProps> = ({
               </div>
               <span
                 className={`font-mono text-[11px] px-2 py-0.5 rounded border ${
-                  health === 'CONNECTED'
+                  fxHealth === 'CONNECTED'
                     ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
-                    : health === 'DEGRADED'
+                    : fxHealth === 'DEGRADED'
                     ? 'bg-amber-950/40 border-amber-500/30 text-amber-300'
-                    : health === 'ERROR'
+                    : fxHealth === 'ERROR'
                     ? 'bg-rose-950/40 border-rose-500/30 text-rose-300'
                     : 'bg-neutral-800 border-neutral-700 text-neutral-400'
                 }`}
               >
-                {health}
+                {fxHealth}
               </span>
             </div>
 
@@ -124,31 +233,13 @@ export const DataSourcesModal: React.FC<DataSourcesModalProps> = ({
                   )}
                 </span>
               </div>
-              {marketProviderStatus?.oldestQuoteAge !== null && marketProviderStatus?.oldestQuoteAge !== undefined && (
-                <div className="flex justify-between">
-                  <span className="text-neutral-500">Oldest Quote Age:</span>
-                  <span className={marketProviderStatus.oldestQuoteAge <= 30 ? 'text-emerald-400' : 'text-amber-400'}>
-                    {marketProviderStatus.oldestQuoteAge}s
-                  </span>
-                </div>
-              )}
               <div className="flex justify-between">
                 <span className="text-neutral-500">Provider Message:</span>
                 <span className="text-neutral-400 text-right max-w-xs line-clamp-1">
                   {marketProviderStatus?.message ?? 'Awaiting initialization.'}
                 </span>
               </div>
-              {marketProviderStatus?.lastFetchedAt && (
-                <div className="flex justify-between">
-                  <span className="text-neutral-500">Last Fetched:</span>
-                  <span>{new Date(marketProviderStatus.lastFetchedAt).toLocaleTimeString()}</span>
-                </div>
-              )}
             </div>
-
-            <p className="mt-2.5 pt-2 border-t border-neutral-800/80 text-[10px] text-neutral-500 leading-relaxed font-sans">
-              Architecture: <code className="text-neutral-400 font-mono">MarketDataProvider</code> abstraction maps vendor payloads into internal <code className="text-neutral-400 font-mono">MarketQuote</code> bars. Zero client-side API exposure.
-            </p>
           </div>
 
           {/* Statistical Agencies */}
@@ -179,20 +270,8 @@ export const DataSourcesModal: React.FC<DataSourcesModalProps> = ({
                     <span className={`block font-semibold ${source.status === 'CONNECTED' ? 'text-emerald-400' : 'text-rose-400'}`}>
                       {source.status === 'CONNECTED' ? 'CONNECTED' : 'DISCONNECTED'}
                     </span>
-                    <span className="text-[10px] text-neutral-500">{source.reliabilityGrade}</span>
+                    <span className="text-[10px] text-neutral-500">Grade: {source.reliabilityGrade}</span>
                   </div>
-                </div>
-
-                <div className="mt-2 pt-2 border-t border-neutral-800/60 flex items-center justify-between text-[10px] text-neutral-500 font-mono">
-                  <span>Last Sync: {source.lastSyncAt ? new Date(source.lastSyncAt).toLocaleString() : 'N/A'}</span>
-                  <a
-                    href={source.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-emerald-400 hover:underline flex items-center gap-0.5"
-                  >
-                    Agency Portal <ExternalLink className="w-3 h-3" />
-                  </a>
                 </div>
               </div>
             ))}

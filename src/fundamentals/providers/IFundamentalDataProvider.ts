@@ -8,6 +8,8 @@
 import {
   FundamentalCategory,
   FundamentalDataStatus,
+  FundamentalProviderLifecycle,
+  FundamentalDatasetMode,
   FundamentalObservation,
   CentralBankProfile
 } from '../../types/fundamentals';
@@ -16,15 +18,25 @@ import { EconomicEvent } from '../../types';
 export interface FundamentalProviderStatus {
   providerName: string;
   isConfigured: boolean;
-  health: FundamentalDataStatus;
+  health: FundamentalDataStatus | FundamentalProviderLifecycle;
   categoriesAvailable: FundamentalCategory[];
   currenciesAvailable: string[];
   lastFetchedAt: string | null;
   message: string;
+  lifecycleState?: FundamentalProviderLifecycle;
+  datasetMode?: FundamentalDatasetMode;
+  lastSuccessfulUpdate?: string | null;
+  lastAttemptAt?: string | null;
+  nextRefreshAt?: string | null;
+  freshness?: 'FRESH' | 'STALE' | 'DEGRADED' | 'UNAVAILABLE';
+  isStale?: boolean;
+  oldestObservationTimestamp?: string | null;
+  count?: number;
 }
 
 export interface IFundamentalDataProvider {
   readonly name: string;
+  readonly mode?: FundamentalDatasetMode;
   getStatus(): FundamentalProviderStatus;
   getObservations(
     currency?: string,

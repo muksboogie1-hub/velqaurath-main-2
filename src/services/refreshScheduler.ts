@@ -186,7 +186,7 @@ export class RefreshScheduler {
     }
 
     const liveProvider = fundamentalService.getLiveProvider();
-    if (!liveProvider.isConfigured) {
+    if (!liveProvider.isConfigured && fundamentalService.getDatasetMode() === 'LIVE') {
       // Honestly report not configured; do not fake live validation
       this.nextFundamentalRefresh = new Date(Date.now() + this.fundamentalIntervalMs).toISOString();
       return false;
@@ -196,13 +196,13 @@ export class RefreshScheduler {
     this.fundamentalDataLastAttemptAt = new Date().toISOString();
 
     try {
-      const success = await liveProvider.refresh(force);
+      const success = await fundamentalService.refresh(force);
       if (success) {
         const nowIso = new Date().toISOString();
         this.fundamentalDataLastSuccessfulUpdate = nowIso;
         this.fundamentalDataTimestamp = nowIso;
 
-        // Recalculate opportunities
+        // Recalculate opportunities with fresh live fundamentals
         this.recalculateOpportunities();
       }
       return success;
@@ -224,7 +224,14 @@ export class RefreshScheduler {
     globalStore.notify();
   }
 
-  public getStatus(): SchedulerStatus {
+  public getStatus(): SchedulerStatus & {
+    fundamentals: {
+      datasetMode?: string;
+      lifecycleState?: string;
+      freshness?: string;
+      oldestObservationTimestamp?: string | null;
+    };
+  } {
     const marketStatus = marketDataService.getStatus();
     const fundStatus = fundamentalService.getStatus();
 
@@ -247,6 +254,10 @@ export class RefreshScheduler {
         nextRefresh: this.nextFundamentalRefresh,
         isConfigured: fundStatus.isConfigured,
         health: fundStatus.health,
+        lifecycleState: fundStatus.lifecycleState,
+        datasetMode: fundStatus.datasetMode,
+        freshness: fundStatus.freshness,
+        oldestObservationTimestamp: fundStatus.oldestObservationTimestamp,
         isStale: (fundStatus as any).isStale ?? false
       },
       opportunity: {
@@ -254,7 +265,8 @@ export class RefreshScheduler {
         marketDataTimestamp: this.marketDataTimestamp,
         fundamentalDataTimestamp: this.fundamentalDataTimestamp,
         dataQuality:
-          marketStatus.health === 'CONNECTED' && fundStatus.health === 'AVAILABLE'
+          marketStatus.health === 'CONNECTED' &&
+          (fundStatus.health === 'AVAILABLE' || fundStatus.health === 'CONNECTED')
             ? 'COMPLETE'
             : marketStatus.health === 'DEGRADED' || (fundStatus as any).isStale
             ? 'DEGRADED'

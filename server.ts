@@ -192,6 +192,16 @@ app.post('/api/fundamentals/sync', async (req, res) => {
   }
 });
 
+app.post('/api/fundamentals/mode', async (req, res) => {
+  try {
+    const mode = req.body?.mode === 'BENCHMARK' ? 'BENCHMARK' : 'LIVE';
+    const result = await VelqoarathApiService.setFundamentalMode(mode);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to set fundamental mode', details: err?.message });
+  }
+});
+
 app.get('/api/scheduler/status', (_req, res) => {
   res.json(VelqoarathApiService.getSchedulerStatus());
 });

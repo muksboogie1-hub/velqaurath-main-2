@@ -141,6 +141,8 @@ export function App() {
       {/* Top Header */}
       <Header
         dataStatus={dashboard.dataStatus}
+        fundamentalProviderStatus={dashboard.fundamentalProviderStatus}
+        fundamentalDatasetMode={dashboard.fundamentalDatasetMode}
         onOpenSources={() => setIsSourcesOpen(true)}
         onOpenThresholds={() => setIsThresholdsOpen(true)}
       />
@@ -177,6 +179,8 @@ export function App() {
           statusMessage={dashboard.dataStatusMessage}
           dataSources={dashboard.dataSources}
           marketProviderStatus={dashboard.marketProviderStatus}
+          fundamentalProviderStatus={dashboard.fundamentalProviderStatus}
+          fundamentalDatasetMode={dashboard.fundamentalDatasetMode}
           onToggleConnection={handleToggleFeed}
           onOpenSources={() => setIsSourcesOpen(true)}
         />
@@ -327,9 +331,24 @@ export function App() {
         dataSources={dashboard.dataSources}
         dataStatus={dashboard.dataStatus}
         marketProviderStatus={dashboard.marketProviderStatus}
+        fundamentalProviderStatus={dashboard.fundamentalProviderStatus}
+        fundamentalDatasetMode={dashboard.fundamentalDatasetMode}
         isOpen={isSourcesOpen}
         onClose={() => setIsSourcesOpen(false)}
         onToggleConnection={handleToggleFeed}
+        onToggleBenchmarkMode={async (enable) => {
+          try {
+            await fetch('/api/fundamentals/mode', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ mode: enable ? 'BENCHMARK' : 'LIVE' })
+            });
+            const res = await fetch('/api/dashboard');
+            if (res.ok) setDashboard(await res.json());
+          } catch {
+            globalStore.setBenchmarkMode(enable);
+          }
+        }}
       />
     </div>
   );

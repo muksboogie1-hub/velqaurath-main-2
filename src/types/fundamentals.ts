@@ -118,13 +118,24 @@ export const FUNDAMENTAL_CATEGORIES: FundamentalCategoryDefinition[] = [
 /**
  * Explicit fundamental observation data provenance & operational status.
  */
+export type FundamentalProviderLifecycle =
+  | 'NOT_CONFIGURED'
+  | 'CONNECTING'
+  | 'CONNECTED'
+  | 'DEGRADED'
+  | 'ERROR'
+  | 'DISCONNECTED';
+
+export type FundamentalDatasetMode = 'LIVE' | 'BENCHMARK';
+
 export type FundamentalDataStatus =
   | 'LIVE'
   | 'AVAILABLE'
   | 'PARTIAL'
   | 'STALE'
   | 'UNAVAILABLE'
-  | 'NOT_CONFIGURED';
+  | 'NOT_CONFIGURED'
+  | FundamentalProviderLifecycle;
 
 /**
  * Strict separation between factual data and subsequent analytical layers.

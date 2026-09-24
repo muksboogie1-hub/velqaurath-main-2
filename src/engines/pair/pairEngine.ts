@@ -3,10 +3,12 @@ import {
   CurrencyPair,
   CurrencyState,
   EconomicEvent,
+  EconomicObservation,
   PairIntelligence,
   OrientationDirection,
   ConvergenceDivergenceType
 } from '../../types';
+import { FundamentalObservation } from '../../types/fundamentals';
 import { evaluateFundamentalDifferential } from '../../fundamentals/engine/pairDifferentialEngine';
 import { evaluateCurrencyFundamentalIntelligence } from '../../fundamentals/engine/currencyIntelligenceEngine';
 import { buildCentralBankProfile } from '../../fundamentals/centralBank/centralBankProfiles';
@@ -18,8 +20,71 @@ export function evaluatePairIntelligence(
   quoteState: CurrencyState,
   events: EconomicEvent[],
   date: Date = new Date(),
-  isDataFeedConnected: boolean = true
+  isDataFeedConnected: boolean = true,
+  observations: (EconomicObservation | FundamentalObservation)[] = []
 ): PairIntelligence {
+  const normBaseObs: FundamentalObservation[] = observations
+    .filter((o) => o.currency.toUpperCase() === pair.baseCurrency.toUpperCase())
+    .map((o: any) => ({
+      id: o.id,
+      currency: o.currency.toUpperCase(),
+      indicatorId: o.indicatorId,
+      indicatorName: o.indicatorName,
+      category: o.category || 'GROWTH',
+      value: o.actual ?? o.value ?? null,
+      unit: o.unit || '%',
+      period: o.period || 'Current',
+      previous: o.previous ?? null,
+      forecast: o.forecast ?? null,
+      actual: o.actual ?? null,
+      surprise: o.surprise ?? null,
+      surpriseType: o.surpriseType ?? 'IN_LINE',
+      releaseDate: o.releaseDate || new Date().toISOString(),
+      source: o.sourceName || o.source || 'Finance Calendar',
+      sourceUrl: o.sourceUrl || '',
+      fetchedAt: o.fetchedAt || new Date().toISOString(),
+      dataStatus: o.dataStatus || 'AVAILABLE',
+      provenance: o.provenance || 'Fundamental live data',
+      classification: o.classification || 'FACT',
+      statements: o.statements || {
+        fact: `FACT: ${o.indicatorName} print.`,
+        expectation: `EXPECTATION: Consensus was ${o.forecast}.`,
+        interpretation: 'INTERPRETATION: Release recorded.',
+        engineAnalysis: 'ENGINE_ANALYSIS: Evaluated.'
+      }
+    }));
+
+  const normQuoteObs: FundamentalObservation[] = observations
+    .filter((o) => o.currency.toUpperCase() === pair.quoteCurrency.toUpperCase())
+    .map((o: any) => ({
+      id: o.id,
+      currency: o.currency.toUpperCase(),
+      indicatorId: o.indicatorId,
+      indicatorName: o.indicatorName,
+      category: o.category || 'GROWTH',
+      value: o.actual ?? o.value ?? null,
+      unit: o.unit || '%',
+      period: o.period || 'Current',
+      previous: o.previous ?? null,
+      forecast: o.forecast ?? null,
+      actual: o.actual ?? null,
+      surprise: o.surprise ?? null,
+      surpriseType: o.surpriseType ?? 'IN_LINE',
+      releaseDate: o.releaseDate || new Date().toISOString(),
+      source: o.sourceName || o.source || 'Finance Calendar',
+      sourceUrl: o.sourceUrl || '',
+      fetchedAt: o.fetchedAt || new Date().toISOString(),
+      dataStatus: o.dataStatus || 'AVAILABLE',
+      provenance: o.provenance || 'Fundamental live data',
+      classification: o.classification || 'FACT',
+      statements: o.statements || {
+        fact: `FACT: ${o.indicatorName} print.`,
+        expectation: `EXPECTATION: Consensus was ${o.forecast}.`,
+        interpretation: 'INTERPRETATION: Release recorded.',
+        engineAnalysis: 'ENGINE_ANALYSIS: Evaluated.'
+      }
+    }));
+
   if (
     !isDataFeedConnected ||
     baseState.overallState === 'DATA_UNAVAILABLE' ||
@@ -71,7 +136,7 @@ export function evaluatePairIntelligence(
         pair,
         baseIntel: evaluateCurrencyFundamentalIntelligence({
           currency: baseState.currency,
-          observations: [],
+          observations: normBaseObs,
           centralBank: buildCentralBankProfile(pair.baseCurrency),
           marketStrength: baseState.marketStrength,
           upcomingEvents: events,
@@ -79,7 +144,7 @@ export function evaluatePairIntelligence(
         }),
         quoteIntel: evaluateCurrencyFundamentalIntelligence({
           currency: quoteState.currency,
-          observations: [],
+          observations: normQuoteObs,
           centralBank: buildCentralBankProfile(pair.quoteCurrency),
           marketStrength: quoteState.marketStrength,
           upcomingEvents: events,
@@ -305,7 +370,7 @@ export function evaluatePairIntelligence(
   const quoteCb = buildCentralBankProfile(pair.quoteCurrency);
   const baseIntel = evaluateCurrencyFundamentalIntelligence({
     currency: baseState.currency,
-    observations: [],
+    observations: normBaseObs,
     centralBank: baseCb,
     marketStrength: baseState.marketStrength,
     upcomingEvents: events,
@@ -313,7 +378,7 @@ export function evaluatePairIntelligence(
   });
   const quoteIntel = evaluateCurrencyFundamentalIntelligence({
     currency: quoteState.currency,
-    observations: [],
+    observations: normQuoteObs,
     centralBank: quoteCb,
     marketStrength: quoteState.marketStrength,
     upcomingEvents: events,

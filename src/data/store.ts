@@ -23,6 +23,12 @@ import {
   PairIntelligence,
   DashboardPayload
 } from '../types';
+import {
+  FundamentalDatasetMode,
+  FundamentalObservation,
+  FundamentalProviderLifecycle
+} from '../types/fundamentals';
+import { FundamentalProviderStatus } from '../fundamentals/providers/IFundamentalDataProvider';
 
 export interface DataStoreState {
   isDataFeedConnected: boolean;
@@ -37,11 +43,15 @@ export interface DataStoreState {
   marketQuotes: MarketQuote[];
   marketStrengths: Map<string, CurrencyMarketStrength>;
   marketProviderStatus: ProviderStatus;
+  fundamentalDatasetMode: FundamentalDatasetMode;
+  fundamentalProviderStatus: FundamentalProviderStatus;
 }
 
 export class DataStore {
   private listeners: Set<() => void> = new Set();
   private state: DataStoreState;
+  private lastLiveObservations: EconomicObservation[] = [];
+  private lastLiveEvents: EconomicEvent[] = [];
 
   constructor() {
     this.state = {
@@ -49,8 +59,10 @@ export class DataStore {
       currencies: [...INITIAL_CURRENCIES],
       pairs: [...INITIAL_PAIRS],
       centralBanks: [...INITIAL_CENTRAL_BANKS],
-      observations: [...VERIFIED_OBSERVATIONS],
-      events: [...SCHEDULED_ECONOMIC_EVENTS],
+      // STRICT REQUIREMENT: Production starts in LIVE mode with empty dataset awaiting initial live sync.
+      // Benchmark data is NEVER silently active in LIVE mode.
+      observations: [],
+      events: [],
       dataSources: [...INITIAL_DATA_SOURCES],
       thresholds: {
         strongThreshold: 0.1,
@@ -77,6 +89,25 @@ export class DataStore {
         source: 'Biquote',
         fallbackAvailable: false,
         fallbackStatus: 'NOT_CONFIGURED'
+      },
+      fundamentalDatasetMode: 'LIVE',
+      fundamentalProviderStatus: {
+        providerName: 'Finance Calendar Provider',
+        isConfigured: true,
+        health: 'DISCONNECTED',
+        lifecycleState: 'DISCONNECTED',
+        datasetMode: 'LIVE',
+        categoriesAvailable: [],
+        currenciesAvailable: ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'],
+        lastFetchedAt: null,
+        lastSuccessfulUpdate: null,
+        lastAttemptAt: null,
+        nextRefreshAt: null,
+        freshness: 'UNAVAILABLE',
+        isStale: false,
+        oldestObservationTimestamp: null,
+        count: 0,
+        message: 'Finance Calendar live fundamental provider initialized. Awaiting initial connection.'
       }
     };
   }
@@ -125,6 +156,115 @@ export class DataStore {
       }),
       lastUpdated: new Date().toISOString()
     };
+    this.notify();
+  }
+
+  /**
+   * Sets the authoritative fundamental macroeconomic dataset in the store.
+   * Feeds downstream currency intelligence, pair differential, and confluence engines.
+   */
+  public setFundamentalData(
+    observations: (FundamentalObservation & EconomicObservation)[],
+    events: EconomicEvent[],
+    status: FundamentalProviderStatus,
+    mode: FundamentalDatasetMode = 'LIVE'
+  ): void {
+    if (mode === 'LIVE') {
+      this.lastLiveObservations = [...observations];
+      this.lastLiveEvents = [...events];
+    }
+
+    const macroStatus =
+      status.health === 'AVAILABLE' || status.health === 'CONNECTED'
+        ? 'CONNECTED'
+        : status.health === 'DEGRADED'
+        ? 'CONNECTED'
+        : 'NOT_CONNECTED';
+
+    this.state = {
+      ...this.state,
+      observations: [...observations],
+      events: [...events],
+      fundamentalDatasetMode: mode,
+      fundamentalProviderStatus: status,
+      dataSources: this.state.dataSources.map((ds) => {
+        if (ds.id !== 'src-twelvedata' && ds.id !== 'src-biquote') {
+          return {
+            ...ds,
+            status: macroStatus,
+            lastSyncAt: status.lastSuccessfulUpdate || status.lastFetchedAt
+          };
+        }
+        return ds;
+      }),
+      lastUpdated: new Date().toISOString()
+    };
+    this.notify();
+  }
+
+  public setFundamentalStatus(status: FundamentalProviderStatus): void {
+    this.state = {
+      ...this.state,
+      fundamentalProviderStatus: status,
+      lastUpdated: new Date().toISOString()
+    };
+    this.notify();
+  }
+
+  /**
+   * Explicitly activates Benchmark mode (strictly for testing/development).
+   * Benchmark data is NEVER silently labeled as LIVE.
+   */
+  public setBenchmarkMode(enabled: boolean = true): void {
+    if (enabled) {
+      const nowIso = new Date().toISOString();
+      const benchStatus: FundamentalProviderStatus = {
+        providerName: 'Verified Macroeconomic Baseline Provider (Benchmark)',
+        isConfigured: true,
+        health: 'AVAILABLE',
+        lifecycleState: 'CONNECTED',
+        datasetMode: 'BENCHMARK',
+        categoriesAvailable: [
+          'INFLATION',
+          'EMPLOYMENT',
+          'GROWTH',
+          'CENTRAL_BANK_MONETARY_POLICY',
+          'INTEREST_RATES',
+          'TRADE_EXTERNAL_BALANCE',
+          'FISCAL_GOVERNMENT',
+          'COMMODITY_EXPOSURE_TERMS_OF_TRADE',
+          'MAJOR_ECONOMIC_SHOCKS',
+          'MARKET_EXPECTATIONS'
+        ],
+        currenciesAvailable: ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'],
+        lastFetchedAt: nowIso,
+        lastSuccessfulUpdate: nowIso,
+        lastAttemptAt: nowIso,
+        nextRefreshAt: null,
+        freshness: 'FRESH',
+        isStale: false,
+        count: VERIFIED_OBSERVATIONS.length,
+        message: 'Benchmark dataset explicitly active for testing/development.'
+      };
+
+      this.state = {
+        ...this.state,
+        fundamentalDatasetMode: 'BENCHMARK',
+        observations: [...VERIFIED_OBSERVATIONS],
+        events: [...SCHEDULED_ECONOMIC_EVENTS],
+        fundamentalProviderStatus: benchStatus,
+        lastUpdated: nowIso
+      };
+    } else {
+      // Revert to LIVE mode
+      this.state = {
+        ...this.state,
+        fundamentalDatasetMode: 'LIVE',
+        observations: [...this.lastLiveObservations],
+        events: [...this.lastLiveEvents],
+        lastUpdated: new Date().toISOString()
+      };
+    }
     this.notify();
   }
 
@@ -257,7 +397,8 @@ export class DataStore {
       quoteState,
       this.state.events,
       date,
-      this.state.isDataFeedConnected
+      this.state.isDataFeedConnected,
+      this.state.observations
     );
   }
 
@@ -270,13 +411,14 @@ export class DataStore {
   public getDashboard(date: Date = new Date()): DashboardPayload {
     const allStates = this.getAllCurrencyStates();
     const providerStatus = this.state.marketProviderStatus ?? marketDataService.getStatus();
+    const fundStatus = this.state.fundamentalProviderStatus;
 
     const dataStatus = this.state.isDataFeedConnected ? 'CONNECTED' : 'NOT_CONNECTED';
     const dataStatusMessage = this.state.isDataFeedConnected
       ? providerStatus.health === 'CONNECTED'
         ? `LIVE DATA FEEDS CONNECTED: ${
             providerStatus.activeProvider || providerStatus.providerName
-          } market quotes & official macroeconomic statistics active.`
+          } FX quotes & ${fundStatus?.providerName || 'Finance Calendar'} macro feed active.`
         : providerStatus.health === 'NOT_CONFIGURED'
         ? 'MACRO FEEDS CONNECTED · MARKET DATA NOT CONFIGURED: Awaiting live market data feed.'
         : `MACRO FEEDS CONNECTED · MARKET DATA: ${providerStatus.message}`
@@ -295,6 +437,9 @@ export class DataStore {
       );
       if (validPairsWithDelta.length > 0) {
         const sorted = [...validPairsWithDelta].sort((a, b) => {
+          const confA = a.confluence?.confluenceScore ?? 0;
+          const confB = b.confluence?.confluenceScore ?? 0;
+          if (confB !== confA) return confB - confA;
           const deltaA = Math.abs(a.relativeStrengthDelta ?? 0);
           const deltaB = Math.abs(b.relativeStrengthDelta ?? 0);
           return deltaB - deltaA;
@@ -315,6 +460,7 @@ export class DataStore {
       weakCurrencies,
       allCurrencies: allStates,
       topPairToWatch,
+      topPair: topPairToWatch,
       sessions: {
         activeSessions: sessionOverview.openSessions.map((s) => s.session),
         upcomingSessions: sessionOverview.closedSessions.map((s) => s.session),
@@ -323,7 +469,9 @@ export class DataStore {
       },
       economicCalendar: this.state.events,
       dataSources: this.state.dataSources,
-      marketProviderStatus: providerStatus
+      marketProviderStatus: providerStatus,
+      fundamentalProviderStatus: fundStatus,
+      fundamentalDatasetMode: this.state.fundamentalDatasetMode
     };
   }
 }

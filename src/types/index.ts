@@ -4,10 +4,16 @@ import {
   ProviderStatus,
   StrengthClassification
 } from '../marketData/types';
-import { FundamentalDataStatus, FundamentalDifferential } from './fundamentals';
+import {
+  FundamentalDataStatus,
+  FundamentalDifferential,
+  FundamentalDatasetMode
+} from './fundamentals';
+import { FundamentalProviderStatus } from '../fundamentals/providers/IFundamentalDataProvider';
 
 export * from '../marketData/types';
 export * from './fundamentals';
+export type { FundamentalProviderStatus };
 
 export type ObservationClassification =
   | 'FACT'
@@ -405,4 +411,6 @@ export interface DashboardPayload {
   economicCalendar: EconomicEvent[];
   dataSources: DataSource[];
   marketProviderStatus: ProviderStatus;
+  fundamentalProviderStatus?: FundamentalProviderStatus;
+  fundamentalDatasetMode?: FundamentalDatasetMode;
 }
