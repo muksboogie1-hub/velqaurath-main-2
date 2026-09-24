@@ -475,6 +475,107 @@ console.log('================================================================\n'
   );
 }
 
+// -------------------------------------------------------------
+// TEST 16: REGRESSION — FRESH STARTUP LIVE FUNDAMENTAL SYNC SUCCESS
+// -------------------------------------------------------------
+{
+  console.log('\n--- Test 16: Fresh Application Startup Initial Live Sync Success ---');
+
+  const sampleLiveApiResponse = [
+    {
+      date: '2026-09-24',
+      time_utc: '2026-09-24T12:30:00+00:00',
+      name: 'US Retail Sales MoM',
+      title: 'US Retail Sales September 2026',
+      impact: 'high',
+      category: 'economic-indicators',
+      consensus: '0.3%',
+      prior: '0.1%',
+      actual: '0.5%',
+      url: 'https://www.financecalendar.com/event/us-retail-sales/'
+    },
+    {
+      date: '2026-09-25',
+      time_utc: '2026-09-25T14:00:00+00:00',
+      name: 'ECB Monetary Policy Statement',
+      title: 'ECB Press Conference',
+      impact: 'high',
+      category: 'central-banks-monetary-policy',
+      consensus: '3.75%',
+      prior: '4.00%',
+      actual: null,
+      url: 'https://www.financecalendar.com/event/ecb-statement/'
+    }
+  ];
+
+  const mockStartupFetch = async () =>
+    new Response(JSON.stringify(sampleLiveApiResponse), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+  const freshProvider = new FinanceCalendarProvider({ fetchFn: mockStartupFetch as any });
+  assert(freshProvider.getStatus().lifecycleState === 'DISCONNECTED', 'Test 16.1: Provider starts in DISCONNECTED state');
+  assert(freshProvider.getStatus().lastSuccessfulUpdate === null, 'Test 16.2: Prior to sync, lastSuccessfulUpdate is null');
+  assert(freshProvider.getStatus().freshness === 'UNAVAILABLE', 'Test 16.3: Prior to sync, freshness is UNAVAILABLE');
+
+  const fundamentalService = FundamentalService.getInstance();
+  fundamentalService.setProvider(freshProvider);
+
+  // Invoke fundamental refresh as triggered during application startup
+  const syncSuccess = await fundamentalService.refresh(true);
+  assert(syncSuccess === true, 'Test 16.4: Startup fundamental sync resolves successfully');
+
+  const status = freshProvider.getStatus();
+  assert(status.lifecycleState === 'CONNECTED', 'Test 16.5: Provider transitions to CONNECTED upon successful startup sync');
+  assert(status.health === 'CONNECTED' || status.health === 'AVAILABLE', 'Test 16.6: Provider health is CONNECTED/AVAILABLE');
+  assert(status.lastSuccessfulUpdate !== null, 'Test 16.7: lastSuccessfulSync is populated with timestamp');
+  assert(status.lastFetchedAt !== null, 'Test 16.8: lastFetchedAt is populated');
+  assert(status.freshness === 'FRESH', 'Test 16.9: Freshness transitions to FRESH');
+  assert(status.count === 1, 'Test 16.10: Released observation count matches parsed facts');
+
+  // Verify DataStore contains live dataset
+  const state = globalStore.getState();
+  assert(state.fundamentalDatasetMode === 'LIVE', 'Test 16.11: DataStore datasetMode is LIVE');
+  assert(state.fundamentalProviderStatus.lifecycleState === 'CONNECTED', 'Test 16.12: DataStore fundamentalProviderStatus is CONNECTED');
+  assert(state.observations.length >= 1, 'Test 16.13: DataStore contains normalized live observations');
+  assert(state.events.length >= 2, 'Test 16.14: DataStore contains normalized live calendar events');
+
+  // Verify Dashboard API payload exposes the live fundamental provider status
+  const dashboard = VelqoarathApiService.getDashboard();
+  assert(dashboard.fundamentalProviderStatus?.lifecycleState === 'CONNECTED', 'Test 16.15: getDashboard() exposes CONNECTED fundamental status');
+  assert(dashboard.fundamentalDatasetMode === 'LIVE', 'Test 16.16: getDashboard() exposes LIVE dataset mode');
+}
+
+// -------------------------------------------------------------
+// TEST 17: REGRESSION — FRESH STARTUP LIVE FUNDAMENTAL SYNC FAILURE
+// -------------------------------------------------------------
+{
+  console.log('\n--- Test 17: Fresh Application Startup Initial Live Sync Failure ---');
+
+  const mockFailingFetch = async () => {
+    throw new Error('Network timeout connecting to Finance Calendar upstream');
+  };
+
+  const failingProvider = new FinanceCalendarProvider({ fetchFn: mockFailingFetch as any });
+  const fundamentalService = FundamentalService.getInstance();
+  fundamentalService.setProvider(failingProvider);
+
+  const syncResult = await fundamentalService.refresh(true);
+  assert(syncResult === false, 'Test 17.1: Failed startup refresh returns false');
+
+  const status = failingProvider.getStatus();
+  assert(status.lifecycleState === 'ERROR', 'Test 17.2: Provider lifecycleState is ERROR on initial failure');
+  assert(status.health === 'ERROR', 'Test 17.3: Provider does NOT claim CONNECTED on failure');
+  assert(status.lastSuccessfulUpdate === null, 'Test 17.4: Does NOT report a fake lastSuccessfulSync');
+  assert(status.freshness === 'UNAVAILABLE', 'Test 17.5: Freshness remains UNAVAILABLE');
+  assert(status.message.includes('Finance Calendar connection failed'), 'Test 17.6: Error is visible with honest failure message');
+
+  const state = globalStore.getState();
+  assert(state.fundamentalDatasetMode === 'LIVE', 'Test 17.7: Does NOT silently fallback to BENCHMARK mode');
+  assert(state.fundamentalProviderStatus.lifecycleState === 'ERROR', 'Test 17.8: Global store records ERROR state');
+}
+
 console.log('\n================================================================');
 console.log(`LIVE FUNDAMENTAL PIPELINE TESTS SUMMARY: ${passedTests}/${totalTests} PASSED`);
 console.log('================================================================\n');

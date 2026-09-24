@@ -86,6 +86,23 @@ export function App() {
               dashData.marketProviderStatus
             );
           }
+
+          if (dashData.fundamentalProviderStatus) {
+            if (
+              dashData.economicCalendar &&
+              (dashData.fundamentalProviderStatus.health === 'CONNECTED' ||
+                dashData.fundamentalProviderStatus.health === 'AVAILABLE')
+            ) {
+              globalStore.setFundamentalData(
+                [],
+                dashData.economicCalendar,
+                dashData.fundamentalProviderStatus,
+                dashData.fundamentalDatasetMode || 'LIVE'
+              );
+            } else {
+              globalStore.setFundamentalStatus(dashData.fundamentalProviderStatus);
+            }
+          }
         }
 
         if (pairsRes.ok) {

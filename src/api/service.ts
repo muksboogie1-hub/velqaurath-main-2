@@ -317,70 +317,7 @@ export class VelqoarathApiService {
 
   // Terminal Dashboard
   public static getDashboard(date: Date = new Date()): DashboardPayload {
-    const state = globalStore.getState();
-    const allStates = this.getAllCurrencyStates();
-    const providerStatus = marketDataService.getStatus();
-
-    const dataStatus = state.isDataFeedConnected ? 'CONNECTED' : 'NOT_CONNECTED';
-
-    const dataStatusMessage = state.isDataFeedConnected
-      ? providerStatus.health === 'CONNECTED'
-        ? `LIVE DATA FEEDS CONNECTED: ${
-            providerStatus.activeProvider || providerStatus.providerName
-          } market quotes & official macroeconomic statistics active.`
-        : providerStatus.health === 'NOT_CONFIGURED'
-        ? 'MACRO FEEDS CONNECTED · MARKET DATA NOT CONFIGURED: Awaiting live market data feed.'
-        : `MACRO FEEDS CONNECTED · MARKET DATA: ${providerStatus.message}`
-      : 'DATA SOURCE NOT CONNECTED: Running in unaugmented intelligence mode. Connect verified feeds to populate.';
-
-    const strongCurrencies = allStates.filter((s) => s.marketState === 'STRONG');
-    const neutralCurrencies = allStates.filter((s) => s.marketState === 'NEUTRAL');
-    const weakCurrencies = allStates.filter((s) => s.marketState === 'WEAK');
-
-    const allIntelligences = this.getAllPairIntelligences(date);
-    let topPairToWatch: PairIntelligence | null = null;
-
-    if (allIntelligences.length > 0 && state.isDataFeedConnected) {
-      const validPairsWithDelta = allIntelligences.filter(
-        (p) => p.relativeStrengthDelta !== null && p.orientationDirection !== 'DATA_UNAVAILABLE'
-      );
-      if (validPairsWithDelta.length > 0) {
-        // Prioritize pairs with highest confluence score, breaking ties by magnitude of relativeStrengthDelta
-        const sorted = [...validPairsWithDelta].sort((a, b) => {
-          const confA = a.confluence?.confluenceScore ?? 0;
-          const confB = b.confluence?.confluenceScore ?? 0;
-          if (confB !== confA) return confB - confA;
-          const deltaA = Math.abs(a.relativeStrengthDelta ?? 0);
-          const deltaB = Math.abs(b.relativeStrengthDelta ?? 0);
-          return deltaB - deltaA;
-        });
-        topPairToWatch = sorted[0];
-      }
-    }
-
-    const sessionOverview = getActiveSessionOverview(date);
-
-    return {
-      dataStatus,
-      dataStatusMessage,
-      lastUpdated: state.lastUpdated,
-      currenciesCount: state.currencies.length,
-      strongCurrencies,
-      neutralCurrencies,
-      weakCurrencies,
-      allCurrencies: allStates,
-      topPairToWatch,
-      topPair: topPairToWatch,
-      sessions: {
-        activeSessions: sessionOverview.openSessions.map((s) => s.session),
-        upcomingSessions: sessionOverview.closedSessions.map((s) => s.session),
-        activeOverlaps: sessionOverview.activeOverlaps,
-        currentTimeUtc: date.toISOString()
-      },
-      economicCalendar: state.events,
-      dataSources: state.dataSources,
-      marketProviderStatus: providerStatus
-    };
+    return globalStore.getDashboard(date);
   }
 
   // Opportunity & Confluence Intelligence

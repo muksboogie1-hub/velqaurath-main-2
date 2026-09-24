@@ -87,23 +87,12 @@ export class RefreshScheduler {
 
   /**
    * Initializes schedulers and performs startup refresh.
+   * Immediately runs initial LIVE fundamental synchronization and market snapshot.
    */
   public async start(): Promise<void> {
     this.stop(); // Clear any existing timers to prevent duplicates
 
-    // 1. Initial market snapshot refresh and live stream start
-    await this.refreshMarketSnapshot(true);
-
-    try {
-      await marketDataService.startLiveStream();
-    } catch (err: any) {
-      console.warn('[VELQOARATH] Live stream start deferred:', err?.message || err);
-    }
-
-    // 2. Initial fundamental refresh (if configured)
-    await this.refreshFundamentals(true);
-
-    // 3. Start background intervals
+    // 1. Establish background interval timers first
     this.marketTimer = setInterval(() => {
       this.refreshMarketSnapshot(false).catch((err) => {
         console.error('[VELQOARATH] Background market refresh error:', err?.message || err);
@@ -122,6 +111,26 @@ export class RefreshScheduler {
     console.log(
       `[VELQOARATH] RefreshScheduler active: Market interval ${this.marketIntervalMs / 1000}s, Fundamentals interval ${this.fundamentalIntervalMs / 1000}s`
     );
+
+    // 2. Perform immediate startup synchronization without waiting for first interval
+    // Fundamentals and Market snapshots execute concurrently so neither blocks the other
+    const fundamentalStartupPromise = this.refreshFundamentals(true).catch((err) => {
+      console.warn('[VELQOARATH] Initial fundamental sync error:', err?.message || err);
+      return false;
+    });
+
+    const marketStartupPromise = this.refreshMarketSnapshot(true).catch((err) => {
+      console.warn('[VELQOARATH] Initial market snapshot refresh error:', err?.message || err);
+      return false;
+    });
+
+    try {
+      await marketDataService.startLiveStream();
+    } catch (err: any) {
+      console.warn('[VELQOARATH] Live stream start deferred:', err?.message || err);
+    }
+
+    await Promise.allSettled([fundamentalStartupPromise, marketStartupPromise]);
   }
 
   public stop(): void {

@@ -58,8 +58,12 @@ export class FundamentalService {
     this.activeProvider = provider;
     if (provider instanceof VerifiedDatasetFundamentalProvider || provider.mode === 'BENCHMARK') {
       this.datasetMode = 'BENCHMARK';
+      this.benchmarkProvider = provider as VerifiedDatasetFundamentalProvider;
     } else {
       this.datasetMode = 'LIVE';
+      if (provider instanceof FinanceCalendarProvider) {
+        this.liveProvider = provider;
+      }
     }
   }
 
@@ -103,19 +107,23 @@ export class FundamentalService {
    */
   public async refresh(force: boolean = false): Promise<boolean> {
     if (this.datasetMode === 'LIVE') {
-      const success = await this.liveProvider.refresh(force);
-      const status = this.liveProvider.getStatus();
+      const live =
+        this.activeProvider instanceof FinanceCalendarProvider
+          ? this.activeProvider
+          : this.liveProvider;
+      const success = await live.refresh(force);
+      const status = live.getStatus();
 
       if (success) {
-        const observations = await this.liveProvider.getObservations();
-        const events = await this.liveProvider.getEconomicCalendar();
+        const observations = await live.getObservations();
+        const events = await live.getEconomicCalendar();
         globalStore.setFundamentalData(observations as any, events, status, 'LIVE');
         return true;
       } else {
         // Retain last known valid live dataset if one exists, mark degraded
-        const existingObs = await this.liveProvider.getObservations();
+        const existingObs = await live.getObservations();
         if (existingObs.length > 0) {
-          const events = await this.liveProvider.getEconomicCalendar();
+          const events = await live.getEconomicCalendar();
           globalStore.setFundamentalData(existingObs as any, events, status, 'LIVE');
         } else {
           globalStore.setFundamentalStatus(status);

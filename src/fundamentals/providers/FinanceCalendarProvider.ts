@@ -454,13 +454,23 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
         const toDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         const url = `${this.baseUrl}/calendar?from=${fromDate}&to=${toDate}&limit=500`;
 
+        let fetchSignal: any;
+        if (typeof AbortSignal !== 'undefined' && typeof (AbortSignal as any).timeout === 'function') {
+          try {
+            fetchSignal = (AbortSignal as any).timeout(15000);
+          } catch {
+            // ignore if not supported
+          }
+        }
+        const fetchOpts = fetchSignal ? { signal: fetchSignal } : undefined;
+
         let response: Response;
         try {
-          response = await this.fetchFn(url);
+          response = await this.fetchFn(url, fetchOpts);
         } catch (fetchErr: any) {
           // If query with params failed, attempt default endpoint
           const fallbackUrl = `${this.baseUrl}/calendar`;
-          response = await this.fetchFn(fallbackUrl);
+          response = await this.fetchFn(fallbackUrl, fetchOpts);
         }
 
         if (!response.ok) {
@@ -578,7 +588,7 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
         this.lastSuccessfulUpdate = nowIso;
         this.lastFetchedAt = nowIso;
         this.lifecycleState = 'CONNECTED';
-        this.health = 'AVAILABLE';
+        this.health = 'CONNECTED';
         this.message = `Finance Calendar live sync active: ${normalizedEvents.length} events, ${normalizedObservations.length} released macro prints parsed.`;
 
         return true;

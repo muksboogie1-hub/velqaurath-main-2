@@ -203,9 +203,26 @@ export class DataStore {
   }
 
   public setFundamentalStatus(status: FundamentalProviderStatus): void {
+    const macroStatus =
+      status.health === 'AVAILABLE' || status.health === 'CONNECTED'
+        ? 'CONNECTED'
+        : status.health === 'DEGRADED'
+        ? 'CONNECTED'
+        : 'NOT_CONNECTED';
+
     this.state = {
       ...this.state,
       fundamentalProviderStatus: status,
+      dataSources: this.state.dataSources.map((ds) => {
+        if (ds.id !== 'src-twelvedata' && ds.id !== 'src-biquote') {
+          return {
+            ...ds,
+            status: macroStatus,
+            lastSyncAt: status.lastSuccessfulUpdate || status.lastFetchedAt || ds.lastSyncAt
+          };
+        }
+        return ds;
+      }),
       lastUpdated: new Date().toISOString()
     };
     this.notify();
