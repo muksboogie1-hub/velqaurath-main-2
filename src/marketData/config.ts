@@ -1,3 +1,57 @@
-const SUPPORTED_MAJOR_CURRENCIES=["USD","EUR","GBP","JPY","CHF","CAD","AUD","NZD"];const DEFAULT_LIQUID_PAIRS=["EUR/USD","GBP/USD","USD/JPY","USD/CHF","AUD/USD","NZD/USD","USD/CAD","EUR/GBP","EUR/JPY","GBP/JPY","EUR/CHF","GBP/CHF","AUD/JPY","NZD/JPY","CAD/JPY"];const DEFAULT_CACHE_TTL_MS=10*60*1e3;const HEALTH_CACHE_TTL_MS=60*1e3;const DEFAULT_FRESHNESS_THRESHOLD_SECONDS=30;const BIQUOTE_API_BASE_URL="https://biquote.io";const BIQUOTE_WS_HUB_URL="wss://biquote.io/hubs/tick";const MARKET_STRENGTH_SCALE_FACTOR=.25;export{BIQUOTE_API_BASE_URL,BIQUOTE_WS_HUB_URL,DEFAULT_CACHE_TTL_MS,DEFAULT_FRESHNESS_THRESHOLD_SECONDS,DEFAULT_LIQUID_PAIRS,HEALTH_CACHE_TTL_MS,MARKET_STRENGTH_SCALE_FACTOR,SUPPORTED_MAJOR_CURRENCIES};
+export const SUPPORTED_MAJOR_CURRENCIES: string[] = [
+  'USD',
+  'EUR',
+  'GBP',
+  'JPY',
+  'CHF',
+  'CAD',
+  'AUD',
+  'NZD'
+];
 
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBTU8sTUFBTSwyQkFBNkIsQ0FDeEMsTUFDQSxNQUNBLE1BQ0EsTUFDQSxNQUNBLE1BQ0EsTUFDQSxLQUNGLEVBUU8sTUFBTSxxQkFBMEMsQ0FDckQsVUFDQSxVQUNBLFVBQ0EsVUFDQSxVQUNBLFVBQ0EsVUFDQSxVQUNBLFVBQ0EsVUFDQSxVQUNBLFVBQ0EsVUFDQSxVQUNBLFNBQ0YsRUFPTyxNQUFNLHFCQUF1QixHQUFLLEdBQUssSUFLdkMsTUFBTSxvQkFBc0IsR0FBSyxJQU1qQyxNQUFNLG9DQUFzQyxHQU01QyxNQUFNLHFCQUF1QixxQkFDN0IsTUFBTSxtQkFBcUIsNkJBWTNCLE1BQU0sNkJBQStCIiwibmFtZXMiOltdLCJpZ25vcmVMaXN0IjpbXSwic291cmNlcyI6WyIvYXBwL2FwcGxldC9zcmMvbWFya2V0RGF0YS9jb25maWcudHMiXSwic291cmNlc0NvbnRlbnQiOltudWxsXX0=
+export const DEFAULT_LIQUID_PAIRS: string[] = [
+  'EUR/USD',
+  'GBP/USD',
+  'USD/JPY',
+  'USD/CHF',
+  'AUD/USD',
+  'NZD/USD',
+  'USD/CAD',
+  'EUR/GBP',
+  'EUR/JPY',
+  'GBP/JPY',
+  'EUR/CHF',
+  'GBP/CHF',
+  'AUD/JPY',
+  'NZD/JPY',
+  'CAD/JPY'
+];
+
+export const DEFAULT_CACHE_TTL_MS = 10 * 60 * 1000;
+export const HEALTH_CACHE_TTL_MS = 60 * 1000;
+export const DEFAULT_FRESHNESS_THRESHOLD_SECONDS = 30;
+
+export const BIQUOTE_API_BASE_URL = 'https://biquote.io';
+export const BIQUOTE_WS_HUB_URL = 'wss://biquote.io/hubs/tick';
+
+/**
+ * Scale factor for market strength calculation.
+ *
+ * CRITICAL ARCHITECTURAL CORRECTION:
+ * Previously set to 0.25, which compressed real percentage movements by 4x.
+ * The system requirement specifies that +0.10 means +0.10% (0.10 percentage points of daily movement).
+ * Keeping this at 1.0 preserves true daily percentage points without distortion.
+ */
+export const MARKET_STRENGTH_SCALE_FACTOR = 1.0;
+
+/**
+ * Server-side automatic market refresh interval.
+ * Daily snapshot data refreshes every 5 minutes in background.
+ */
+export const MARKET_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+
+/**
+ * Server-side automatic fundamental refresh interval.
+ * Macroeconomic releases refresh every 15 minutes in background.
+ */
+export const FUNDAMENTAL_REFRESH_INTERVAL_MS = 15 * 60 * 1000;

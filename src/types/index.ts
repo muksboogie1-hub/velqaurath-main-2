@@ -202,6 +202,8 @@ export interface RelativeStrengthBreakdown {
   marketStrength: number | null;
   classification: StrengthClassification;
   thresholds: { strongThreshold: number; weakThreshold: number };
+  dailyMovementPercent?: number | null;
+  basketRelativeMovementPercent?: number | null;
   momentum: number | null;
   timeframe: string;
   explanation: string;
@@ -267,6 +269,56 @@ export interface WatchWindow {
   riskState?: string;
 }
 
+export type DirectionalConfidenceLevel =
+  | 'VERY_HIGH'
+  | 'HIGH'
+  | 'MODERATE'
+  | 'LOW'
+  | 'NEUTRAL'
+  | 'DATA_UNAVAILABLE';
+
+export interface ConfluenceComponent {
+  points: number;
+  maxPoints: number;
+  weightPercent: number;
+  explanation: string;
+  supportingData?: Record<string, any>;
+}
+
+export interface ConfluenceAssessment {
+  confluenceScore: number; // 0 - 100 deterministic confluence alignment
+  directionalConfidence: DirectionalConfidenceLevel;
+  direction: PairOrientationDirection;
+  components: {
+    marketStrength: ConfluenceComponent;
+    fundamentals: ConfluenceComponent;
+    policy: ConfluenceComponent;
+    expectations: ConfluenceComponent;
+    catalysts: ConfluenceComponent;
+    session: ConfluenceComponent;
+    contradictionPenalty: {
+      penaltyPoints: number;
+      reasons: string[];
+    };
+    dataQualityAdjustment: {
+      factor: number;
+      quality: 'COMPLETE' | 'PARTIAL' | 'DEGRADED' | 'UNAVAILABLE';
+      reason: string;
+    };
+  };
+  dataQualityAdjustment: {
+    factor: number;
+    quality: 'COMPLETE' | 'PARTIAL' | 'DEGRADED' | 'UNAVAILABLE';
+    reason: string;
+  };
+  rawScoreBeforeAdjustments: number;
+  explanation: string;
+  calculatedAt: string;
+  marketDataTimestamp: string | null;
+  fundamentalDataTimestamp: string | null;
+  dataQuality: string;
+}
+
 export interface PairIntelligence {
   pair: Pair;
   baseCurrency: Currency;
@@ -289,6 +341,7 @@ export interface PairIntelligence {
   lastUpdated: string;
   sources: { name: string; url: string; classification: ObservationClassification }[];
   fundamentalDifferential?: FundamentalDifferential;
+  confluence?: ConfluenceAssessment;
 }
 
 export interface MarketSession {

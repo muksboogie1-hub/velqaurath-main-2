@@ -37,7 +37,7 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
           </h2>
           <p className="text-[11px] text-neutral-500 font-mono mt-0.5">
             Framework: Strong ≥ {thresholds.strongThreshold >= 0 ? '+' : ''}
-            {thresholds.strongThreshold.toFixed(2)} · Weak ≤ {thresholds.weakThreshold.toFixed(2)}
+            {thresholds.strongThreshold.toFixed(2)}% · Weak ≤ {thresholds.weakThreshold.toFixed(2)}%
           </p>
         </div>
         {stalePairsList.length > 0 && (
@@ -72,7 +72,7 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
               </span>
             </div>
             {strongCurrencies.length === 0 ? (
-              <p className="text-xs text-neutral-500 italic font-mono py-2">No currencies ≥ +{thresholds.strongThreshold.toFixed(2)}</p>
+              <p className="text-xs text-neutral-500 italic font-mono py-2">No currencies ≥ +{thresholds.strongThreshold.toFixed(2)}%</p>
             ) : (
               <div className="space-y-1.5">
                 {strongCurrencies.map((c) => (
@@ -90,7 +90,7 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
                       )}
                     </span>
                     <span className="text-emerald-400 font-semibold tabular-nums">
-                      {c.marketStrength !== null ? `+${c.marketStrength.toFixed(2)}` : 'N/A'}
+                      {c.marketStrength !== null ? `+${c.marketStrength.toFixed(2)}%` : 'N/A'}
                     </span>
                   </button>
                 ))}
@@ -127,7 +127,7 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
                       )}
                     </span>
                     <span className="text-neutral-400 font-semibold tabular-nums">
-                      {c.marketStrength !== null ? `${c.marketStrength >= 0 ? '+' : ''}${c.marketStrength.toFixed(2)}` : 'N/A'}
+                      {c.marketStrength !== null ? `${c.marketStrength >= 0 ? '+' : ''}${c.marketStrength.toFixed(2)}%` : 'N/A'}
                     </span>
                   </button>
                 ))}
@@ -146,7 +146,7 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
               </span>
             </div>
             {weakCurrencies.length === 0 ? (
-              <p className="text-xs text-neutral-500 italic font-mono py-2">No currencies ≤ {thresholds.weakThreshold.toFixed(2)}</p>
+              <p className="text-xs text-neutral-500 italic font-mono py-2">No currencies ≤ {thresholds.weakThreshold.toFixed(2)}%</p>
             ) : (
               <div className="space-y-1.5">
                 {weakCurrencies.map((c) => (
@@ -164,7 +164,7 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
                       )}
                     </span>
                     <span className="text-rose-400 font-semibold tabular-nums">
-                      {c.marketStrength !== null ? c.marketStrength.toFixed(2) : 'N/A'}
+                      {c.marketStrength !== null ? `${c.marketStrength.toFixed(2)}%` : 'N/A'}
                     </span>
                   </button>
                 ))}

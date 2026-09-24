@@ -10,6 +10,7 @@ import {
 import { evaluateFundamentalDifferential } from '../../fundamentals/engine/pairDifferentialEngine';
 import { evaluateCurrencyFundamentalIntelligence } from '../../fundamentals/engine/currencyIntelligenceEngine';
 import { buildCentralBankProfile } from '../../fundamentals/centralBank/centralBankProfiles';
+import { calculatePairConfluence } from '../confluence/confluenceEngine';
 
 export function evaluatePairIntelligence(
   pair: CurrencyPair,
@@ -40,16 +41,16 @@ export function evaluatePairIntelligence(
         }. Connect market data feed to calculate relative orientation.`
       : 'DATA SOURCE NOT CONNECTED: Pair relative orientation cannot be calculated without authenticated inputs.';
 
-    return {
+    const fallbackIntel = {
       pair,
       baseCurrency: baseState.currency,
       quoteCurrency: quoteState.currency,
       baseState,
       quoteState,
       relativeStrengthDelta: null,
-      orientationDirection: 'DATA_UNAVAILABLE',
+      orientationDirection: 'DATA_UNAVAILABLE' as const,
       orientationExplanation,
-      convergenceDivergence: 'DATA_UNAVAILABLE',
+      convergenceDivergence: 'DATA_UNAVAILABLE' as const,
       convergenceExplanation:
         'Convergence analysis suspended until real market and fundamental feeds are connected.',
       supportingEvidence: [],
@@ -85,6 +86,20 @@ export function evaluatePairIntelligence(
           isDataFeedConnected
         }),
         upcomingEvents: events
+      })
+    };
+
+    return {
+      ...fallbackIntel,
+      confluence: calculatePairConfluence({
+        pair,
+        baseState,
+        quoteState,
+        relativeStrengthDelta: null,
+        orientationDirection: 'DATA_UNAVAILABLE',
+        events,
+        fundamentalDiff: fallbackIntel.fundamentalDifferential,
+        isDataFeedConnected: false
       })
     };
   }
@@ -311,6 +326,18 @@ export function evaluatePairIntelligence(
     upcomingEvents: events
   });
 
+  const confluence = calculatePairConfluence({
+    pair,
+    baseState,
+    quoteState,
+    relativeStrengthDelta,
+    orientationDirection,
+    events,
+    fundamentalDiff: fundamentalDifferential,
+    date,
+    isDataFeedConnected: true
+  });
+
   return {
     pair,
     baseCurrency: baseState.currency,
@@ -336,6 +363,7 @@ export function evaluatePairIntelligence(
     watchWindow,
     lastUpdated: new Date().toISOString(),
     sources,
-    fundamentalDifferential
+    fundamentalDifferential,
+    confluence
   };
 }

@@ -90,19 +90,94 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
               <span className="text-xs font-bold">
                 {isBullish ? (
                   <span className="text-emerald-400 flex items-center">
-                    <TrendingUp className="w-3.5 h-3.5 mr-1" /> BULLISH BIAS (Δ +{delta.toFixed(2)})
+                    <TrendingUp className="w-3.5 h-3.5 mr-1" /> BULLISH BIAS (Δ +{delta.toFixed(2)}%)
                   </span>
                 ) : isBearish ? (
                   <span className="text-rose-400 flex items-center">
-                    <TrendingDown className="w-3.5 h-3.5 mr-1" /> BEARISH BIAS (Δ {delta.toFixed(2)})
+                    <TrendingDown className="w-3.5 h-3.5 mr-1" /> BEARISH BIAS (Δ {delta.toFixed(2)}%)
                   </span>
                 ) : (
-                  <span className="text-neutral-400">NEUTRAL (Δ {delta.toFixed(2)})</span>
+                  <span className="text-neutral-400">NEUTRAL (Δ {delta.toFixed(2)}%)</span>
                 )}
               </span>
             </div>
             <p className="text-neutral-300 leading-relaxed font-sans">{orientationExplanation}</p>
           </div>
+
+          {/* Confluence & Directional Confidence Breakdown */}
+          {intelligence.confluence && (
+            <div className="p-3 bg-neutral-900/70 border border-emerald-900/60 rounded space-y-2.5">
+              <div className="flex items-center justify-between pb-1.5 border-b border-neutral-800 font-mono text-xs">
+                <span className="font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                  Multi-Factor Confluence Model
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-neutral-100 bg-neutral-800 px-2 py-0.5 rounded">
+                    {intelligence.confluence.confluenceScore}/100
+                  </span>
+                  <span className="text-[10px] font-bold text-sky-400">
+                    [{intelligence.confluence.directionalConfidence} CONFIDENCE]
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-neutral-300 font-sans leading-relaxed">
+                {intelligence.confluence.explanation}
+              </p>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono text-[10px] pt-1">
+                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded">
+                  <span className="text-neutral-500 block uppercase">MARKET STRENGTH</span>
+                  <span className="font-bold text-emerald-400 text-xs">
+                    +{intelligence.confluence.components.marketStrength.points}/25 pts
+                  </span>
+                </div>
+                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded">
+                  <span className="text-neutral-500 block uppercase">FUNDAMENTALS</span>
+                  <span className="font-bold text-emerald-400 text-xs">
+                    +{intelligence.confluence.components.fundamentals.points}/20 pts
+                  </span>
+                </div>
+                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded">
+                  <span className="text-neutral-500 block uppercase">POLICY & CARRY</span>
+                  <span className="font-bold text-emerald-400 text-xs">
+                    +{intelligence.confluence.components.policy.points}/20 pts
+                  </span>
+                </div>
+                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded">
+                  <span className="text-neutral-500 block uppercase">EXPECTATIONS</span>
+                  <span className="font-bold text-emerald-400 text-xs">
+                    +{intelligence.confluence.components.expectations.points}/15 pts
+                  </span>
+                </div>
+                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded">
+                  <span className="text-neutral-500 block uppercase">SESSION CONTEXT</span>
+                  <span className="font-bold text-emerald-400 text-xs">
+                    +{intelligence.confluence.components.session.points}/10 pts
+                  </span>
+                </div>
+                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded">
+                  <span className="text-neutral-500 block uppercase">CATALYSTS & RISK</span>
+                  <span className="font-bold text-emerald-400 text-xs">
+                    +{intelligence.confluence.components.catalysts.points}/10 pts
+                  </span>
+                </div>
+              </div>
+
+              {intelligence.confluence.components.contradictionPenalty.penaltyPoints > 0 && (
+                <div className="p-2 bg-rose-950/30 border border-rose-900/50 rounded font-mono text-[10px] text-rose-300">
+                  <span className="font-bold uppercase block mb-1">
+                    CONTRADICTION DEDUCTION: -{intelligence.confluence.components.contradictionPenalty.penaltyPoints} PTS
+                  </span>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {intelligence.confluence.components.contradictionPenalty.reasons.map((r: string, i: number) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Phase B: Fundamental Differential Section */}
           {fundamentalDifferential && (
@@ -121,7 +196,7 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
                   <span className="text-[10px] text-neutral-500 block uppercase">MARKET STRENGTH Δ</span>
                   <span className="font-bold text-neutral-200">
                     {fundamentalDifferential.marketStrengthDifferential !== null
-                      ? `${fundamentalDifferential.marketStrengthDifferential >= 0 ? '+' : ''}${fundamentalDifferential.marketStrengthDifferential.toFixed(2)}`
+                      ? `${fundamentalDifferential.marketStrengthDifferential >= 0 ? '+' : ''}${fundamentalDifferential.marketStrengthDifferential.toFixed(2)}%`
                       : 'N/A'}
                   </span>
                 </div>

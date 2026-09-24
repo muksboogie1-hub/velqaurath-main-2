@@ -75,10 +75,12 @@ export interface CurrencyCoverageInfo {
 
 export interface CurrencyMarketStrength {
   currency: string;
-  marketStrength: number | null;
+  marketStrength: number | null; // Basket-relative percentage movement in percentage points (e.g. +0.21 = +0.21%)
   classification: StrengthClassification;
-  rawRelativeReturn: number | null;
-  avgReturn: number | null;
+  dailyMovementPercent: number | null; // Raw average daily return across currency's valid basket pairs
+  basketRelativeMovementPercent: number | null; // Basket-relative movement (avgReturn - basketMean)
+  rawRelativeReturn: number | null; // Preserved for compatibility (= basketRelativeMovementPercent)
+  avgReturn: number | null; // Preserved for compatibility (= dailyMovementPercent)
   momentum: number | null;
   coverage: CurrencyCoverageInfo;
   contributors: PairContribution[];
@@ -98,6 +100,8 @@ export interface ProviderStatus {
   message: string;
   lastFetchedAt: string | null;
   lastSuccessfulUpdate?: string | null;
+  lastAttemptAt?: string | null;
+  nextRefreshAt?: string | null;
   quotesCount: number;
   requiredPairsCount: number;
   availablePairsCount: number;
@@ -109,6 +113,7 @@ export interface ProviderStatus {
   source: string;
   fallbackAvailable?: boolean;
   fallbackStatus?: string;
+  refreshIntervalMs?: number;
 }
 
 export interface MarketCoverageReport {

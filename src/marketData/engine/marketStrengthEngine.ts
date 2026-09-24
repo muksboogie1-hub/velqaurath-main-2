@@ -125,6 +125,8 @@ export function calculateCurrencyMarketStrengths(
         currency: code,
         marketStrength: null,
         classification: 'DATA_UNAVAILABLE',
+        dailyMovementPercent: null,
+        basketRelativeMovementPercent: null,
         rawRelativeReturn: null,
         avgReturn: null,
         momentum: null,
@@ -256,6 +258,8 @@ export function calculateCurrencyMarketStrengths(
         currency: item.code,
         marketStrength: null,
         classification,
+        dailyMovementPercent: item.avgReturn !== null ? Math.round(item.avgReturn * 1000) / 1000 : null,
+        basketRelativeMovementPercent: null,
         rawRelativeReturn: null,
         avgReturn: item.avgReturn,
         momentum: null,
@@ -272,7 +276,7 @@ export function calculateCurrencyMarketStrengths(
       continue;
     }
 
-    // Relative basket score calculation
+    // Relative basket score calculation in true percentage points
     const rawRelativeReturn = item.avgReturn - basketMean;
     const scaledScore = rawRelativeReturn * scaleFactor;
     const marketStrength = Math.round(scaledScore * 100) / 100;
@@ -302,7 +306,6 @@ export function calculateCurrencyMarketStrengths(
       .join(', ');
 
     const signPrefix = marketStrength >= 0 ? '+' : '';
-    const formulaSummary = `Formula: Mean (${item.avgReturn >= 0 ? '+' : ''}${item.avgReturn.toFixed(3)}%) - Basket Mean (${basketMean >= 0 ? '+' : ''}${basketMean.toFixed(3)}%) = ${rawRelativeReturn >= 0 ? '+' : ''}${rawRelativeReturn.toFixed(3)}% × ${scaleFactor} = ${signPrefix}${marketStrength.toFixed(2)}.`;
     const staleNotice = item.stalePairs.length > 0 ? ` (Stale excluded: ${item.stalePairs.join(', ')})` : '';
     const coverageSummary = `Coverage: ${availableCount}/${requiredCount} pairs (${item.coveragePercent}%)${staleNotice}.`;
 
@@ -319,19 +322,22 @@ export function calculateCurrencyMarketStrengths(
 
     let thresholdText = '';
     if (classification === 'STRONG') {
-      thresholdText = `Classified STRONG (≥ +${thresholds.strongThreshold.toFixed(2)}).`;
+      thresholdText = `Classified STRONG because basket relative movement is ≥ +${thresholds.strongThreshold.toFixed(2)}%.`;
     } else if (classification === 'WEAK') {
-      thresholdText = `Classified WEAK (≤ ${thresholds.weakThreshold.toFixed(2)}).`;
+      thresholdText = `Classified WEAK because basket relative movement is ≤ ${thresholds.weakThreshold.toFixed(2)}%.`;
     } else {
-      thresholdText = `Classified NEUTRAL (${thresholds.weakThreshold.toFixed(2)} < score < +${thresholds.strongThreshold.toFixed(2)}).`;
+      thresholdText = `Classified NEUTRAL because basket relative movement is between ${thresholds.weakThreshold.toFixed(2)}% and +${thresholds.strongThreshold.toFixed(2)}%.`;
     }
 
-    const explanation = `${thresholdText} ${driverText} ${coverageSummary} ${formulaSummary}`;
+    const movementSummary = `${item.code} daily relative movement = ${signPrefix}${marketStrength.toFixed(2)}% (raw basket avg: ${item.avgReturn >= 0 ? '+' : ''}${item.avgReturn.toFixed(2)}%, basket baseline: ${basketMean >= 0 ? '+' : ''}${basketMean.toFixed(2)}%).`;
+    const explanation = `${movementSummary} ${thresholdText} ${driverText} ${coverageSummary}`;
 
     resultMap.set(item.code, {
       currency: item.code,
       marketStrength,
       classification,
+      dailyMovementPercent: Math.round(item.avgReturn * 1000) / 1000,
+      basketRelativeMovementPercent: Math.round(rawRelativeReturn * 1000) / 1000,
       rawRelativeReturn: Math.round(rawRelativeReturn * 1000) / 1000,
       avgReturn: Math.round(item.avgReturn * 1000) / 1000,
       momentum,

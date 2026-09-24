@@ -61,20 +61,32 @@ export const TopPairCard: React.FC<TopPairCardProps> = ({
               {isBullish ? (
                 <span className="text-emerald-400 flex items-center font-semibold">
                   <TrendingUp className="w-4 h-4 mr-0.5" />
-                  BULLISH BIAS (Δ +{delta.toFixed(2)})
+                  BULLISH BIAS (Δ +{delta.toFixed(2)}%)
                 </span>
               ) : isBearish ? (
                 <span className="text-rose-400 flex items-center font-semibold">
                   <TrendingDown className="w-4 h-4 mr-0.5" />
-                  BEARISH BIAS (Δ {delta.toFixed(2)})
+                  BEARISH BIAS (Δ {delta.toFixed(2)}%)
                 </span>
               ) : (
                 <span className="text-neutral-400 font-semibold">
-                  NEUTRAL (Δ {delta.toFixed(2)})
+                  NEUTRAL (Δ {delta.toFixed(2)}%)
                 </span>
               )}
             </div>
           </div>
+          {topPair.confluence && (
+            <div className="flex items-center gap-2 mb-2 p-1.5 bg-neutral-900/90 border border-neutral-800 rounded font-mono text-[11px]">
+              <span className="text-neutral-400 uppercase tracking-wider font-semibold">Confluence:</span>
+              <span className="font-bold text-emerald-400">
+                {topPair.confluence.confluenceScore}/100
+              </span>
+              <span className="text-neutral-500">·</span>
+              <span className="text-sky-300 font-medium">
+                {topPair.confluence.directionalConfidence} CONFIDENCE
+              </span>
+            </div>
+          )}
           <p className="text-xs text-neutral-300 mb-3 leading-relaxed">
             {topPair.orientationExplanation}
           </p>

@@ -10,6 +10,7 @@ import { fundamentalService } from '../fundamentals/service/fundamentalService';
 import { evaluateCurrencyFundamentalIntelligence } from '../fundamentals/engine/currencyIntelligenceEngine';
 import { buildCentralBankProfile, getAllCoreCentralBankProfiles } from '../fundamentals/centralBank/centralBankProfiles';
 import { FUNDAMENTAL_CATEGORIES } from '../types/fundamentals';
+import { refreshScheduler, SchedulerStatus } from '../services/refreshScheduler';
 import {
   Currency,
   CurrencyState,
@@ -318,7 +319,11 @@ export class VelqoarathApiService {
         (p) => p.relativeStrengthDelta !== null && p.orientationDirection !== 'DATA_UNAVAILABLE'
       );
       if (validPairsWithDelta.length > 0) {
+        // Prioritize pairs with highest confluence score, breaking ties by magnitude of relativeStrengthDelta
         const sorted = [...validPairsWithDelta].sort((a, b) => {
+          const confA = a.confluence?.confluenceScore ?? 0;
+          const confB = b.confluence?.confluenceScore ?? 0;
+          if (confB !== confA) return confB - confA;
           const deltaA = Math.abs(a.relativeStrengthDelta ?? 0);
           const deltaB = Math.abs(b.relativeStrengthDelta ?? 0);
           return deltaB - deltaA;
@@ -349,6 +354,38 @@ export class VelqoarathApiService {
       economicCalendar: state.events,
       dataSources: state.dataSources,
       marketProviderStatus: providerStatus
+    };
+  }
+
+  // Opportunity & Confluence Intelligence
+  public static getOpportunities(date: Date = new Date()): PairIntelligence[] {
+    const allIntelligences = this.getAllPairIntelligences(date);
+    return allIntelligences
+      .filter((p) => p.orientationDirection !== 'DATA_UNAVAILABLE')
+      .sort((a, b) => {
+        const confA = a.confluence?.confluenceScore ?? 0;
+        const confB = b.confluence?.confluenceScore ?? 0;
+        if (confB !== confA) return confB - confA;
+        const deltaA = Math.abs(a.relativeStrengthDelta ?? 0);
+        const deltaB = Math.abs(b.relativeStrengthDelta ?? 0);
+        return deltaB - deltaA;
+      });
+  }
+
+  public static getOpportunityBySymbol(symbol: string, date: Date = new Date()): PairIntelligence | null {
+    return this.getPairIntelligence(symbol, date);
+  }
+
+  // Refresh Scheduler Lifecycle
+  public static getSchedulerStatus(): SchedulerStatus {
+    return refreshScheduler.getStatus();
+  }
+
+  public static async syncFundamentals(force: boolean = false) {
+    const success = await refreshScheduler.refreshFundamentals(force);
+    return {
+      success,
+      status: fundamentalService.getStatus()
     };
   }
 
@@ -389,14 +426,12 @@ export class VelqoarathApiService {
   }
 
   public static async syncMarketData(forceRefresh: boolean = false) {
-    const state = globalStore.getState();
-    const quotes = await marketDataService.getQuotes(forceRefresh);
-    const strengths = await marketDataService.getCurrencyStrengths(state.thresholds, forceRefresh);
+    const success = await refreshScheduler.refreshMarketSnapshot(forceRefresh);
     const status = marketDataService.getStatus();
-
-    globalStore.setMarketData(quotes, strengths, status);
+    const quotes = await marketDataService.getQuotes(false);
 
     return {
+      success,
       status,
       quotesCount: quotes.length
     };

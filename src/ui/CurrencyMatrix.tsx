@@ -80,7 +80,7 @@ export const CurrencyMatrix: React.FC<CurrencyMatrixProps> = ({
                           }`}
                         >
                           {mScore >= 0 ? '+' : ''}
-                          {mScore.toFixed(2)}
+                          {mScore.toFixed(2)}%
                         </span>
                         {c.relativeStrengthBreakdown?.coverage &&
                           c.relativeStrengthBreakdown.coverage.available <

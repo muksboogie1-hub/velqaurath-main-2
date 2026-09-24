@@ -4,12 +4,29 @@ export interface CurrencyPairItem extends Pair {
   standardPipDigits: number;
 }
 
+/**
+ * EXACT 15 LIVE MARKET PAIR UNIVERSE
+ *
+ * Configured to match the Biquote live market-data stream and DEFAULT_LIQUID_PAIRS exactly (15 pairs).
+ * Unsupported pairs (EUR/AUD, GBP/AUD, AUD/NZD) are excluded from the live universe
+ * to avoid substituting synthetic/benchmark prices for live market pairs.
+ */
 export const INITIAL_PAIRS: CurrencyPairItem[] = [
   {
     id: 'pair-eurusd',
     baseCurrency: 'EUR',
     quoteCurrency: 'USD',
     symbol: 'EUR/USD',
+    active: true,
+    standardPipDigits: 4,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-09-23T00:00:00Z'
+  },
+  {
+    id: 'pair-gbpusd',
+    baseCurrency: 'GBP',
+    quoteCurrency: 'USD',
+    symbol: 'GBP/USD',
     active: true,
     standardPipDigits: 4,
     createdAt: '2026-01-01T00:00:00Z',
@@ -26,30 +43,10 @@ export const INITIAL_PAIRS: CurrencyPairItem[] = [
     updatedAt: '2026-09-23T00:00:00Z'
   },
   {
-    id: 'pair-gbpusd',
-    baseCurrency: 'GBP',
-    quoteCurrency: 'USD',
-    symbol: 'GBP/USD',
-    active: true,
-    standardPipDigits: 4,
-    createdAt: '2026-01-01T00:00:00Z',
-    updatedAt: '2026-09-23T00:00:00Z'
-  },
-  {
     id: 'pair-usdchf',
     baseCurrency: 'USD',
     quoteCurrency: 'CHF',
     symbol: 'USD/CHF',
-    active: true,
-    standardPipDigits: 4,
-    createdAt: '2026-01-01T00:00:00Z',
-    updatedAt: '2026-09-23T00:00:00Z'
-  },
-  {
-    id: 'pair-usdcad',
-    baseCurrency: 'USD',
-    quoteCurrency: 'CAD',
-    symbol: 'USD/CAD',
     active: true,
     standardPipDigits: 4,
     createdAt: '2026-01-01T00:00:00Z',
@@ -70,6 +67,16 @@ export const INITIAL_PAIRS: CurrencyPairItem[] = [
     baseCurrency: 'NZD',
     quoteCurrency: 'USD',
     symbol: 'NZD/USD',
+    active: true,
+    standardPipDigits: 4,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-09-23T00:00:00Z'
+  },
+  {
+    id: 'pair-usdcad',
+    baseCurrency: 'USD',
+    quoteCurrency: 'CAD',
+    symbol: 'USD/CAD',
     active: true,
     standardPipDigits: 4,
     createdAt: '2026-01-01T00:00:00Z',
@@ -106,10 +113,40 @@ export const INITIAL_PAIRS: CurrencyPairItem[] = [
     updatedAt: '2026-09-23T00:00:00Z'
   },
   {
+    id: 'pair-eurchf',
+    baseCurrency: 'EUR',
+    quoteCurrency: 'CHF',
+    symbol: 'EUR/CHF',
+    active: true,
+    standardPipDigits: 4,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-09-23T00:00:00Z'
+  },
+  {
+    id: 'pair-gbpchf',
+    baseCurrency: 'GBP',
+    quoteCurrency: 'CHF',
+    symbol: 'GBP/CHF',
+    active: true,
+    standardPipDigits: 4,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-09-23T00:00:00Z'
+  },
+  {
     id: 'pair-audjpy',
     baseCurrency: 'AUD',
     quoteCurrency: 'JPY',
     symbol: 'AUD/JPY',
+    active: true,
+    standardPipDigits: 2,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-09-23T00:00:00Z'
+  },
+  {
+    id: 'pair-nzdjpy',
+    baseCurrency: 'NZD',
+    quoteCurrency: 'JPY',
+    symbol: 'NZD/JPY',
     active: true,
     standardPipDigits: 2,
     createdAt: '2026-01-01T00:00:00Z',
@@ -122,46 +159,6 @@ export const INITIAL_PAIRS: CurrencyPairItem[] = [
     symbol: 'CAD/JPY',
     active: true,
     standardPipDigits: 2,
-    createdAt: '2026-01-01T00:00:00Z',
-    updatedAt: '2026-09-23T00:00:00Z'
-  },
-  {
-    id: 'pair-euraud',
-    baseCurrency: 'EUR',
-    quoteCurrency: 'AUD',
-    symbol: 'EUR/AUD',
-    active: true,
-    standardPipDigits: 4,
-    createdAt: '2026-01-01T00:00:00Z',
-    updatedAt: '2026-09-23T00:00:00Z'
-  },
-  {
-    id: 'pair-eurchf',
-    baseCurrency: 'EUR',
-    quoteCurrency: 'CHF',
-    symbol: 'EUR/CHF',
-    active: true,
-    standardPipDigits: 4,
-    createdAt: '2026-01-01T00:00:00Z',
-    updatedAt: '2026-09-23T00:00:00Z'
-  },
-  {
-    id: 'pair-gbpaud',
-    baseCurrency: 'GBP',
-    quoteCurrency: 'AUD',
-    symbol: 'GBP/AUD',
-    active: true,
-    standardPipDigits: 4,
-    createdAt: '2026-01-01T00:00:00Z',
-    updatedAt: '2026-09-23T00:00:00Z'
-  },
-  {
-    id: 'pair-audnzd',
-    baseCurrency: 'AUD',
-    quoteCurrency: 'NZD',
-    symbol: 'AUD/NZD',
-    active: true,
-    standardPipDigits: 4,
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-09-23T00:00:00Z'
   }

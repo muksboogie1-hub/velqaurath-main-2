@@ -109,6 +109,8 @@ export function evaluateCurrencyState(
     marketStrength: rawMarketStrength,
     classification: marketState,
     thresholds,
+    dailyMovementPercent: marketStrengthResult.dailyMovementPercent,
+    basketRelativeMovementPercent: marketStrengthResult.basketRelativeMovementPercent,
     momentum,
     timeframe: `Live Basket (${marketStrengthResult.source})`,
     explanation: marketStrengthResult.explanation,

@@ -88,8 +88,13 @@ export const PairsList: React.FC<PairsListProps> = ({
                     </span>
                   </div>
                   <span className="text-[11px] font-mono text-neutral-400">
-                    Δ {delta >= 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2)}
+                    Δ {delta >= 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2)}%
                   </span>
+                  {item.confluence && (
+                    <span className="text-[10px] font-mono text-emerald-400 ml-2 font-semibold">
+                      · Conf: {item.confluence.confluenceScore}
+                    </span>
+                  )}
                 </div>
 
                 <div className="text-right font-mono text-[10px]">

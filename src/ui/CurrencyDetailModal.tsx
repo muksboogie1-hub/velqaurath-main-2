@@ -75,7 +75,7 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
                       : 'text-neutral-300'
                   }`}
                 >
-                  {marketStrength !== null ? `${marketStrength >= 0 ? '+' : ''}${marketStrength.toFixed(2)} (${marketState})` : 'UNAVAILABLE'}
+                  {marketStrength !== null ? `${marketStrength >= 0 ? '+' : ''}${marketStrength.toFixed(2)}% (${marketState})` : 'UNAVAILABLE'}
                 </span>
               </div>
               <span className="text-neutral-600">·</span>
@@ -112,7 +112,7 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
                     : 'text-neutral-300'
                 }`}
               >
-                {marketStrength !== null ? `${marketStrength >= 0 ? '+' : ''}${marketStrength.toFixed(2)}` : 'UNAVAILABLE'} ({marketState})
+                {marketStrength !== null ? `${marketStrength >= 0 ? '+' : ''}${marketStrength.toFixed(2)}%` : 'UNAVAILABLE'} ({marketState})
               </span>
             </div>
             <p className="text-neutral-300 leading-relaxed mb-2 font-sans">

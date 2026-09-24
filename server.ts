@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { VelqoarathApiService } from './src/api/service.js';
 import { marketDataService } from './src/marketData/service/marketDataService.js';
+import { refreshScheduler } from './src/services/refreshScheduler.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,6 +54,19 @@ app.get('/api/pairs/:symbol/intelligence', (req, res) => {
   const intelligence = VelqoarathApiService.getPairIntelligence(req.params.symbol);
   if (!intelligence) return res.status(404).json({ error: 'Pair intelligence not available' });
   res.json(intelligence);
+});
+
+// ----------------------------------------------------
+// OPPORTUNITY & CONFLUENCE INTELLIGENCE
+// ----------------------------------------------------
+app.get('/api/opportunities', (_req, res) => {
+  res.json(VelqoarathApiService.getOpportunities());
+});
+
+app.get('/api/opportunities/:symbol', (req, res) => {
+  const item = VelqoarathApiService.getOpportunityBySymbol(req.params.symbol);
+  if (!item) return res.status(404).json({ error: 'Opportunity not found' });
+  res.json(item);
 });
 
 // ----------------------------------------------------
@@ -168,6 +182,20 @@ app.post('/api/market-data/sync', async (req, res) => {
   }
 });
 
+app.post('/api/fundamentals/sync', async (req, res) => {
+  try {
+    const force = req.body?.force === true;
+    const result = await VelqoarathApiService.syncFundamentals(force);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to sync fundamentals', details: err?.message });
+  }
+});
+
+app.get('/api/scheduler/status', (_req, res) => {
+  res.json(VelqoarathApiService.getSchedulerStatus());
+});
+
 // ----------------------------------------------------
 // CONTROLS & THRESHOLDS
 // ----------------------------------------------------
@@ -204,13 +232,10 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[VELQOARATH] Market Intelligence Server listening on port ${PORT}`);
-    VelqoarathApiService.syncMarketData()
-      .then(() => {
-        return marketDataService.startLiveStream();
-      })
-      .catch((err) => {
-        console.warn('[VELQOARATH] Initial market data sync deferred:', err?.message || err);
-      });
+    // Start unified automatic background refresh scheduler
+    refreshScheduler.start().catch((err) => {
+      console.warn('[VELQOARATH] RefreshScheduler startup warning:', err?.message || err);
+    });
   });
 }
 
