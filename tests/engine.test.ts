@@ -157,6 +157,175 @@ var __defProp=Object.defineProperty;var __name=(target,value)=>__defProp(target,
     assert(dash.topPair?.pair.symbol !== undefined, "Test 28: Top pair uses real symbol from valid available data");
     assert(dash.allCurrencies.some(c => c.marketStrength !== null), "Test 28: Dashboard currencies have non-null market strengths");
   }
+
+  // Scenario 8: Regression Tests: Exact Thresholds & Quote Return Fallbacks
+  {
+    const thresholds = { strongThreshold: 0.10, weakThreshold: -0.10 };
+
+    const testThresholdValues = [
+      { ret: 0.21, expected: "STRONG", label: "+0.21%" },
+      { ret: 0.10, expected: "STRONG", label: "+0.10%" },
+      { ret: 0.09, expected: "NEUTRAL", label: "+0.09%" },
+      { ret: 0.00, expected: "NEUTRAL", label: "0.00%" },
+      { ret: -0.09, expected: "NEUTRAL", label: "-0.09%" },
+      { ret: -0.10, expected: "WEAK", label: "-0.10%" },
+      { ret: -0.18, expected: "WEAK", label: "-0.18%" }
+    ];
+
+    for (const item of testThresholdValues) {
+      const isolatedQuotes = [
+        {
+          symbol: "EUR/USD",
+          baseCurrency: "EUR",
+          quoteCurrency: "USD",
+          price: 1.08,
+          changePercent: item.ret,
+          dailyReturnPercent: item.ret,
+          timestamp: Date.now(),
+          interval: "1day",
+          source: "Biquote",
+          sourceStatus: "CONNECTED",
+          fetchedAt: ""
+        }
+      ];
+      const res = calculateCurrencyMarketStrengths(isolatedQuotes, thresholds, {
+        currencies: ["EUR", "USD"],
+        requiredPairs: ["EUR/USD"],
+        providerStatus: "CONNECTED"
+      });
+      const eur = res.get("EUR");
+      assert(eur?.marketStrength === Math.round(item.ret * 100) / 100, `Threshold Test: EUR marketStrength for ${item.label} matches expected (${item.ret})`);
+      assert(eur?.classification === item.expected, `Threshold Test: EUR for ${item.label} correctly classified as ${item.expected}`);
+    }
+
+    // 1. dailyReturnPercent present + changePercent missing (null)
+    {
+      const quote = {
+        symbol: "EUR/USD",
+        baseCurrency: "EUR",
+        quoteCurrency: "USD",
+        price: 1.08,
+        changePercent: null as any,
+        dailyReturnPercent: 0.25,
+        timestamp: Date.now(),
+        interval: "1day",
+        source: "Biquote",
+        sourceStatus: "CONNECTED",
+        fetchedAt: ""
+      };
+      const res = calculateCurrencyMarketStrengths([quote], thresholds, {
+        currencies: ["EUR", "USD"],
+        requiredPairs: ["EUR/USD"],
+        providerStatus: "CONNECTED"
+      });
+      const eur = res.get("EUR");
+      assert(eur?.marketStrength !== null && eur?.marketStrength === 0.25, "Quote Return Test: dailyReturnPercent used when changePercent is null");
+      assert(eur?.classification === "STRONG", "Quote Return Test: EUR classified as STRONG with dailyReturnPercent=0.25%");
+    }
+
+    // 2. changePercent present + dailyReturnPercent missing (null or undefined)
+    {
+      const quote = {
+        symbol: "EUR/USD",
+        baseCurrency: "EUR",
+        quoteCurrency: "USD",
+        price: 1.08,
+        changePercent: -0.15,
+        dailyReturnPercent: null as any,
+        timestamp: Date.now(),
+        interval: "1day",
+        source: "Biquote",
+        sourceStatus: "CONNECTED",
+        fetchedAt: ""
+      };
+      const res = calculateCurrencyMarketStrengths([quote], thresholds, {
+        currencies: ["EUR", "USD"],
+        requiredPairs: ["EUR/USD"],
+        providerStatus: "CONNECTED"
+      });
+      const eur = res.get("EUR");
+      assert(eur?.marketStrength !== null && eur?.marketStrength === -0.15, "Quote Return Test: changePercent used when dailyReturnPercent is null");
+      assert(eur?.classification === "WEAK", "Quote Return Test: EUR classified as WEAK with changePercent=-0.15%");
+    }
+
+    // 3. Both missing (both null/undefined)
+    {
+      const quote = {
+        symbol: "EUR/USD",
+        baseCurrency: "EUR",
+        quoteCurrency: "USD",
+        price: 1.08,
+        changePercent: null as any,
+        dailyReturnPercent: null as any,
+        timestamp: Date.now(),
+        interval: "1day",
+        source: "Biquote",
+        sourceStatus: "CONNECTED",
+        fetchedAt: ""
+      };
+      const res = calculateCurrencyMarketStrengths([quote], thresholds, {
+        currencies: ["EUR", "USD"],
+        requiredPairs: ["EUR/USD"],
+        providerStatus: "CONNECTED"
+      });
+      const eur = res.get("EUR");
+      assert(eur?.marketStrength === null, "Quote Return Test: Both returns missing -> marketStrength is null (missing data is NOT zero)");
+      assert(eur?.classification === "DATA_UNAVAILABLE", "Quote Return Test: Both returns missing -> DATA_UNAVAILABLE");
+    }
+
+    // 4. Stale quote
+    {
+      const quote = {
+        symbol: "EUR/USD",
+        baseCurrency: "EUR",
+        quoteCurrency: "USD",
+        price: 1.08,
+        changePercent: 0.35,
+        dailyReturnPercent: 0.35,
+        timestamp: Date.now() - 3600000,
+        stale: true,
+        interval: "1day",
+        source: "Biquote",
+        sourceStatus: "CONNECTED",
+        fetchedAt: ""
+      };
+      const res = calculateCurrencyMarketStrengths([quote], thresholds, {
+        currencies: ["EUR", "USD"],
+        requiredPairs: ["EUR/USD"],
+        providerStatus: "CONNECTED"
+      });
+      const eur = res.get("EUR");
+      assert(eur?.marketStrength === null, "Quote Return Test: Stale quote without valid snapshot does not silently become fresh");
+      assert(eur?.coverage.stalePairs?.includes("EUR/USD") === true, "Quote Return Test: Stale quote tracked in stalePairs");
+    }
+
+    // 5. Partial basket (only 1 out of 2 required pairs present)
+    {
+      const quote = {
+        symbol: "EUR/USD",
+        baseCurrency: "EUR",
+        quoteCurrency: "USD",
+        price: 1.08,
+        changePercent: 0.20,
+        dailyReturnPercent: 0.20,
+        timestamp: Date.now(),
+        stale: false,
+        interval: "1day",
+        source: "Biquote",
+        sourceStatus: "CONNECTED",
+        fetchedAt: ""
+      };
+      const res = calculateCurrencyMarketStrengths([quote], thresholds, {
+        currencies: ["EUR", "GBP", "USD"],
+        requiredPairs: ["EUR/USD", "EUR/GBP"],
+        providerStatus: "CONNECTED"
+      });
+      const eur = res.get("EUR");
+      assert(eur?.coverage.status === "PARTIAL", "Partial Basket Test: EUR coverage status is PARTIAL");
+      assert(eur?.coverage.available === 1 && eur?.coverage.required === 2, "Partial Basket Test: 1 of 2 pairs available");
+      assert(eur?.coverage.missingPairs.includes("EUR/GBP"), "Partial Basket Test: EUR/GBP reported in missingPairs");
+    }
+  }
 }
 
 console.log(`\n================================================================`);

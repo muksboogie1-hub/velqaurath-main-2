@@ -134,7 +134,7 @@ export function detectCurrencyFromEvent(item: any): string | null {
   return null;
 }
 
-export function detectCategoryFromEvent(item: any): FundamentalCategory {
+export function detectCategoryFromEvent(item: any): FundamentalCategory | null {
   const cat = String(item.category || '').toLowerCase();
   const text = `${item.title || ''} ${item.name || ''}`.toUpperCase();
 
@@ -208,7 +208,7 @@ export function detectCategoryFromEvent(item: any): FundamentalCategory {
   if (text.includes('EXPECTATION') || text.includes('FUTURES') || text.includes('SURVEY') || text.includes('CONSENSUS')) {
     return 'MARKET_EXPECTATIONS';
   }
-  return 'GROWTH';
+  return null;
 }
 
 export function parseMacroNumericValue(val: any): { num: number | null; unit: string } {
@@ -558,8 +558,8 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
             status
           });
 
-          // 2. Fundamental Observation model (only for released facts or verified historicals)
-          if (actual !== null) {
+          // 2. Fundamental Observation model (only for released facts or verified historicals with classified category)
+          if (actual !== null && category !== null) {
             const surpriseCalc = calculateExpectationSurprise(previous, forecast, actual);
             const statements: FactInterpretationBundle = generateFactInterpretationStatements(
               {

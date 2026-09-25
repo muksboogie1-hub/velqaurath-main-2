@@ -61,6 +61,15 @@ export function calculatePairContribution(
 }
 
 /**
+ * Evaluates whether a quote has a valid daily return number.
+ * Uses dailyReturnPercent if present, falling back to changePercent.
+ */
+export function hasValidQuoteReturn(quote: MarketQuote): boolean {
+  const ret = quote.dailyReturnPercent ?? quote.changePercent;
+  return ret !== null && ret !== undefined && typeof ret === 'number' && !isNaN(ret);
+}
+
+/**
  * Calculates deterministic currency market strengths across a relative currency basket.
  *
  * Transformation Pipeline:
@@ -97,14 +106,14 @@ export function calculateCurrencyMarketStrengths(
   // 1. Separate required quotes into fresh vs stale
   const requiredSet = new Set(requiredPairs);
   let freshQuotes = quotes.filter(
-    (q) => requiredSet.has(q.symbol) && !q.stale && q.changePercent !== null && !isNaN(q.changePercent)
+    (q) => requiredSet.has(q.symbol) && !q.stale && hasValidQuoteReturn(q)
   );
 
   // If live tick staleness flagged quotes as stale, but the daily snapshot itself is FRESH/AGING,
   // preserve daily relative strength calculation from the valid snapshot rather than collapsing to null
   if (freshQuotes.length === 0 && isSnapshotUsable) {
     freshQuotes = quotes.filter(
-      (q) => requiredSet.has(q.symbol) && q.changePercent !== null && !isNaN(q.changePercent)
+      (q) => requiredSet.has(q.symbol) && hasValidQuoteReturn(q)
     );
   }
 
