@@ -149,9 +149,10 @@ export function detectCategoryFromEvent(item: any): FundamentalCategory | null {
     text.includes('SNB') ||
     text.includes('RBA') ||
     text.includes('RBNZ') ||
-    text.includes('BOC')
+    text.includes('BOC') ||
+    text.includes('INTEREST RATE DECISION')
   ) {
-    return 'CENTRAL_BANK_MONETARY_POLICY';
+    return 'CENTRAL_BANK';
   }
   if (
     text.includes('CPI') ||
@@ -176,34 +177,54 @@ export function detectCategoryFromEvent(item: any): FundamentalCategory | null {
     return 'EMPLOYMENT';
   }
   if (
-    text.includes('GDP') ||
+    text.includes('HOME SALES') ||
+    text.includes('HOUSING') ||
+    text.includes('BUILDING PERMITS') ||
+    text.includes('HOUSE PRICE') ||
+    text.includes('MORTGAGE')
+  ) {
+    return 'HOUSING';
+  }
+  if (
+    text.includes('RETAIL SALES') ||
+    text.includes('CONSUMER') ||
+    text.includes('CONSUMPTION') ||
+    text.includes('SPENDING') ||
+    text.includes('MICHIGAN') ||
+    text.includes('CONFIDENCE')
+  ) {
+    return 'CONSUMPTION';
+  }
+  if (
     text.includes('PMI') ||
     text.includes('MANUFACTURING') ||
-    text.includes('RETAIL SALES') ||
+    text.includes('SERVICES') ||
+    text.includes('ISM') ||
     text.includes('BUSINESS CLIMATE') ||
     text.includes('IFO') ||
-    text.includes('MICHIGAN') ||
-    text.includes('SENTIMENT') ||
+    text.includes('ZEW') ||
     text.includes('PRODUCTION') ||
-    text.includes('HOME SALES') ||
-    text.includes('HOUSING STARTS')
+    text.includes('FACTORY ORDERS')
   ) {
+    return 'BUSINESS_ACTIVITY';
+  }
+  if (text.includes('GDP') || text.includes('GROWTH') || text.includes('ECONOMIC OUTPUT')) {
     return 'GROWTH';
   }
   if (text.includes('FISCAL') || text.includes('BUDGET') || text.includes('DEBT') || text.includes('DEFICIT') || text.includes('TREASURY')) {
-    return 'FISCAL_GOVERNMENT';
+    return 'FISCAL';
   }
   if (text.includes('TRADE') || text.includes('CURRENT ACCOUNT') || text.includes('EXPORTS') || text.includes('IMPORTS')) {
-    return 'TRADE_EXTERNAL_BALANCE';
+    return 'TRADE';
   }
   if (text.includes('COMMODITY') || text.includes('OIL') || text.includes('ENERGY') || text.includes('GOLD') || text.includes('DAIRY') || text.includes('TERMS OF TRADE')) {
-    return 'COMMODITY_EXPOSURE_TERMS_OF_TRADE';
+    return 'TRADE';
   }
   if (text.includes('SHOCK') || text.includes('CRISIS') || text.includes('WAR') || text.includes('GEOPOLITICAL') || text.includes('TARIFF')) {
-    return 'MAJOR_ECONOMIC_SHOCKS';
+    return 'GROWTH';
   }
   if (text.includes('YIELD') || text.includes('BOND') || text.includes('AUCTION') || text.includes('INTEREST RATE') || text.includes('10-YEAR') || text.includes('2-YEAR')) {
-    return 'INTEREST_RATES';
+    return 'CENTRAL_BANK';
   }
   if (text.includes('EXPECTATION') || text.includes('FUTURES') || text.includes('SURVEY') || text.includes('CONSENSUS')) {
     return 'MARKET_EXPECTATIONS';
@@ -335,12 +356,12 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
       'INFLATION',
       'EMPLOYMENT',
       'GROWTH',
-      'CENTRAL_BANK_MONETARY_POLICY',
-      'INTEREST_RATES',
-      'TRADE_EXTERNAL_BALANCE',
-      'FISCAL_GOVERNMENT',
-      'COMMODITY_EXPOSURE_TERMS_OF_TRADE',
-      'MAJOR_ECONOMIC_SHOCKS',
+      'TRADE',
+      'FISCAL',
+      'HOUSING',
+      'CONSUMPTION',
+      'BUSINESS_ACTIVITY',
+      'CENTRAL_BANK',
       'MARKET_EXPECTATIONS'
     ];
 
@@ -595,7 +616,9 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
               sourceName: source,
               sourceUrl,
               sourceStatus: 'CONNECTED',
+              publishedAt: scheduledTime,
               fetchedAt: nowIso,
+              freshness: 'FRESH',
               dataStatus: 'AVAILABLE',
               provenance: `Finance Calendar Live API (${sourceUrl})`,
               classification: 'FACT',

@@ -8,7 +8,16 @@ import {
   Database
 } from 'lucide-react';
 
-export type NavTab = 'dashboard' | 'currencies' | 'pairs' | 'sessions' | 'calendar' | 'sources';
+export type NavTab =
+  | 'dashboard'
+  | 'currencies'
+  | 'pairs'
+  | 'opportunities'
+  | 'contradictions'
+  | 'central-banks'
+  | 'sessions'
+  | 'calendar'
+  | 'sources';
 
 interface BottomNavProps {
   currentTab: NavTab;
@@ -20,8 +29,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onSelectTab })
     { id: 'dashboard' as NavTab, label: 'Terminal', icon: LayoutDashboard },
     { id: 'currencies' as NavTab, label: 'Currencies', icon: Coins },
     { id: 'pairs' as NavTab, label: 'Pairs', icon: ArrowLeftRight },
+    { id: 'opportunities' as NavTab, label: 'Opportunities', icon: Calendar },
     { id: 'sessions' as NavTab, label: 'Sessions', icon: Clock },
-    { id: 'calendar' as NavTab, label: 'Calendar', icon: Calendar },
     { id: 'sources' as NavTab, label: 'Sources', icon: Database },
   ];
 

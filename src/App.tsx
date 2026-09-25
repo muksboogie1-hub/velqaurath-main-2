@@ -5,7 +5,10 @@ import {
   ArrowLeftRight,
   Clock,
   Calendar,
-  Database
+  Database,
+  Compass,
+  AlertTriangle,
+  Landmark
 } from 'lucide-react';
 import { globalStore } from './data/store';
 import { DashboardPayload, PairIntelligence, StrengthThresholds } from './types';
@@ -23,6 +26,9 @@ import { ThresholdsModal } from './ui/ThresholdsModal';
 import { DataSourcesModal } from './ui/DataSourcesModal';
 import { PairsList } from './ui/PairsList';
 import { SessionsView } from './ui/SessionsView';
+import { CentralBanksPanel } from './ui/CentralBanksPanel';
+import { OpportunitiesView } from './ui/OpportunitiesView';
+import { ContradictionsView } from './ui/ContradictionsView';
 
 export function App() {
   const [dashboard, setDashboard] = useState<DashboardPayload>(() => globalStore.getDashboard());
@@ -161,7 +167,10 @@ export function App() {
 
   const navItems = [
     { id: 'dashboard' as NavTab, label: 'Terminal', icon: LayoutDashboard },
+    { id: 'opportunities' as NavTab, label: 'Opportunities', icon: Compass },
     { id: 'currencies' as NavTab, label: 'Currencies', icon: Coins },
+    { id: 'central-banks' as NavTab, label: 'Central Banks', icon: Landmark },
+    { id: 'contradictions' as NavTab, label: 'Contradictions', icon: AlertTriangle },
     { id: 'pairs' as NavTab, label: 'Pairs Matrix', icon: ArrowLeftRight },
     { id: 'sessions' as NavTab, label: 'Sessions', icon: Clock },
     { id: 'calendar' as NavTab, label: 'Calendar', icon: Calendar },
@@ -268,6 +277,28 @@ export function App() {
               onSelectCurrency={(code) => setSelectedCurrency(code)}
             />
           </div>
+        )}
+
+        {currentTab === 'opportunities' && (
+          <OpportunitiesView
+            pairIntelligences={pairIntelligences}
+            onSelectPair={(symbol) => setSelectedPair(symbol)}
+            onSelectCurrency={(code) => setSelectedCurrency(code)}
+          />
+        )}
+
+        {currentTab === 'central-banks' && (
+          <CentralBanksPanel
+            onSelectCurrency={(code) => setSelectedCurrency(code)}
+          />
+        )}
+
+        {currentTab === 'contradictions' && (
+          <ContradictionsView
+            pairIntelligences={pairIntelligences}
+            onSelectPair={(symbol) => setSelectedPair(symbol)}
+            onSelectCurrency={(code) => setSelectedCurrency(code)}
+          />
         )}
 
         {currentTab === 'pairs' && (

@@ -112,6 +112,8 @@ export function evaluateCurrencyState(
     thresholds,
     dailyMovementPercent: marketStrengthResult.dailyMovementPercent,
     basketRelativeMovementPercent: marketStrengthResult.basketRelativeMovementPercent,
+    marketDataFreshness: 'FRESH',
+    marketDataSource: marketStrengthResult.source,
     momentum,
     timeframe: `Live Basket (${marketStrengthResult.source})`,
     explanation: marketStrengthResult.explanation,
@@ -234,8 +236,14 @@ export function evaluateCurrencyState(
 
   return {
     currency,
+    dailyMovementPercent: marketStrengthResult.dailyMovementPercent,
+    basketRelativeMovementPercent: marketStrengthResult.basketRelativeMovementPercent,
     marketStrength: rawMarketStrength,
     marketState,
+    classification: marketState,
+    marketDataFreshness: 'FRESH',
+    marketDataSource: marketStrengthResult.source,
+    coverage: marketStrengthResult.coverage,
     relativeStrengthBreakdown: breakdown,
     fundamentalState: fundamentals,
     centralBank,
@@ -247,6 +255,7 @@ export function evaluateCurrencyState(
       lastVerified: new Date().toISOString()
     },
     supportingEvidence: supporting,
+    opposingEvidence: conflicting,
     conflictingEvidence: conflicting,
     observations: relevantObs
   };

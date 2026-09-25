@@ -113,22 +113,39 @@ export function evaluatePairIntelligence(
 
     const fallbackIntel = {
       pair,
+      symbol: pair.symbol,
       baseCurrency: baseState.currency,
       quoteCurrency: quoteState.currency,
       baseState,
       quoteState,
+      baseMarketStrength: baseState.marketStrength,
+      quoteMarketStrength: quoteState.marketStrength,
+      marketStrengthDifferential: null,
+      baseFundamentalEvidence: baseState.supportingEvidence || [],
+      quoteFundamentalEvidence: quoteState.supportingEvidence || [],
+      baseCentralBank: baseState.centralBank,
+      quoteCentralBank: quoteState.centralBank,
+      policyDifferential: null,
+      expectationDifferential: null,
+      sessionContext: sessionRel,
       relativeStrengthDelta: null,
       orientationDirection: 'DATA_UNAVAILABLE' as const,
+      orientation: 'DATA_INSUFFICIENT' as const,
       orientationExplanation,
       convergenceDivergence: 'DATA_UNAVAILABLE' as const,
       convergenceExplanation:
         'Convergence analysis suspended until real market and fundamental feeds are connected.',
       supportingEvidence: [],
       counterEvidence: [],
+      opposingEvidence: [],
       catalysts: [],
+      contradictions: [],
       risks: ['Market data feed not configured or offline; pair monitoring inactive.'],
       thesis: 'DATA UNAVAILABLE: Connect verified market provider to generate actionable pair thesis.',
       invalidationConditions: ['Awaiting data feed initialization.'],
+      confidence: 'DATA_UNAVAILABLE' as const,
+      dataQuality: 'UNAVAILABLE' as const,
+      freshness: 'UNAVAILABLE' as const,
       sessionRelevance: {
         primarySession: sessionRel.primarySession,
         relevantSessions: sessionRel.relevantSessions,
@@ -523,21 +540,71 @@ export function evaluatePairIntelligence(
     isDataFeedConnected: true
   });
 
+  // Detailed Pair Orientation Classification
+  let detailedOrientation:
+    | 'DIRECTIONAL_STRENGTH_ALIGNMENT'
+    | 'DIRECTIONAL_FUNDAMENTAL_ALIGNMENT'
+    | 'COMPLETE_CONFLUENCE'
+    | 'DIVERGENT'
+    | 'CONTRADICTORY'
+    | 'UNRESOLVED'
+    | 'DATA_INSUFFICIENT';
+  const macroDifferentialScore = fundamentalDifferential?.fundamentalDifferential?.delta ?? fundDelta ?? null;
+
+  if (relativeStrengthDelta === null || (orientationDirection as string) === 'DATA_UNAVAILABLE') {
+    detailedOrientation = 'DATA_INSUFFICIENT';
+  } else if (structuredContradictions.some((c) => c.severity === 'HIGH')) {
+    detailedOrientation = 'CONTRADICTORY';
+  } else if (
+    macroDifferentialScore !== null &&
+    ((relativeStrengthDelta >= 0.10 && macroDifferentialScore < -0.04) ||
+      (relativeStrengthDelta <= -0.10 && macroDifferentialScore > 0.04))
+  ) {
+    detailedOrientation = 'DIVERGENT';
+  } else if (
+    macroDifferentialScore !== null &&
+    ((relativeStrengthDelta >= 0.10 && macroDifferentialScore >= 0.04) ||
+      (relativeStrengthDelta <= -0.10 && macroDifferentialScore <= -0.04))
+  ) {
+    detailedOrientation = 'COMPLETE_CONFLUENCE';
+  } else if (Math.abs(relativeStrengthDelta) >= 0.10) {
+    detailedOrientation = 'DIRECTIONAL_STRENGTH_ALIGNMENT';
+  } else if (macroDifferentialScore !== null && Math.abs(macroDifferentialScore) >= 0.06) {
+    detailedOrientation = 'DIRECTIONAL_FUNDAMENTAL_ALIGNMENT';
+  } else {
+    detailedOrientation = 'UNRESOLVED';
+  }
+
   const pairIntel: PairIntelligence = {
     pair,
+    symbol: pair.symbol,
     baseCurrency: baseState.currency,
     quoteCurrency: quoteState.currency,
     baseState,
     quoteState,
+    baseMarketStrength: baseState.marketStrength,
+    quoteMarketStrength: quoteState.marketStrength,
+    marketStrengthDifferential: relativeStrengthDelta,
+    baseFundamentalEvidence: baseState.supportingEvidence,
+    quoteFundamentalEvidence: quoteState.supportingEvidence,
+    fundamentalDifferential,
+    baseCentralBank: baseState.centralBank,
+    quoteCentralBank: quoteState.centralBank,
+    policyDifferential: fundamentalDifferential?.policyDifferential,
+    expectationDifferential: fundamentalDifferential?.expectationsDifferential,
+    sessionContext: sessionRel,
     relativeStrengthDelta,
     orientationDirection,
+    orientation: detailedOrientation,
     orientationExplanation,
     convergenceDivergence,
     convergenceExplanation,
     supportingEvidence: supporting,
+    opposingEvidence: counter,
     counterEvidence: counter,
     catalysts: pairEvents,
     catalystIntelligence,
+    contradictions: structuredContradictions,
     risks,
     thesis,
     structuredThesis,
@@ -552,8 +619,10 @@ export function evaluatePairIntelligence(
     watchWindow,
     lastUpdated: new Date().toISOString(),
     sources,
-    fundamentalDifferential,
-    confluence
+    confluence,
+    confidence: confluence?.directionalConfidence || 'LOW',
+    dataQuality: (confluence?.dataQuality as any) || 'COMPLETE',
+    freshness: 'FRESH'
   };
 
   pairIntel.structuredOpportunity = evaluatePairOpportunity(pairIntel);

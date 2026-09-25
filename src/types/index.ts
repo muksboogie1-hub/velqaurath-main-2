@@ -39,6 +39,15 @@ export type PairOrientationDirection =
   | 'NEUTRAL'
   | 'DATA_UNAVAILABLE';
 
+export type DetailedPairOrientation =
+  | 'DIRECTIONAL_STRENGTH_ALIGNMENT'
+  | 'DIRECTIONAL_FUNDAMENTAL_ALIGNMENT'
+  | 'COMPLETE_CONFLUENCE'
+  | 'DIVERGENT'
+  | 'CONTRADICTORY'
+  | 'UNRESOLVED'
+  | 'DATA_INSUFFICIENT';
+
 export type OrientationDirection = PairOrientationDirection;
 
 export type ConvergenceDivergenceState =
@@ -211,6 +220,8 @@ export interface RelativeStrengthBreakdown {
   thresholds: { strongThreshold: number; weakThreshold: number };
   dailyMovementPercent?: number | null;
   basketRelativeMovementPercent?: number | null;
+  marketDataFreshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE';
+  marketDataSource?: string;
   momentum: number | null;
   timeframe: string;
   explanation: string;
@@ -234,8 +245,14 @@ export interface RelativeStrengthBreakdown {
 
 export interface CurrencyState {
   currency: Currency;
+  dailyMovementPercent?: number | null;
+  basketRelativeMovementPercent?: number | null;
   marketStrength: number | null;
   marketState: StrengthClassification;
+  classification?: StrengthClassification;
+  marketDataFreshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE';
+  marketDataSource?: string;
+  coverage?: any;
   relativeStrengthBreakdown: RelativeStrengthBreakdown;
   fundamentalState: MacroFundamentals | CurrencyFundamentals;
   centralBank: CentralBank;
@@ -247,7 +264,10 @@ export interface CurrencyState {
     lastVerified: string | null;
   };
   supportingEvidence: string[];
+  opposingEvidence?: string[];
   conflictingEvidence: string[];
+  unresolvedFactors?: string[];
+  dataGaps?: string[];
   observations?: EconomicObservation[];
 }
 
@@ -330,26 +350,43 @@ export interface ConfluenceAssessment {
 
 export interface PairIntelligence {
   pair: Pair;
+  symbol: string;
   baseCurrency: Currency;
   quoteCurrency: Currency;
   baseState: CurrencyState;
   quoteState: CurrencyState;
+  baseMarketStrength: number | null;
+  quoteMarketStrength: number | null;
+  marketStrengthDifferential: number | null;
   relativeStrengthDelta: number | null;
+  baseFundamentalEvidence?: string[] | any;
+  quoteFundamentalEvidence?: string[] | any;
+  fundamentalDifferential?: FundamentalDifferential;
+  baseCentralBank?: CentralBank | import('./fundamentals').CentralBankProfile;
+  quoteCentralBank?: CentralBank | import('./fundamentals').CentralBankProfile;
+  policyDifferential?: any;
+  expectationDifferential?: any;
+  sessionContext?: PairSessionRelevance;
   orientationDirection: PairOrientationDirection;
+  orientation: DetailedPairOrientation | PairOrientationDirection;
   orientationExplanation: string;
   convergenceDivergence: ConvergenceDivergenceState;
   convergenceExplanation: string;
   supportingEvidence: string[];
+  opposingEvidence: string[];
   counterEvidence: string[];
+  contradictions: import('./intelligence').StructuredContradiction[];
   catalysts: EconomicEvent[];
   risks: string[];
   thesis: string;
   invalidationConditions: string[];
   sessionRelevance: PairSessionRelevance;
   watchWindow: WatchWindow;
+  dataQuality: string;
+  freshness: string;
+  confidence: DirectionalConfidenceLevel;
   lastUpdated: string;
   sources: { name: string; url: string; classification: ObservationClassification }[];
-  fundamentalDifferential?: FundamentalDifferential;
   confluence?: ConfluenceAssessment;
   structuredThesis?: import('./intelligence').StructuredThesis;
   structuredInvalidation?: import('./intelligence').StructuredInvalidationCondition[];

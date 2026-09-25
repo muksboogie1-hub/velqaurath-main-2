@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx tests/engine.test.ts && tsx tests/biquote.test.ts && tsx tests/fundamentals.test.ts && tsx tests/confluence.test.ts && tsx tests/liveFundamentalPipeline.test.ts && tsx tests/intelligenceArchitecture.test.ts && tsx tests/marketDataPipeline.test.ts"
+    "test": "tsx tests/engine.test.ts && tsx tests/biquote.test.ts && tsx tests/fundamentals.test.ts && tsx tests/confluence.test.ts && tsx tests/liveFundamentalPipeline.test.ts && tsx tests/intelligenceArchitecture.test.ts && tsx tests/marketDataPipeline.test.ts && tsx tests/stage2Verification.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

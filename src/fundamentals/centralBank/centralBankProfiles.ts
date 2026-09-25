@@ -87,6 +87,7 @@ export function buildCentralBankProfile(
   if (!meta) {
     return {
       id: `cb-${code.toLowerCase()}`,
+      bank: `Central Bank of ${code}`,
       institution: `Central Bank of ${code}`,
       currency: code,
       associatedCurrency: code,
@@ -94,17 +95,24 @@ export function buildCentralBankProfile(
       currentPolicyRate: null,
       previousPolicyRate: null,
       latestDecisionDate: null,
+      lastKnownPolicyEvent: null,
       nextKnownDecisionDate: null,
       stance: 'UNAVAILABLE',
+      policyStance: 'UNAVAILABLE',
+      policyDirection: 'UNAVAILABLE',
       stanceEvidence: [],
       guidanceSummary: null,
       latestPolicyStatement: null,
       majorRisks: [],
       source: 'Primary Central Bank',
+      sourceType: 'UNAVAILABLE',
       sourceUrl: '',
       fetchedTimestamp: new Date().toISOString(),
+      freshness: 'UNAVAILABLE',
+      dataSourceMode: 'UNAVAILABLE',
       dataStatus: 'NOT_CONFIGURED',
-      provenance: `Unconfigured central bank entity for ${code}`
+      provenance: `Unconfigured central bank entity for ${code}`,
+      ...overrides
     };
   }
 
@@ -115,6 +123,7 @@ export function buildCentralBankProfile(
   if (!existing) {
     return {
       id: `cb-${code.toLowerCase()}`,
+      bank: meta.institution,
       institution: meta.institution,
       currency: code,
       associatedCurrency: code,
@@ -122,25 +131,50 @@ export function buildCentralBankProfile(
       currentPolicyRate: null,
       previousPolicyRate: null,
       latestDecisionDate: null,
+      lastKnownPolicyEvent: null,
       nextKnownDecisionDate: null,
       stance: 'UNAVAILABLE',
+      policyStance: 'UNAVAILABLE',
+      policyDirection: 'UNAVAILABLE',
       stanceEvidence: [],
       guidanceSummary: null,
       latestPolicyStatement: null,
       majorRisks: [],
       source: meta.source,
+      sourceType: 'UNAVAILABLE',
       sourceUrl: meta.sourceUrl,
       fetchedTimestamp: new Date().toISOString(),
+      freshness: 'UNAVAILABLE',
+      dataSourceMode: 'UNAVAILABLE',
       dataStatus: 'UNAVAILABLE',
-      provenance: `No active official policy record found for ${meta.institution}`
+      provenance: `No active official policy record found for ${meta.institution}`,
+      ...overrides
     };
   }
 
   const dataStatus: FundamentalDataStatus =
     existing.sourceMetadata.status === 'CONNECTED' ? 'AVAILABLE' : 'NOT_CONFIGURED';
 
+  let policyDirection: 'HIKING' | 'CUTTING' | 'HOLDING' | 'UNAVAILABLE' = 'HOLDING';
+  if (existing.currentPolicyRate !== null && existing.previousPolicyRate !== null) {
+    if (existing.currentPolicyRate > existing.previousPolicyRate) {
+      policyDirection = 'HIKING';
+    } else if (existing.currentPolicyRate < existing.previousPolicyRate) {
+      policyDirection = 'CUTTING';
+    } else {
+      policyDirection = 'HOLDING';
+    }
+  } else {
+    policyDirection = 'UNAVAILABLE';
+  }
+
+  const sourceType = overrides?.sourceType ?? 'REFERENCE';
+  const dataSourceMode = overrides?.dataSourceMode ?? 'REFERENCE';
+  const freshness = overrides?.freshness ?? 'FRESH';
+
   return {
     id: existing.id,
+    bank: existing.institution,
     institution: existing.institution,
     currency: code,
     associatedCurrency: code,
@@ -148,17 +182,23 @@ export function buildCentralBankProfile(
     currentPolicyRate: existing.currentPolicyRate,
     previousPolicyRate: existing.previousPolicyRate,
     latestDecisionDate: existing.latestDecisionDate,
+    lastKnownPolicyEvent: existing.latestDecisionDate,
     nextKnownDecisionDate: existing.nextKnownDecisionDate,
     stance: existing.stance,
+    policyStance: existing.stance,
+    policyDirection,
     stanceEvidence: existing.stanceEvidence,
     guidanceSummary: existing.guidanceSummary,
     latestPolicyStatement: existing.guidanceSummary,
     majorRisks: existing.majorRisks,
     source: existing.sourceMetadata.sourceName || meta.source,
+    sourceType,
     sourceUrl: existing.sourceMetadata.sourceUrl || meta.sourceUrl,
     fetchedTimestamp: existing.sourceMetadata.lastUpdated || new Date().toISOString(),
+    freshness,
+    dataSourceMode,
     dataStatus,
-    provenance: `Verified official policy release from ${existing.institution}`,
+    provenance: `Official policy release benchmark & archive from ${existing.institution} (${sourceType})`,
     ...overrides
   };
 }

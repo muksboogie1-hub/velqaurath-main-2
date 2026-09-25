@@ -116,6 +116,20 @@ app.get('/api/catalysts', (req, res) => {
   res.json(VelqoarathApiService.getCatalystIntelligence(currency));
 });
 
+app.get('/api/contradictions', (_req, res) => {
+  const all = VelqoarathApiService.getAllPairIntelligences();
+  const contradictions: any[] = [];
+  all.forEach((p) => {
+    (p.structuredContradictions || []).forEach((c) => {
+      contradictions.push({
+        pairSymbol: p.pair.symbol,
+        ...c
+      });
+    });
+  });
+  res.json(contradictions);
+});
+
 // ----------------------------------------------------
 // PHASE B: FUNDAMENTALS API
 // ----------------------------------------------------

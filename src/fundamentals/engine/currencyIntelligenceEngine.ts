@@ -28,6 +28,12 @@ export interface CurrencyIntelligenceParams {
   observations: FundamentalObservation[];
   centralBank?: CentralBankProfile;
   marketStrength?: number | null;
+  dailyMovementPercent?: number | null;
+  basketRelativeMovementPercent?: number | null;
+  classification?: import('../../marketData/types').StrengthClassification;
+  marketDataFreshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE';
+  marketDataSource?: string;
+  coverage?: any;
   upcomingEvents?: EconomicEvent[];
   isDataFeedConnected?: boolean;
 }
@@ -39,9 +45,29 @@ export function evaluateCurrencyFundamentalIntelligence(
     currency,
     observations,
     marketStrength = null,
+    dailyMovementPercent = null,
+    basketRelativeMovementPercent = null,
+    classification: explicitClassification,
+    marketDataFreshness = 'FRESH',
+    marketDataSource = 'Biquote',
+    coverage = null,
     upcomingEvents = [],
     isDataFeedConnected = true
   } = params;
+
+  // Strict market classification rule: >= +0.10% STRONG, <= -0.10% WEAK, between NEUTRAL
+  let classification: import('../../marketData/types').StrengthClassification = 'DATA_UNAVAILABLE';
+  if (marketStrength !== null && marketStrength !== undefined) {
+    if (marketStrength >= 0.10) {
+      classification = 'STRONG';
+    } else if (marketStrength <= -0.10) {
+      classification = 'WEAK';
+    } else {
+      classification = 'NEUTRAL';
+    }
+  } else if (explicitClassification) {
+    classification = explicitClassification;
+  }
 
   const cbProfile = params.centralBank || buildCentralBankProfile(currency.code);
 
@@ -49,7 +75,7 @@ export function evaluateCurrencyFundamentalIntelligence(
     (o) => o.currency.toUpperCase() === currency.code.toUpperCase()
   );
 
-  // Group observations by the 10 fundamental categories
+  // Group observations by macro dimensions
   const categoriesMap: Record<
     FundamentalCategory,
     {
@@ -63,10 +89,18 @@ export function evaluateCurrencyFundamentalIntelligence(
 
   const dataGaps: string[] = [];
 
+  // Map each category
   for (const catDef of FUNDAMENTAL_CATEGORIES) {
-    const catObs = currObs.filter((o) => o.category === catDef.id);
+    // Match observations by category, including aliases (e.g. CENTRAL_BANK vs CENTRAL_BANK_MONETARY_POLICY)
+    const catObs = currObs.filter(
+      (o) =>
+        o.category === catDef.id ||
+        (catDef.id === 'CENTRAL_BANK' && o.category === 'CENTRAL_BANK_MONETARY_POLICY') ||
+        (catDef.id === 'TRADE' && o.category === 'TRADE_EXTERNAL_BALANCE') ||
+        (catDef.id === 'FISCAL' && o.category === 'FISCAL_GOVERNMENT')
+    );
 
-    if (catDef.id === 'CENTRAL_BANK_MONETARY_POLICY') {
+    if (catDef.id === 'CENTRAL_BANK' || catDef.id === 'CENTRAL_BANK_MONETARY_POLICY') {
       const isCbAvailable = cbProfile.dataStatus === 'AVAILABLE' || cbProfile.dataStatus === 'LIVE';
       categoriesMap[catDef.id] = {
         category: catDef.id,
@@ -76,7 +110,7 @@ export function evaluateCurrencyFundamentalIntelligence(
         summary: isCbAvailable
           ? `${cbProfile.institution}: Policy rate at ${
               cbProfile.policyRate !== null ? `${cbProfile.policyRate}%` : 'N/A'
-            }. Stance: ${cbProfile.stance}.`
+            }. Stance: ${cbProfile.stance} (${cbProfile.sourceType || 'REFERENCE'}).`
           : 'Central bank policy data not connected.'
       };
       if (!isCbAvailable) {
@@ -97,9 +131,9 @@ export function evaluateCurrencyFundamentalIntelligence(
         name: catDef.name,
         status: 'NOT_CONFIGURED',
         observations: [],
-        summary: `No authenticated statistical series currently configured for ${catDef.name.toLowerCase()}.`
+        summary: `No live authenticated statistical series currently available for ${catDef.name.toLowerCase()}.`
       };
-      dataGaps.push(`${catDef.name}: No authenticated economic release series connected.`);
+      dataGaps.push(`${catDef.name}: No live economic release series currently populated.`);
     }
   }
 
@@ -111,10 +145,10 @@ export function evaluateCurrencyFundamentalIntelligence(
   let unknownCount = 0;
 
   for (const obs of currObs) {
-    const meta = ECONOMIC_INDICATORS.find((i) => i.id === obs.indicatorId || i.code === obs.indicatorId);
+    const meta = ECONOMIC_INDICATORS.find((i) => i.id === obs.indicatorId || i.code === obs.indicatorId || i.name === obs.indicatorName);
     const legacyObs = {
       ...obs,
-      sourceName: obs.source,
+      sourceName: obs.source || (obs as any).sourceName,
       sourceStatus: (obs.dataStatus === 'AVAILABLE' || obs.dataStatus === 'LIVE' ? 'CONNECTED' : 'NOT_CONNECTED') as 'CONNECTED' | 'NOT_CONNECTED'
     };
     const analysis = analyzeObservationExpectations(legacyObs as any, meta);
@@ -159,20 +193,48 @@ export function evaluateCurrencyFundamentalIntelligence(
   const supportingFactors: string[] = [];
   const opposingFactors: string[] = [];
   const unresolvedFactors: string[] = [];
+  const structuredSupportingFactors: import('../../types/fundamentals').StructuredEvidenceFactor[] = [];
+  const structuredOpposingFactors: import('../../types/fundamentals').StructuredEvidenceFactor[] = [];
+  const structuredUnresolvedFactors: import('../../types/fundamentals').StructuredEvidenceFactor[] = [];
 
   // Central bank factors
   if (cbProfile.stance === 'HAWKISH') {
-    supportingFactors.push(
-      `${cbProfile.institution} maintains a restrictive HAWKISH stance (policy rate: ${cbProfile.policyRate}%).`
-    );
+    const text = `${cbProfile.institution} maintains a restrictive HAWKISH stance (policy rate: ${cbProfile.policyRate}%).`;
+    supportingFactors.push(text);
+    structuredSupportingFactors.push({
+      what: `${cbProfile.institution} Hawkish Policy Stance`,
+      why: `Restrictive interest rate settings (${cbProfile.policyRate}%) support currency valuation.`,
+      source: cbProfile.source,
+      type: 'POLICY',
+      freshness: cbProfile.freshness || 'FRESH',
+      category: 'CENTRAL_BANK',
+      metric: 'Policy Rate',
+      value: cbProfile.policyRate
+    });
   } else if (cbProfile.stance === 'DOVISH') {
-    opposingFactors.push(
-      `${cbProfile.institution} is pursuing monetary accommodation (DOVISH stance, policy rate: ${cbProfile.policyRate}%).`
-    );
+    const text = `${cbProfile.institution} is pursuing monetary accommodation (DOVISH stance, policy rate: ${cbProfile.policyRate}%).`;
+    opposingFactors.push(text);
+    structuredOpposingFactors.push({
+      what: `${cbProfile.institution} Dovish Easing Stance`,
+      why: `Monetary accommodation (${cbProfile.policyRate}%) acts as a relative yield headwind.`,
+      source: cbProfile.source,
+      type: 'POLICY',
+      freshness: cbProfile.freshness || 'FRESH',
+      category: 'CENTRAL_BANK',
+      metric: 'Policy Rate',
+      value: cbProfile.policyRate
+    });
   } else if (cbProfile.stance === 'NEUTRAL') {
-    unresolvedFactors.push(
-      `${cbProfile.institution} holds a neutral stance pending clearer macroeconomic signals.`
-    );
+    const text = `${cbProfile.institution} holds a neutral stance pending clearer macroeconomic signals.`;
+    unresolvedFactors.push(text);
+    structuredUnresolvedFactors.push({
+      what: `${cbProfile.institution} Neutral Policy Stance`,
+      why: 'Balanced dual mandate risks prevent decisive monetary policy direction.',
+      source: cbProfile.source,
+      type: 'POLICY',
+      freshness: cbProfile.freshness || 'FRESH',
+      category: 'CENTRAL_BANK'
+    });
   }
 
   cbProfile.stanceEvidence.forEach((ev) => {
@@ -181,33 +243,94 @@ export function evaluateCurrencyFundamentalIntelligence(
     else unresolvedFactors.push(ev);
   });
 
-  // Indicator surprise factors
+  // Indicator surprise factors (Fact vs Interpretation separated)
   for (const item of expItems) {
     if (item.surpriseType === 'ABOVE_EXPECTATION') {
-      if (item.category === 'INFLATION' || item.category === 'GROWTH' || item.category === 'EMPLOYMENT') {
-        supportingFactors.push(
-          `${item.indicatorName}: Actual (${item.actual}${item.unit}) beat consensus (${item.forecast}${item.unit}), demonstrating macroeconomic momentum.`
-        );
-      }
+      const text = `${item.indicatorName}: Actual (${item.actual}${item.unit}) beat consensus (${item.forecast}${item.unit}), demonstrating macroeconomic momentum.`;
+      supportingFactors.push(text);
+      structuredSupportingFactors.push({
+        what: `${item.indicatorName} Beat Consensus`,
+        why: item.monetaryPolicyImplication || 'Upside economic print demonstrates macroeconomic momentum.',
+        source: 'Finance Calendar',
+        type: 'FACT',
+        freshness: 'FRESH',
+        category: item.category,
+        metric: item.indicatorName,
+        value: item.actual
+      });
     } else if (item.surpriseType === 'BELOW_EXPECTATION') {
-      opposingFactors.push(
-        `${item.indicatorName}: Actual (${item.actual}${item.unit}) missed consensus (${item.forecast}${item.unit}), pointing to underlying softening.`
-      );
+      const text = `${item.indicatorName}: Actual (${item.actual}${item.unit}) missed consensus (${item.forecast}${item.unit}), pointing to underlying softening.`;
+      opposingFactors.push(text);
+      structuredOpposingFactors.push({
+        what: `${item.indicatorName} Missed Consensus`,
+        why: item.monetaryPolicyImplication || 'Downside economic print points to underlying softening.',
+        source: 'Finance Calendar',
+        type: 'FACT',
+        freshness: 'FRESH',
+        category: item.category,
+        metric: item.indicatorName,
+        value: item.actual
+      });
     }
   }
 
-  // Commodity exposure notes
+  // Commodity / Terms of Trade context
   const code = currency.code.toUpperCase();
   if (code === 'AUD') {
-    supportingFactors.push('Key export driver: High terms-of-trade exposure to iron ore, metallurgical coal, and Asian industrial output.');
+    const text = 'Key export driver: High terms-of-trade exposure to iron ore, metallurgical coal, and Asian industrial output.';
+    supportingFactors.push(text);
+    structuredSupportingFactors.push({
+      what: 'Terms-of-Trade Commodity Exposure',
+      why: 'High sensitivity to iron ore and industrial commodity export receipts.',
+      source: 'Reserve Bank of Australia / Trade Statistics',
+      type: 'FACT',
+      freshness: 'FRESH',
+      category: 'TRADE'
+    });
   } else if (code === 'CAD') {
-    supportingFactors.push('Key export driver: Commodity correlation with crude oil (Western Canadian Select) and energy trade flows.');
+    const text = 'Key export driver: Commodity correlation with crude oil (Western Canadian Select) and energy trade flows.';
+    supportingFactors.push(text);
+    structuredSupportingFactors.push({
+      what: 'Energy Commodity Export Exposure',
+      why: 'Crude oil terms-of-trade and energy trade flows heavily influence terms of trade.',
+      source: 'Bank of Canada / StatCan',
+      type: 'FACT',
+      freshness: 'FRESH',
+      category: 'TRADE'
+    });
   } else if (code === 'NZD') {
-    supportingFactors.push('Key export driver: Agricultural terms-of-trade reliance on global dairy trade (GDT auction index).');
+    const text = 'Key export driver: Agricultural terms-of-trade reliance on global dairy trade (GDT auction index).';
+    supportingFactors.push(text);
+    structuredSupportingFactors.push({
+      what: 'Agricultural Terms-of-Trade Driver',
+      why: 'Dairy trade auction prices drive national export revenues.',
+      source: 'Global Dairy Trade / RBNZ',
+      type: 'FACT',
+      freshness: 'FRESH',
+      category: 'TRADE'
+    });
   } else if (code === 'JPY' || code === 'EUR') {
-    opposingFactors.push('Macro vulnerability: Net energy importer; elevated global commodity prices act as terms-of-trade drag.');
+    const text = 'Macro vulnerability: Net energy importer; elevated global commodity prices act as terms-of-trade drag.';
+    opposingFactors.push(text);
+    structuredOpposingFactors.push({
+      what: 'Net Energy Import Sensitivity',
+      why: 'Elevated global energy commodity prices produce a negative terms-of-trade effect.',
+      source: 'National Accounts Trade Data',
+      type: 'FACT',
+      freshness: 'FRESH',
+      category: 'TRADE'
+    });
   } else if (code === 'CHF') {
-    supportingFactors.push('Safe-haven profile: Structural current account surplus and safe-haven reserve asset characteristics.');
+    const text = 'Safe-haven profile: Structural current account surplus and safe-haven reserve asset characteristics.';
+    supportingFactors.push(text);
+    structuredSupportingFactors.push({
+      what: 'Structural Current Account Surplus',
+      why: 'Consistent trade surplus and safe-haven reserve status attract defensive capital flows.',
+      source: 'Swiss National Bank',
+      type: 'FACT',
+      freshness: 'FRESH',
+      category: 'TRADE'
+    });
   }
 
   // Upcoming catalysts
@@ -244,14 +367,23 @@ export function evaluateCurrencyFundamentalIntelligence(
 
   return {
     currency,
+    dailyMovementPercent,
+    basketRelativeMovementPercent,
     marketStrength,
+    classification,
+    marketDataFreshness,
+    marketDataSource,
+    coverage,
     fundamentalStatus,
     fundamentalScore,
     overallCondition,
     supportingFactors,
+    structuredSupportingFactors,
     opposingFactors,
+    structuredOpposingFactors,
     catalysts,
     unresolvedFactors,
+    structuredUnresolvedFactors,
     dataGaps,
     centralBankStance: cbProfile.stance,
     centralBankProfile: cbProfile,

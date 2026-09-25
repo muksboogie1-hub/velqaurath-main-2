@@ -82,16 +82,19 @@ export interface StructuredContradiction {
   pair: string;
   currency: string;
   category: ContradictionCategory;
+  contradictionType: ContradictionCategory;
   sourceA: string;
   sourceB: string;
   statementA: string;
   statementB: string;
   conflictDescription: string;
+  description: string;
   directionA: string;
   directionB: string;
   severity: ContradictionSeverity;
   directionalImpact: string;
   penaltyPoints: number;
+  affectedComponents: string[];
   status: ContradictionStatus;
   detectedTimestamp: string;
   sourceTimestamps: {
@@ -221,10 +224,16 @@ export type OpportunityState =
 export interface StructuredOpportunity {
   pair: string;
   state: OpportunityState;
+  opportunityClassification?: 'EXPANSION' | 'MEAN_REVERSION' | 'MONITOR_ONLY' | 'WAIT_FOR_CATALYST' | 'NO_SETUP' | 'DATA_DEFICIENT';
   directionalBias: 'BULLISH_BASE' | 'BEARISH_BASE' | 'NEUTRAL' | 'DATA_UNAVAILABLE';
   confluenceScore: number;
   directionalConfidence: string;
   whyThisPair: string;
+  watchReason: string;
+  watchFactors: string[];
+  keyCatalysts?: CatalystEvent[];
+  risks?: string[];
+  invalidationRules?: string[];
   supportingFactors: string[];
   counterFactors: string[];
   currentRisks: string[];
