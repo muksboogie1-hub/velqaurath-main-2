@@ -95,6 +95,21 @@ export const PairsList: React.FC<PairsListProps> = ({
                       · Conf: {item.confluence.confluenceScore}
                     </span>
                   )}
+                  {item.structuredOpportunity && (
+                    <span
+                      className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-bold font-mono ${
+                        item.structuredOpportunity.state === 'PRIMARY_WATCH'
+                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                          : item.structuredOpportunity.state === 'SECONDARY_WATCH'
+                          ? 'bg-sky-950 text-sky-300 border border-sky-800'
+                          : item.structuredOpportunity.state === 'WAIT'
+                          ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                          : 'bg-neutral-800 text-neutral-400'
+                      }`}
+                    >
+                      {item.structuredOpportunity.state.replace(/_/g, ' ')}
+                    </span>
+                  )}
                 </div>
 
                 <div className="text-right font-mono text-[10px]">

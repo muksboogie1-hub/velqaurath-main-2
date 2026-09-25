@@ -13,6 +13,11 @@ import { evaluateFundamentalDifferential } from '../../fundamentals/engine/pairD
 import { evaluateCurrencyFundamentalIntelligence } from '../../fundamentals/engine/currencyIntelligenceEngine';
 import { buildCentralBankProfile } from '../../fundamentals/centralBank/centralBankProfiles';
 import { calculatePairConfluence } from '../confluence/confluenceEngine';
+import { evaluateCatalystIntelligence, transformToCatalystEvent } from '../catalyst/catalystEngine';
+import { evaluateStructuredContradictions } from '../contradiction/contradictionEngine';
+import { evaluateStructuredInvalidation } from '../invalidation/invalidationEngine';
+import { evaluateStructuredThesis } from '../thesis/thesisEngine';
+import { evaluatePairOpportunity } from '../opportunity/opportunityEngine';
 
 export function evaluatePairIntelligence(
   pair: CurrencyPair,
@@ -154,8 +159,15 @@ export function evaluatePairIntelligence(
       })
     };
 
-    return {
+    const fallbackPairEvents = events.filter(
+      (e: EconomicEvent) => e.currency === pair.baseCurrency || e.currency === pair.quoteCurrency
+    );
+    const fallbackCatalysts = fallbackPairEvents.map((e) => transformToCatalystEvent(e, date));
+
+    const initialFallback: PairIntelligence = {
       ...fallbackIntel,
+      catalysts: fallbackPairEvents,
+      catalystIntelligence: fallbackCatalysts,
       confluence: calculatePairConfluence({
         pair,
         baseState,
@@ -167,6 +179,44 @@ export function evaluatePairIntelligence(
         isDataFeedConnected: false
       })
     };
+
+    const structuredInv = evaluateStructuredInvalidation({
+      pair,
+      baseState,
+      quoteState,
+      relativeStrengthDelta: null,
+      orientationDirection: 'DATA_UNAVAILABLE',
+      fundamentalDiff: fallbackIntel.fundamentalDifferential,
+      isDataFeedConnected: false,
+      now: date
+    });
+
+    const structuredTh = evaluateStructuredThesis({
+      pair,
+      baseState,
+      quoteState,
+      relativeStrengthDelta: null,
+      orientationDirection: 'DATA_UNAVAILABLE',
+      supportingEvidence: [],
+      counterEvidence: fallbackIntel.counterEvidence,
+      catalysts: fallbackCatalysts,
+      contradictions: [],
+      invalidationConditions: structuredInv.conditions,
+      fundamentalDiff: fallbackIntel.fundamentalDifferential,
+      isDataFeedConnected: false,
+      now: date
+    });
+
+    const fullFallback: PairIntelligence = {
+      ...initialFallback,
+      structuredInvalidation: structuredInv.conditions,
+      structuredContradictions: [],
+      structuredThesis: structuredTh
+    };
+
+    fullFallback.structuredOpportunity = evaluatePairOpportunity(fullFallback);
+
+    return fullFallback;
   }
 
   const baseStrength = baseState.marketStrength ?? 0;
@@ -366,8 +416,30 @@ export function evaluatePairIntelligence(
     }
   ];
 
-  const baseCb = buildCentralBankProfile(pair.baseCurrency);
-  const quoteCb = buildCentralBankProfile(pair.quoteCurrency);
+  const baseCb = baseState.centralBank
+    ? buildCentralBankProfile(pair.baseCurrency, {
+        institution: baseState.centralBank.institution,
+        policyRate: baseState.centralBank.currentPolicyRate,
+        previousPolicyRate: baseState.centralBank.previousPolicyRate,
+        stance: baseState.centralBank.stance as any,
+        latestDecisionDate: baseState.centralBank.latestDecisionDate,
+        nextKnownDecisionDate: baseState.centralBank.nextKnownDecisionDate,
+        guidanceSummary: baseState.centralBank.guidanceSummary
+      })
+    : buildCentralBankProfile(pair.baseCurrency);
+
+  const quoteCb = quoteState.centralBank
+    ? buildCentralBankProfile(pair.quoteCurrency, {
+        institution: quoteState.centralBank.institution,
+        policyRate: quoteState.centralBank.currentPolicyRate,
+        previousPolicyRate: quoteState.centralBank.previousPolicyRate,
+        stance: quoteState.centralBank.stance as any,
+        latestDecisionDate: quoteState.centralBank.latestDecisionDate,
+        nextKnownDecisionDate: quoteState.centralBank.nextKnownDecisionDate,
+        guidanceSummary: quoteState.centralBank.guidanceSummary
+      })
+    : buildCentralBankProfile(pair.quoteCurrency);
+
   const baseIntel = evaluateCurrencyFundamentalIntelligence({
     currency: baseState.currency,
     observations: normBaseObs,
@@ -376,6 +448,11 @@ export function evaluatePairIntelligence(
     upcomingEvents: events,
     isDataFeedConnected: true
   });
+  if (normBaseObs.length === 0 && baseState.fundamentalState?.fundamentalScore != null) {
+    baseIntel.fundamentalScore = baseState.fundamentalState.fundamentalScore;
+    baseIntel.overallCondition = baseState.fundamentalState.overallCondition;
+  }
+
   const quoteIntel = evaluateCurrencyFundamentalIntelligence({
     currency: quoteState.currency,
     observations: normQuoteObs,
@@ -384,11 +461,54 @@ export function evaluatePairIntelligence(
     upcomingEvents: events,
     isDataFeedConnected: true
   });
+  if (normQuoteObs.length === 0 && quoteState.fundamentalState?.fundamentalScore != null) {
+    quoteIntel.fundamentalScore = quoteState.fundamentalState.fundamentalScore;
+    quoteIntel.overallCondition = quoteState.fundamentalState.overallCondition;
+  }
   const fundamentalDifferential = evaluateFundamentalDifferential({
     pair,
     baseIntel,
     quoteIntel,
     upcomingEvents: events
+  });
+
+  const { catalysts: catalystIntelligence } = evaluateCatalystIntelligence(pairEvents, undefined, date);
+
+  const { contradictions: structuredContradictions } = evaluateStructuredContradictions({
+    pair,
+    baseState,
+    quoteState,
+    relativeStrengthDelta,
+    orientationDirection,
+    fundamentalDiff: fundamentalDifferential,
+    now: date
+  });
+
+  const { conditions: structuredInvalidation } = evaluateStructuredInvalidation({
+    pair,
+    baseState,
+    quoteState,
+    relativeStrengthDelta,
+    orientationDirection,
+    fundamentalDiff: fundamentalDifferential,
+    isDataFeedConnected: true,
+    now: date
+  });
+
+  const structuredThesis = evaluateStructuredThesis({
+    pair,
+    baseState,
+    quoteState,
+    relativeStrengthDelta,
+    orientationDirection,
+    supportingEvidence: supporting,
+    counterEvidence: counter,
+    catalysts: catalystIntelligence,
+    contradictions: structuredContradictions,
+    invalidationConditions: structuredInvalidation,
+    fundamentalDiff: fundamentalDifferential,
+    isDataFeedConnected: true,
+    now: date
   });
 
   const confluence = calculatePairConfluence({
@@ -403,7 +523,7 @@ export function evaluatePairIntelligence(
     isDataFeedConnected: true
   });
 
-  return {
+  const pairIntel: PairIntelligence = {
     pair,
     baseCurrency: baseState.currency,
     quoteCurrency: quoteState.currency,
@@ -417,9 +537,13 @@ export function evaluatePairIntelligence(
     supportingEvidence: supporting,
     counterEvidence: counter,
     catalysts: pairEvents,
+    catalystIntelligence,
     risks,
     thesis,
+    structuredThesis,
     invalidationConditions,
+    structuredInvalidation,
+    structuredContradictions,
     sessionRelevance: {
       primarySession: sessionRel.primarySession,
       relevantSessions: sessionRel.relevantSessions,
@@ -431,4 +555,8 @@ export function evaluatePairIntelligence(
     fundamentalDifferential,
     confluence
   };
+
+  pairIntel.structuredOpportunity = evaluatePairOpportunity(pairIntel);
+
+  return pairIntel;
 }

@@ -457,17 +457,27 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     }
   }
 
-  // 2. Carry vs Stance Conflict
-  if (policySpread !== null) {
-    if (isBullishBase && baseStance === 'DOVISH' && policySpread > 0) {
-      contradictionPenalty += 8;
+  // 2. Policy Stance / Carry Conflict
+  if (isBullishBase && baseStance === 'DOVISH') {
+    contradictionPenalty += 8;
+    contradictionReasons.push(
+      `Monetary Policy Conflict: ${baseState.centralBank.institution} is actively pursuing monetary accommodation (DOVISH), conflicting with bullish orientation.`
+    );
+  } else if (isBearishBase && quoteStance === 'DOVISH') {
+    contradictionPenalty += 8;
+    contradictionReasons.push(
+      `Monetary Policy Conflict: ${quoteState.centralBank.institution} is actively pursuing monetary accommodation (DOVISH), conflicting with bearish orientation.`
+    );
+  } else if (policySpread !== null) {
+    if (isBullishBase && policySpread < -2.0) {
+      contradictionPenalty += 5;
       contradictionReasons.push(
-        `Policy Compression Risk: ${baseState.centralBank.institution} is actively easing despite nominal carry advantage.`
+        `Negative Carry Friction: Significant rate disadvantage of ${policySpread.toFixed(2)}% on long ${pair.baseCurrency}.`
       );
-    } else if (isBearishBase && quoteStance === 'DOVISH' && policySpread < 0) {
-      contradictionPenalty += 8;
+    } else if (isBearishBase && policySpread > 2.0) {
+      contradictionPenalty += 5;
       contradictionReasons.push(
-        `Policy Compression Risk: ${quoteState.centralBank.institution} is actively easing despite nominal carry advantage.`
+        `Negative Carry Friction: Significant rate disadvantage of +${policySpread.toFixed(2)}% against short ${pair.baseCurrency}.`
       );
     }
   }
@@ -555,6 +565,75 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
 
   const explanation = `Confluence Score: ${finalScore}/100 [${confidenceLevel} Directional Confidence for ${dirLabel}]. Component breakdown: Market Strength (+${mktPoints}/25), Fundamentals (+${fundPoints}/20), Policy & Carry (+${policyPoints}/20), Expectations (+${expPoints}/15), Session (+${sessionPoints}/10), Catalysts (+${catalystPoints}/10).${contradictionText} Data Quality factor: ${qualityFactor.toFixed(2)}× (${qualityStatus}).`;
 
+  const threeDimensionalModel = {
+    directionalEvidence: {
+      score: mktPoints + fundPoints + policyPoints + expPoints,
+      maxScore: 80,
+      factors: [
+        {
+          name: 'Market Strength Divergence',
+          rawDelta: delta,
+          contribution: mktPoints,
+          explanation: mktExplanation
+        },
+        {
+          name: 'Macro Fundamentals',
+          rawDelta: fundDelta,
+          contribution: fundPoints,
+          explanation: fundExplanation
+        },
+        {
+          name: 'Monetary Policy & Carry',
+          rawDelta: policySpread,
+          contribution: policyPoints,
+          explanation: policyComponent.explanation
+        },
+        {
+          name: 'Expectations & Surprises',
+          rawDelta: null,
+          contribution: expPoints,
+          explanation: expExplanation
+        }
+      ]
+    },
+    context: {
+      score: sessionPoints + catalystPoints,
+      maxScore: 20,
+      factors: [
+        {
+          name: 'Active Session & Overlap',
+          contribution: sessionPoints,
+          explanation: sessionExplanation
+        },
+        {
+          name: 'Catalyst Runway & Timing',
+          contribution: catalystPoints,
+          explanation: catalystExplanation
+        }
+      ]
+    },
+    riskAndUncertainty: {
+      penaltyScore: contradictionPenalty + (qualityFactor < 1.0 ? Math.round(scoreAfterPenalty * (1 - qualityFactor)) : 0),
+      riskLevel: (contradictionPenalty >= 15 ? 'HIGH' : contradictionPenalty > 0 ? 'MODERATE' : 'LOW') as 'HIGH' | 'MODERATE' | 'LOW',
+      factors: [
+        ...contradictionReasons.map((r) => ({
+          name: 'Contradiction',
+          deduction: contradictionPenalty,
+          explanation: r
+        })),
+        ...(qualityFactor < 1.0
+          ? [
+              {
+                name: 'Data Quality / Stale Quotes',
+                deduction: Math.round(scoreAfterPenalty * (1 - qualityFactor)),
+                explanation: qualityReason
+              }
+            ]
+          : [])
+      ]
+    }
+  };
+
   return {
     confluenceScore: finalScore,
     directionalConfidence: confidenceLevel,
@@ -586,6 +665,7 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     calculatedAt: nowIso,
     marketDataTimestamp,
     fundamentalDataTimestamp,
-    dataQuality: qualityStatus
+    dataQuality: qualityStatus,
+    threeDimensionalModel
   };
 }

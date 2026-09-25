@@ -13,6 +13,7 @@ import { FundamentalProviderStatus } from '../fundamentals/providers/IFundamenta
 
 export * from '../marketData/types';
 export * from './fundamentals';
+export * from './intelligence';
 export type { FundamentalProviderStatus };
 
 export type ObservationClassification =
@@ -323,6 +324,7 @@ export interface ConfluenceAssessment {
   marketDataTimestamp: string | null;
   fundamentalDataTimestamp: string | null;
   dataQuality: string;
+  threeDimensionalModel?: import('./intelligence').ThreeDimensionalConfluence;
 }
 
 export interface PairIntelligence {
@@ -348,6 +350,11 @@ export interface PairIntelligence {
   sources: { name: string; url: string; classification: ObservationClassification }[];
   fundamentalDifferential?: FundamentalDifferential;
   confluence?: ConfluenceAssessment;
+  structuredThesis?: import('./intelligence').StructuredThesis;
+  structuredInvalidation?: import('./intelligence').StructuredInvalidationCondition[];
+  structuredContradictions?: import('./intelligence').StructuredContradiction[];
+  catalystIntelligence?: import('./intelligence').CatalystEvent[];
+  structuredOpportunity?: import('./intelligence').StructuredOpportunity;
 }
 
 export interface MarketSession {

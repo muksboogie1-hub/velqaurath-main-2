@@ -34,7 +34,12 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
     invalidationConditions,
     sessionRelevance,
     watchWindow,
-    fundamentalDifferential
+    fundamentalDifferential,
+    structuredThesis,
+    structuredInvalidation,
+    structuredContradictions,
+    catalystIntelligence,
+    structuredOpportunity
   } = intelligence;
 
   const delta = relativeStrengthDelta ?? 0;
@@ -87,21 +92,44 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
               <span className="text-[11px] text-neutral-400 uppercase tracking-wider">
                 Macro Relative Bias
               </span>
-              <span className="text-xs font-bold">
-                {isBullish ? (
-                  <span className="text-emerald-400 flex items-center">
-                    <TrendingUp className="w-3.5 h-3.5 mr-1" /> BULLISH BIAS (Δ +{delta.toFixed(2)}%)
+              <div className="flex items-center gap-2">
+                {structuredOpportunity && (
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      structuredOpportunity.state === 'PRIMARY_WATCH'
+                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                        : structuredOpportunity.state === 'SECONDARY_WATCH'
+                        ? 'bg-sky-950 text-sky-300 border border-sky-800'
+                        : structuredOpportunity.state === 'WAIT'
+                        ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                        : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
+                    }`}
+                  >
+                    {structuredOpportunity.state}
                   </span>
-                ) : isBearish ? (
-                  <span className="text-rose-400 flex items-center">
-                    <TrendingDown className="w-3.5 h-3.5 mr-1" /> BEARISH BIAS (Δ {delta.toFixed(2)}%)
-                  </span>
-                ) : (
-                  <span className="text-neutral-400">NEUTRAL (Δ {delta.toFixed(2)}%)</span>
                 )}
-              </span>
+                <span className="text-xs font-bold">
+                  {isBullish ? (
+                    <span className="text-emerald-400 flex items-center">
+                      <TrendingUp className="w-3.5 h-3.5 mr-1" /> BULLISH BIAS (Δ +{delta.toFixed(2)}%)
+                    </span>
+                  ) : isBearish ? (
+                    <span className="text-rose-400 flex items-center">
+                      <TrendingDown className="w-3.5 h-3.5 mr-1" /> BEARISH BIAS (Δ {delta.toFixed(2)}%)
+                    </span>
+                  ) : (
+                    <span className="text-neutral-400">NEUTRAL (Δ {delta.toFixed(2)}%)</span>
+                  )}
+                </span>
+              </div>
             </div>
             <p className="text-neutral-300 leading-relaxed font-sans">{orientationExplanation}</p>
+            {structuredOpportunity && (
+              <p className="text-[11px] text-neutral-400 font-sans mt-2 pt-2 border-t border-neutral-800/60">
+                <span className="text-neutral-500 font-mono uppercase text-[10px]">Watch Rationale: </span>
+                {structuredOpportunity.whyThisPair}
+              </p>
+            )}
           </div>
 
           {/* Confluence & Directional Confidence Breakdown */}
@@ -255,22 +283,108 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
 
           {/* Structural Thesis */}
           <div className="p-3 bg-neutral-900/40 border border-neutral-800 rounded">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 block mb-1.5 font-semibold">
-              Structural Macro Thesis
-            </span>
-            <p className="text-neutral-200 leading-relaxed font-sans">{thesis}</p>
+            <div className="flex items-center justify-between pb-1.5 border-b border-neutral-800/80 mb-2 font-mono">
+              <span className="text-[11px] uppercase tracking-wider text-neutral-400 font-semibold">
+                Structural Macro Thesis
+              </span>
+              {structuredThesis && (
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      structuredThesis.status === 'SUPPORTED'
+                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                        : structuredThesis.status === 'MIXED'
+                        ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                        : structuredThesis.status === 'WEAKENED'
+                        ? 'bg-orange-950 text-orange-300 border border-orange-800'
+                        : structuredThesis.status === 'INVALIDATED'
+                        ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                        : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
+                    }`}
+                  >
+                    {structuredThesis.status}
+                  </span>
+                  <span className="text-[10px] text-neutral-500 font-mono">
+                    [{structuredThesis.evidenceQuality}]
+                  </span>
+                </div>
+              )}
+            </div>
+            <p className="text-neutral-200 leading-relaxed font-sans">
+              {structuredThesis?.summary || thesis}
+            </p>
+            {structuredThesis && structuredThesis.dataGaps.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-neutral-800/60 font-mono text-[10px] text-neutral-500">
+                <span className="text-amber-500 uppercase">Data Gaps: </span>
+                {structuredThesis.dataGaps.join(' · ')}
+              </div>
+            )}
           </div>
+
+          {/* Structured Contradictions */}
+          {structuredContradictions && structuredContradictions.length > 0 && (
+            <div className="p-3 bg-rose-950/20 border border-rose-900/50 rounded space-y-2">
+              <div className="flex items-center justify-between pb-1.5 border-b border-rose-900/40 font-mono text-xs text-rose-300">
+                <span className="font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-400" /> Detected Contradictions ({structuredContradictions.length})
+                </span>
+                <span className="text-[10px] bg-rose-900/50 px-2 py-0.5 rounded font-bold">
+                  UNRESOLVED CONFLICTS
+                </span>
+              </div>
+              <div className="space-y-2">
+                {structuredContradictions.map((c) => (
+                  <div key={c.id} className="p-2 bg-neutral-950/80 border border-rose-950 rounded text-[11px] font-sans">
+                    <div className="flex items-center justify-between font-mono text-[10px] mb-1">
+                      <span className="text-rose-400 font-bold uppercase">{c.category.replace(/_/g, ' ')}</span>
+                      <span className="text-neutral-500">Severity: {c.severity}</span>
+                    </div>
+                    <p className="text-neutral-300 leading-snug">{c.conflictDescription}</p>
+                    <div className="grid grid-cols-2 gap-2 mt-1.5 pt-1.5 border-t border-neutral-800/50 font-mono text-[10px] text-neutral-400">
+                      <div><span className="text-neutral-500">A: </span>{c.statementA}</div>
+                      <div><span className="text-neutral-500">B: </span>{c.statementB}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Invalidation Conditions */}
           <div className="p-3 bg-neutral-950/80 border border-neutral-800 rounded">
             <span className="text-[11px] font-mono uppercase tracking-wider text-rose-400 block mb-1.5 font-semibold flex items-center gap-1">
-              <ShieldAlert className="w-3.5 h-3.5" /> Invalidation Conditions
+              <ShieldAlert className="w-3.5 h-3.5" /> Invalidation Conditions & Trigger Status
             </span>
-            <ul className="space-y-1.5 text-neutral-300 list-disc list-inside font-sans">
-              {invalidationConditions.map((cond, idx) => (
-                <li key={idx} className="leading-snug">{cond}</li>
-              ))}
-            </ul>
+            {structuredInvalidation && structuredInvalidation.length > 0 ? (
+              <div className="space-y-2 font-mono text-[11px]">
+                {structuredInvalidation.map((cond) => (
+                  <div key={cond.id} className="p-2 bg-neutral-900/40 border border-neutral-800 rounded">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-neutral-300 font-bold">{cond.description}</span>
+                      <span
+                        className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                          cond.triggered
+                            ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                            : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                        }`}
+                      >
+                        {cond.evaluationStatus}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-[10px] text-neutral-500">
+                      <span>Current: <span className="text-neutral-300">{cond.currentValue}</span></span>
+                      <span>Trigger: <span className="text-neutral-400">{cond.triggerCondition}</span></span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <ul className="space-y-1.5 text-neutral-300 list-disc list-inside font-sans">
+                {invalidationConditions.map((cond, idx) => (
+                  <li key={idx} className="leading-snug">{cond}</li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {/* Session Relevance & Watch Window */}
@@ -317,12 +431,54 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Upcoming Catalysts */}
+          {/* Catalysts & Event Intelligence */}
           <div className="border-t border-neutral-800 pt-3">
             <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 block mb-2 font-semibold">
-              Relevant Scheduled Catalysts ({catalysts.length})
+              Relevant Macro Catalysts ({catalystIntelligence?.length ?? catalysts.length})
             </span>
-            {catalysts.length === 0 ? (
+            {(catalystIntelligence && catalystIntelligence.length > 0) ? (
+              <div className="space-y-2 font-mono text-[11px]">
+                {catalystIntelligence.map((cat) => (
+                  <div key={cat.id} className="p-2.5 bg-neutral-900/60 border border-neutral-800 rounded">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-neutral-200 text-xs">{cat.name}</span>
+                        <span className="text-[10px] text-neutral-400 font-mono">({cat.currency})</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                            cat.lifecycle === 'IMMINENT'
+                              ? 'bg-rose-950 text-rose-300 border border-rose-800 animate-pulse'
+                              : cat.lifecycle === 'REACTING'
+                              ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                              : 'bg-neutral-800 text-neutral-400'
+                          }`}
+                        >
+                          {cat.lifecycle}
+                        </span>
+                        <span className={`text-[10px] font-bold ${cat.importance === 'HIGH' ? 'text-rose-400' : 'text-amber-400'}`}>
+                          {cat.importance}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-[10px] text-neutral-400 my-1">
+                      <div>Prev: <span className="text-neutral-300">{cat.previous !== null ? `${cat.previous}${cat.unit}` : 'N/A'}</span></div>
+                      <div>Consensus: <span className="text-neutral-300">{cat.forecast !== null ? `${cat.forecast}${cat.unit}` : 'N/A'}</span></div>
+                      <div>Actual: <span className="font-bold text-neutral-100">{cat.actual !== null ? `${cat.actual}${cat.unit}` : 'PENDING'}</span></div>
+                    </div>
+                    <div className="text-[10px] text-neutral-400 pt-1 border-t border-neutral-800/50 flex justify-between items-center">
+                      <span className="text-neutral-500 font-sans">{cat.timingRelevance.windowDescription}</span>
+                      {cat.directionalEvidence.bias !== 'UNKNOWN' && (
+                        <span className={`font-bold ${cat.directionalEvidence.bias === 'BULLISH' ? 'text-emerald-400' : cat.directionalEvidence.bias === 'BEARISH' ? 'text-rose-400' : 'text-neutral-400'}`}>
+                          {cat.directionalEvidence.bias} BIAS
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : catalysts.length === 0 ? (
               <p className="text-neutral-500 italic font-mono text-[11px]">No upcoming events for {pair.symbol}.</p>
             ) : (
               <div className="space-y-1.5 font-mono text-[11px]">

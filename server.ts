@@ -101,10 +101,19 @@ app.get('/api/opportunities', (_req, res) => {
   res.json(VelqoarathApiService.getOpportunities());
 });
 
+app.get('/api/opportunities/structured', (_req, res) => {
+  res.json(VelqoarathApiService.getStructuredOpportunities());
+});
+
 app.get('/api/opportunities/:symbol', (req, res) => {
   const item = VelqoarathApiService.getOpportunityBySymbol(req.params.symbol);
   if (!item) return res.status(404).json({ error: 'Opportunity not found' });
   res.json(item);
+});
+
+app.get('/api/catalysts', (req, res) => {
+  const currency = typeof req.query.currency === 'string' ? req.query.currency : undefined;
+  res.json(VelqoarathApiService.getCatalystIntelligence(currency));
 });
 
 // ----------------------------------------------------

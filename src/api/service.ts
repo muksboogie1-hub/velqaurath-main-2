@@ -11,6 +11,8 @@ import { evaluateCurrencyFundamentalIntelligence } from '../fundamentals/engine/
 import { buildCentralBankProfile, getAllCoreCentralBankProfiles } from '../fundamentals/centralBank/centralBankProfiles';
 import { FUNDAMENTAL_CATEGORIES } from '../types/fundamentals';
 import { refreshScheduler, SchedulerStatus } from '../services/refreshScheduler';
+import { evaluateCatalystIntelligence } from '../engines/catalyst/catalystEngine';
+import { evaluateAllOpportunities } from '../engines/opportunity/opportunityEngine';
 import {
   Currency,
   CurrencyState,
@@ -333,6 +335,16 @@ export class VelqoarathApiService {
         const deltaB = Math.abs(b.relativeStrengthDelta ?? 0);
         return deltaB - deltaA;
       });
+  }
+
+  public static getStructuredOpportunities(date: Date = new Date()) {
+    const allIntelligences = this.getAllPairIntelligences(date);
+    return evaluateAllOpportunities(allIntelligences);
+  }
+
+  public static getCatalystIntelligence(currency?: string, date: Date = new Date()) {
+    const state = globalStore.getState();
+    return evaluateCatalystIntelligence(state.events, currency, date);
   }
 
   public static getOpportunityBySymbol(symbol: string, date: Date = new Date()): PairIntelligence | null {
