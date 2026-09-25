@@ -347,9 +347,9 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
     const categoriesAvailable: FundamentalCategory[] =
       this.isConfigured && this.observationsCache.length > 0
         ? Array.from(categoriesSet)
-        : this.isConfigured
-        ? defaultCategories
         : [];
+
+    const categoriesConfigured: FundamentalCategory[] = defaultCategories;
 
     const currenciesAvailable = this.isConfigured
       ? ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD']
@@ -371,6 +371,9 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
       lifecycleState: this.lifecycleState,
       datasetMode: 'LIVE',
       categoriesAvailable,
+      categoriesConfigured,
+      categoriesPopulatedCount: categoriesAvailable.length,
+      categoriesConfiguredCount: categoriesConfigured.length,
       currenciesAvailable,
       lastFetchedAt: this.lastFetchedAt,
       lastSuccessfulUpdate: this.lastSuccessfulUpdate,
@@ -473,8 +476,8 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
           response = await this.fetchFn(fallbackUrl, fetchOpts);
         }
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (!response.ok || response.status >= 400) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText || 'Request failed'}`);
         }
 
         const rawData = await response.json();
@@ -600,6 +603,26 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
               notes: `Live release normalized from Finance Calendar API (${scheduledTime})`
             });
           }
+        }
+
+        if (normalizedObservations.length === 0 && normalizedEvents.length > 0) {
+          // Edge case: Events exist, but released macro observations are empty
+          // Retain prior observationsCache if one was already populated
+          if (this.observationsCache.length > 0) {
+            this.calendarCache = normalizedEvents;
+            this.lastFetchedAt = nowIso;
+            this.lifecycleState = 'DEGRADED';
+            this.health = 'DEGRADED';
+            this.message = `Finance Calendar live sync: ${normalizedEvents.length} calendar events updated, but 0 fresh macro prints returned. Retaining ${this.observationsCache.length} prior observations.`;
+          } else {
+            this.calendarCache = normalizedEvents;
+            this.observationsCache = [];
+            this.lastFetchedAt = nowIso;
+            this.lifecycleState = 'DEGRADED';
+            this.health = 'DEGRADED';
+            this.message = `Finance Calendar live sync: ${normalizedEvents.length} calendar events parsed, but 0 released macroeconomic observations available. Awaiting released macro prints.`;
+          }
+          return false;
         }
 
         this.observationsCache = normalizedObservations;

@@ -54,29 +54,32 @@ export function App() {
           if (dashData.marketProviderStatus && dashData.allCurrencies) {
             const strengthsMap = new Map();
             dashData.allCurrencies.forEach((c) => {
+              const breakdown = c.relativeStrengthBreakdown;
               strengthsMap.set(c.currency.code, {
                 currency: c.currency.code,
                 marketStrength: c.marketStrength,
                 classification: c.marketState,
-                rawRelativeReturn: null,
-                avgReturn: null,
-                momentum: c.relativeStrengthBreakdown?.momentum ?? null,
-                coverage: c.relativeStrengthBreakdown?.coverage ?? {
+                dailyMovementPercent: breakdown?.dailyMovementPercent ?? null,
+                basketRelativeMovementPercent: breakdown?.basketRelativeMovementPercent ?? null,
+                rawRelativeReturn: breakdown?.basketRelativeMovementPercent ?? null,
+                avgReturn: breakdown?.dailyMovementPercent ?? null,
+                momentum: breakdown?.momentum ?? null,
+                coverage: breakdown?.coverage ?? {
                   available: 0,
                   required: 0,
                   percent: 0
                 },
-                contributors: (c.relativeStrengthBreakdown?.contributors || []).map((contrib) => ({
+                contributors: (breakdown?.contributors || []).map((contrib) => ({
                   pairSymbol: contrib.pairSymbol,
                   pairReturnPercent: contrib.pairReturnPercent,
                   role: contrib.role as any,
                   signedContribution: contrib.signedContribution,
                   timestamp: Date.now()
                 })),
-                explanation: c.relativeStrengthBreakdown?.explanation ?? '',
+                explanation: breakdown?.explanation ?? '',
                 calculatedAt: dashData.lastUpdated,
                 providerStatus: dashData.marketProviderStatus?.health || 'CONNECTED',
-                source: c.relativeStrengthBreakdown?.source || dashData.marketProviderStatus?.activeProvider || 'Biquote'
+                source: breakdown?.source || dashData.marketProviderStatus?.activeProvider || 'Biquote'
               });
             });
             globalStore.setMarketData(

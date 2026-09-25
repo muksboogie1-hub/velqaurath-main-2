@@ -100,9 +100,14 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
           {/* Market Strength Section */}
           <section className="p-3 bg-neutral-900/50 border border-neutral-800 rounded">
             <div className="flex items-center justify-between pb-2 border-b border-neutral-800 mb-2">
-              <h3 className="font-mono text-xs font-bold text-neutral-200 uppercase tracking-wider">
-                Market Strength Intelligence
-              </h3>
+              <div>
+                <h3 className="font-mono text-xs font-bold text-neutral-200 uppercase tracking-wider">
+                  Market Strength Intelligence
+                </h3>
+                <span className="text-[10px] font-mono text-neutral-500">
+                  Basket-Relative Movement · Strong ≥ +0.10% · Weak ≤ -0.10%
+                </span>
+              </div>
               <span
                 className={`font-mono text-xs font-bold ${
                   marketState === 'STRONG'
@@ -115,6 +120,24 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
                 {marketStrength !== null ? `${marketStrength >= 0 ? '+' : ''}${marketStrength.toFixed(2)}%` : 'UNAVAILABLE'} ({marketState})
               </span>
             </div>
+
+            <div className="grid grid-cols-2 gap-2 mb-2 font-mono text-[11px] bg-neutral-950/60 p-2 rounded border border-neutral-800/80">
+              <div>
+                <span className="text-neutral-500 block text-[10px] uppercase">Basket-Relative Strength</span>
+                <span className="text-neutral-100 font-bold">
+                  {marketStrength !== null ? `${marketStrength >= 0 ? '+' : ''}${marketStrength.toFixed(2)}%` : 'UNAVAILABLE'}
+                </span>
+              </div>
+              <div>
+                <span className="text-neutral-500 block text-[10px] uppercase">Raw Basket Daily Avg</span>
+                <span className="text-neutral-300">
+                  {relativeStrengthBreakdown.dailyMovementPercent !== undefined && relativeStrengthBreakdown.dailyMovementPercent !== null
+                    ? `${relativeStrengthBreakdown.dailyMovementPercent >= 0 ? '+' : ''}${relativeStrengthBreakdown.dailyMovementPercent.toFixed(2)}%`
+                    : 'N/A'}
+                </span>
+              </div>
+            </div>
+
             <p className="text-neutral-300 leading-relaxed mb-2 font-sans">
               {relativeStrengthBreakdown.explanation}
             </p>
@@ -202,48 +225,56 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
           </section>
 
           {/* 10 Fundamental Categories Coverage */}
-          <section className="p-3 bg-neutral-900/50 border border-neutral-800 rounded">
-            <div className="flex items-center justify-between pb-2 border-b border-neutral-800 mb-2">
-              <h3 className="font-mono text-xs font-bold text-neutral-200 uppercase tracking-wider">
-                10 Fundamental Categories (Phase B)
-              </h3>
-              <span className="font-mono text-[11px] text-neutral-400">
-                10 Categories Supported
-              </span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 font-mono text-[10px]">
-              {FUNDAMENTAL_CATEGORIES.map((cat) => {
-                const isObserved =
-                  cat.id === 'CENTRAL_BANK_MONETARY_POLICY' ||
-                  cat.id === 'INFLATION' ||
-                  cat.id === 'EMPLOYMENT' ||
-                  cat.id === 'GROWTH' ||
-                  cat.id === 'COMMODITY_EXPOSURE_TERMS_OF_TRADE';
-                return (
-                  <div
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`p-1.5 rounded border text-center cursor-pointer transition-colors ${
-                      selectedCategory === cat.id
-                        ? 'border-emerald-500 bg-emerald-950/30'
-                        : isObserved
-                        ? 'border-neutral-700 bg-neutral-900/80 hover:border-neutral-600'
-                        : 'border-neutral-800/50 bg-neutral-950/60 opacity-60'
-                    }`}
-                  >
-                    <span className="block font-semibold truncate text-neutral-200">{cat.code}</span>
-                    <span
-                      className={`text-[9px] block ${
-                        isObserved ? 'text-emerald-400 font-bold' : 'text-neutral-500'
-                      }`}
-                    >
-                      {isObserved ? 'AVAILABLE' : 'NOT CONFIGURED'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+          {(() => {
+            const observedCategoriesSet = new Set<string>();
+            currencyObservations.forEach((obs: any) => {
+              if (obs.category) observedCategoriesSet.add(obs.category);
+            });
+            if (centralBank.currentPolicyRate !== null || (centralBank.stance && centralBank.stance !== 'UNAVAILABLE')) {
+              observedCategoriesSet.add('CENTRAL_BANK_MONETARY_POLICY');
+            }
+            const populatedCount = FUNDAMENTAL_CATEGORIES.filter((cat) => observedCategoriesSet.has(cat.id)).length;
+
+            return (
+              <section className="p-3 bg-neutral-900/50 border border-neutral-800 rounded">
+                <div className="flex items-center justify-between pb-2 border-b border-neutral-800 mb-2">
+                  <h3 className="font-mono text-xs font-bold text-neutral-200 uppercase tracking-wider">
+                    10 Fundamental Categories (Phase B)
+                  </h3>
+                  <span className="font-mono text-[11px] text-neutral-400">
+                    {populatedCount}/10 Populated ({10 - populatedCount} Awaiting Live Observations)
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 font-mono text-[10px]">
+                  {FUNDAMENTAL_CATEGORIES.map((cat) => {
+                    const isObserved = observedCategoriesSet.has(cat.id);
+                    return (
+                      <div
+                        key={cat.id}
+                        onClick={() => setSelectedCategory(cat.id)}
+                        className={`p-1.5 rounded border text-center cursor-pointer transition-colors ${
+                          selectedCategory === cat.id
+                            ? 'border-emerald-500 bg-emerald-950/30'
+                            : isObserved
+                            ? 'border-neutral-700 bg-neutral-900/80 hover:border-neutral-600'
+                            : 'border-neutral-800/50 bg-neutral-950/60 opacity-60'
+                        }`}
+                      >
+                        <span className="block font-semibold truncate text-neutral-200">{cat.code}</span>
+                        <span
+                          className={`text-[9px] block ${
+                            isObserved ? 'text-emerald-400 font-bold' : 'text-neutral-500'
+                          }`}
+                        >
+                          {isObserved ? 'POPULATED' : 'AWAITING DATA'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })()}
 
           {/* Expectations Breakdown */}
           <section className="p-3 bg-neutral-900/50 border border-neutral-800 rounded">

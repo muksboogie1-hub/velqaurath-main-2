@@ -68,14 +68,14 @@ export function calculatePairContribution(
  * 2. Calculate average signed return per currency: avgReturn = mean(signed contributions).
  * 3. Calculate basket mean return across all currencies with valid quotes: basketMean = mean(avgReturns).
  * 4. Basket-relative return: rawRelativeReturn = avgReturn - basketMean.
- * 5. Scaled score: scaledScore = rawRelativeReturn * scaleFactor (default 0.25).
+ * 5. Scale factor: scaledScore = rawRelativeReturn * scaleFactor (authoritative scaleFactor = 1.0, preserving true percentage points).
  * 6. Rounded score: marketStrength = Math.round(scaledScore * 100) / 100.
  * 7. Classification:
  *    - If no quotes or disconnected: DATA_UNAVAILABLE (marketStrength: null)
  *    - If coverage < minCoverageThreshold: INSUFFICIENT_COVERAGE (marketStrength: null)
- *    - If marketStrength >= strongThreshold (+0.10): STRONG
- *    - If marketStrength <= weakThreshold (-0.10): WEAK
- *    - Otherwise: NEUTRAL
+ *    - If marketStrength >= strongThreshold (+0.10%): STRONG
+ *    - If marketStrength <= weakThreshold (-0.10%): WEAK
+ *    - Otherwise (-0.10% < marketStrength < +0.10%): NEUTRAL
  */
 export function calculateCurrencyMarketStrengths(
   quotes: MarketQuote[],

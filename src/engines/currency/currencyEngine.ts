@@ -27,7 +27,7 @@ export function evaluateCurrencyState(
       timeframe: 'D1 / Market Feed Disconnected',
       explanation:
         'DATA SOURCE NOT CONNECTED: Market strength feeds and economic observations are disconnected.',
-      source: 'Twelve Data'
+      source: 'Biquote'
     };
 
     const emptyFundamentals = evaluateCurrencyFundamentals(
@@ -97,7 +97,8 @@ export function evaluateCurrencyState(
         lastVerified: new Date().toISOString()
       },
       supportingEvidence: centralBank.stanceEvidence.slice(0, 2),
-      conflictingEvidence: []
+      conflictingEvidence: [],
+      observations: relevantObs
     };
   }
 
@@ -246,6 +247,7 @@ export function evaluateCurrencyState(
       lastVerified: new Date().toISOString()
     },
     supportingEvidence: supporting,
-    conflictingEvidence: conflicting
+    conflictingEvidence: conflicting,
+    observations: relevantObs
   };
 }

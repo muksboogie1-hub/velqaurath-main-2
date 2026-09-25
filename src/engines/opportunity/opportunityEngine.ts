@@ -83,6 +83,9 @@ export function evaluatePairOpportunity(intelligence: PairIntelligence): Structu
   } else if (severeContradictions.length > 0 || hasWeakened || thesisStatus === 'WEAKENED') {
     state = 'WAIT';
     whyThisPair = `WAIT (CONTRADICTION DETECTED): Opposing macroeconomic forces or severe price/fundamental divergence require caution.`;
+  } else if (orientationDirection === 'NEUTRAL') {
+    state = 'MONITOR';
+    whyThisPair = `MONITOR: Neutral directional orientation for ${pair.symbol} (Δ = ${relativeStrengthDelta.toFixed(2)}%). Balanced cross-basket price action with no directional skew.`;
   } else if (score >= 70 && thesisStatus === 'SUPPORTED' && Math.abs(relativeStrengthDelta) >= 0.10) {
     state = 'PRIMARY_WATCH';
     whyThisPair = `PRIMARY WATCH: High multi-factor confluence (${score}/100) aligned with ${orientationDirection} orientation and zero severe contradictions.`;

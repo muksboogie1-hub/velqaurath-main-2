@@ -248,6 +248,7 @@ export interface CurrencyState {
   };
   supportingEvidence: string[];
   conflictingEvidence: string[];
+  observations?: EconomicObservation[];
 }
 
 export interface PairSessionRelevance {

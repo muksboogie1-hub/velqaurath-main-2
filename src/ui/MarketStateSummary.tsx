@@ -36,7 +36,7 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
             Current Market State
           </h2>
           <p className="text-[11px] text-neutral-500 font-mono mt-0.5">
-            Framework: Strong ≥ {thresholds.strongThreshold >= 0 ? '+' : ''}
+            Framework: Basket-Relative Movement · Strong ≥ {thresholds.strongThreshold >= 0 ? '+' : ''}
             {thresholds.strongThreshold.toFixed(2)}% · Weak ≤ {thresholds.weakThreshold.toFixed(2)}%
           </p>
         </div>

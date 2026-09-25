@@ -107,6 +107,15 @@ console.log('================================================================\n'
     assert(usd?.classification === 'NEUTRAL', 'Test 1.4: +0.09% classified NEUTRAL (below +0.10%)');
   }
 
+  // 0.00% classified NEUTRAL
+  {
+    const quotes = createControlledQuotes(0.00);
+    const res = calculateCurrencyMarketStrengths(quotes, thresholds);
+    const usd = res.get('USD');
+    assert(usd?.marketStrength === 0.00, 'Test 1.4b: 0.00% movement gives marketStrength of 0.00');
+    assert(usd?.classification === 'NEUTRAL', 'Test 1.4b: 0.00% classified NEUTRAL');
+  }
+
   // -0.09% classified NEUTRAL
   {
     const quotes = createControlledQuotes(-0.09);
@@ -168,6 +177,43 @@ console.log('================================================================\n'
   assert(usdContrib?.signedContribution === -0.46, 'Test 2.2: Quote USD uses dailyReturnPercent (-0.46%) over tick change (-0.15%)');
   assert(eurContrib?.role === 'BASE', 'Test 2.3: EUR correctly identified as BASE role');
   assert(usdContrib?.role === 'QUOTE', 'Test 2.4: USD correctly identified as QUOTE role');
+
+  // Pair orientation regression tests for USD/JPY, EUR/USD, GBP/USD, AUD/JPY
+  const pairsToTest = [
+    { symbol: 'EUR/USD', base: 'EUR', quote: 'USD' },
+    { symbol: 'USD/JPY', base: 'USD', quote: 'JPY' },
+    { symbol: 'GBP/USD', base: 'GBP', quote: 'USD' },
+    { symbol: 'AUD/JPY', base: 'AUD', quote: 'JPY' }
+  ];
+
+  for (const p of pairsToTest) {
+    const pairQuote: MarketQuote = {
+      symbol: p.symbol,
+      baseCurrency: p.base,
+      quoteCurrency: p.quote,
+      price: 1.0,
+      open: 1.0,
+      high: 1.0,
+      low: 1.0,
+      close: 1.0,
+      change: 0.01,
+      changePercent: 0.50,
+      dailyReturnPercent: 0.50,
+      timestamp: Date.now(),
+      interval: '1day',
+      source: 'Biquote',
+      sourceStatus: 'CONNECTED',
+      fetchedAt: new Date().toISOString()
+    };
+
+    const baseContrib = calculatePairContribution(p.base, pairQuote);
+    const quoteContrib = calculatePairContribution(p.quote, pairQuote);
+
+    assert(baseContrib?.role === 'BASE', `Regression: ${p.base} is BASE role in ${p.symbol}`);
+    assert(quoteContrib?.role === 'QUOTE', `Regression: ${p.quote} is QUOTE role in ${p.symbol}`);
+    assert(baseContrib?.signedContribution === 0.50, `Regression: ${p.base} gets positive +0.50% from ${p.symbol} gain`);
+    assert(quoteContrib?.signedContribution === -0.50, `Regression: ${p.quote} gets negative -0.50% from ${p.symbol} gain`);
+  }
 }
 
 // -------------------------------------------------------------
@@ -199,6 +245,10 @@ console.log('================================================================\n'
   for (const sym of unsupported) {
     assert(!initialSymbols.includes(sym), `Test 3.5: Unsupported pair ${sym} is excluded from INITIAL_PAIRS`);
   }
+
+  // Verify universe contains exactly 15 unique pairs
+  assert(new Set(initialSymbols).size === 15, 'Test 3.6: INITIAL_PAIRS contains 15 unique symbols');
+  assert(new Set(defaultSymbols).size === 15, 'Test 3.7: DEFAULT_LIQUID_PAIRS contains 15 unique symbols');
 }
 
 // -------------------------------------------------------------
@@ -222,14 +272,34 @@ console.log('================================================================\n'
     statusConf.health === 'DISCONNECTED' || statusConf.health === 'AVAILABLE' || statusConf.health === 'CONNECTED',
     'Test 4.5: Configured provider lifecycle health initialized honestly'
   );
-  assert(statusConf.categoriesAvailable.length === 10, 'Test 4.6: Configured provider reports 10 categories');
+  assert(statusConf.categoriesConfigured?.length === 10, 'Test 4.6a: Configured provider reports 10 categories configured');
+  assert(statusConf.categoriesAvailable.length === 0, 'Test 4.6b: Before initial sync, 0 categories populated');
   assert(statusConf.currenciesAvailable.length === 8, 'Test 4.7: Configured provider reports 8 currencies');
+
+  // Edge case: Events exist, but observations are empty (must report DEGRADED, not fully CONNECTED macro dataset)
+  const mockEventsOnlyFetch = async () => ({
+    ok: true,
+    status: 200,
+    statusText: 'OK',
+    json: async () => [
+      { id: '101', name: 'Upcoming FOMC Meeting', currency: 'USD', impact: 'HIGH', time_utc: '2026-10-01T18:00:00Z', actual: null }
+    ]
+  }) as any;
+
+  const eventsOnlyProvider = new FinanceCalendarProvider({ fetchFn: mockEventsOnlyFetch });
+  const refreshSuccess = await eventsOnlyProvider.refresh(true);
+  const eventsOnlyStatus = eventsOnlyProvider.getStatus();
+  assert(refreshSuccess === false, 'Test 4.8: Refresh returns false when only upcoming events with no macro prints exist');
+  assert(eventsOnlyStatus.health === 'DEGRADED', 'Test 4.9: Provider health is DEGRADED when released macro observations are empty');
+  assert(eventsOnlyStatus.count === 0, 'Test 4.10: Released macro observation count is 0');
+  const eventsOnlyEvents = await eventsOnlyProvider.getEconomicCalendar();
+  assert(eventsOnlyEvents.length === 1, 'Test 4.11: Calendar events are parsed and preserved');
 
   // Benchmark provider separation
   const benchmarkProvider = new VerifiedDatasetFundamentalProvider();
-  assert(benchmarkProvider.name.includes('Baseline'), 'Test 4.8: Benchmark provider explicitly identified as Baseline');
+  assert(benchmarkProvider.name.includes('Baseline'), 'Test 4.12: Benchmark provider explicitly identified as Baseline');
   const benchStatus = benchmarkProvider.getStatus();
-  assert(benchStatus.health === 'AVAILABLE', 'Test 4.9: Benchmark provider health is AVAILABLE');
+  assert(benchStatus.health === 'AVAILABLE', 'Test 4.13: Benchmark provider health is AVAILABLE');
 }
 
 // -------------------------------------------------------------

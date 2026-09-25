@@ -20,6 +20,9 @@ export interface FundamentalProviderStatus {
   isConfigured: boolean;
   health: FundamentalDataStatus | FundamentalProviderLifecycle;
   categoriesAvailable: FundamentalCategory[];
+  categoriesConfigured?: FundamentalCategory[];
+  categoriesPopulatedCount?: number;
+  categoriesConfiguredCount?: number;
   currenciesAvailable: string[];
   lastFetchedAt: string | null;
   message: string;
