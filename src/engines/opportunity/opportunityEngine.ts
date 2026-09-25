@@ -130,21 +130,21 @@ export function evaluatePairOpportunity(intelligence: PairIntelligence): Structu
   if (dataQuality === 'UNAVAILABLE') {
     state = 'INSUFFICIENT_DATA';
     whyThisPair = 'INSUFFICIENT DATA: Market or macro feeds offline. Opportunity analysis cannot run without verified inputs.';
-  } else if (hasInvalidated || thesisStatus === 'INVALIDATED') {
-    state = 'WAIT';
-    whyThisPair = `WAIT: Thesis invalidation conditions triggered for ${pair.symbol}. Awaiting stabilization or new structural regime.`;
   } else if (severeContradictions.length > 0 || hasFundamentalDivergence) {
     state = 'WAIT';
     whyThisPair = `WAIT (CONTRADICTION / DIVERGENCE DETECTED): Opposing macroeconomic forces or severe price/fundamental divergence require caution.`;
+  } else if (orientationDirection === 'NEUTRAL') {
+    state = 'MONITOR';
+    whyThisPair = `MONITOR: Neutral directional orientation for ${pair.symbol} (Δ = ${relativeStrengthDelta.toFixed(2)}%). Balanced cross-basket price action with no directional skew.`;
+  } else if (hasInvalidated || thesisStatus === 'INVALIDATED') {
+    state = 'WAIT';
+    whyThisPair = `WAIT: Thesis invalidation conditions triggered for ${pair.symbol}. Awaiting stabilization or new structural regime.`;
   } else if (hasWeakened || thesisStatus === 'WEAKENED') {
     state = 'WAIT';
     whyThisPair = `WAIT: Thesis weakened by emerging macro cross-currents or moderate invalidation triggers.`;
   } else if (imminentCatalysts.length > 0) {
     state = 'MONITOR';
     whyThisPair = `MONITOR (EVENT RISK): Imminent high-impact release (${imminentCatalysts[0].name}) within execution window. Elevated binary risk.`;
-  } else if (orientationDirection === 'NEUTRAL') {
-    state = 'MONITOR';
-    whyThisPair = `MONITOR: Neutral directional orientation for ${pair.symbol} (Δ = ${relativeStrengthDelta.toFixed(2)}%). Balanced cross-basket price action with no directional skew.`;
   } else if (
     score >= 70 &&
     thesisStatus === 'SUPPORTED' &&

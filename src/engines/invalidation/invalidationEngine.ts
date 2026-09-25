@@ -99,7 +99,7 @@ export function evaluateStructuredInvalidation(
       : `Pair remains inside neutral consolidation bounds (|Δ| < 0.08%).`,
     requiredEvidence: 'Biquote Daily Basket Relative Performance',
     currentValue: currentDeltaStr,
-    triggerCondition: isBullish ? 'Δ < +0.05%' : isBearish ? 'Δ > -0.05%' : '|Δ| ≥ 0.08%',
+    triggerCondition: isBullish ? 'Δ < +0.05%' : isBearish ? 'Δ > -0.05%' : '|Δ| < 0.08%',
     triggered: mktTriggered,
     severity: 'HIGH',
     source: 'MarketStrengthEngine',
