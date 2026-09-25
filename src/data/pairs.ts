@@ -1,4 +1,5 @@
 import { Pair } from '../types';
+import { CANONICAL_15_PAIRS } from '../marketData/config';
 
 export interface CurrencyPairItem extends Pair {
   standardPipDigits: number;
@@ -7,7 +8,7 @@ export interface CurrencyPairItem extends Pair {
 /**
  * EXACT 15 LIVE MARKET PAIR UNIVERSE
  *
- * Configured to match the Biquote live market-data stream and DEFAULT_LIQUID_PAIRS exactly (15 pairs).
+ * Configured to match the Biquote live market-data stream and CANONICAL_15_PAIRS exactly (15 pairs).
  * Unsupported pairs (EUR/AUD, GBP/AUD, AUD/NZD) are excluded from the live universe
  * to avoid substituting synthetic/benchmark prices for live market pairs.
  */

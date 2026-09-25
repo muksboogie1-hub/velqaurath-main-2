@@ -88,17 +88,28 @@ export function calculateCurrencyMarketStrengths(
   const minCoverageThreshold = options?.minCoverageThreshold ?? 0; // Default to 0 so any currency with valid pairs is calculated unless a strict threshold is requested
   const providerStatus = options?.providerStatus ?? (quotes.length > 0 ? 'CONNECTED' : 'NOT_CONFIGURED');
   const providerSource = options?.providerSource ?? (quotes.length > 0 ? quotes[0].source : 'Biquote');
+  const snapshotHealth = options?.snapshotHealth;
+  const isSnapshotUsable = snapshotHealth === 'FRESH' || snapshotHealth === 'AGING';
 
   const resultMap = new Map<string, CurrencyMarketStrength>();
   const nowIso = new Date().toISOString();
 
   // 1. Separate required quotes into fresh vs stale
   const requiredSet = new Set(requiredPairs);
-  const freshQuotes = quotes.filter(
+  let freshQuotes = quotes.filter(
     (q) => requiredSet.has(q.symbol) && !q.stale && q.changePercent !== null && !isNaN(q.changePercent)
   );
+
+  // If live tick staleness flagged quotes as stale, but the daily snapshot itself is FRESH/AGING,
+  // preserve daily relative strength calculation from the valid snapshot rather than collapsing to null
+  if (freshQuotes.length === 0 && isSnapshotUsable) {
+    freshQuotes = quotes.filter(
+      (q) => requiredSet.has(q.symbol) && q.changePercent !== null && !isNaN(q.changePercent)
+    );
+  }
+
   const staleQuotes = quotes.filter(
-    (q) => requiredSet.has(q.symbol) && Boolean(q.stale)
+    (q) => requiredSet.has(q.symbol) && !freshQuotes.includes(q)
   );
   const stalePairSymbols = new Set(staleQuotes.map((q) => q.symbol));
 
@@ -107,8 +118,7 @@ export function calculateCurrencyMarketStrengths(
     freshQuotes.length === 0 ||
     quotes.length === 0 ||
     providerStatus === 'NOT_CONFIGURED' ||
-    providerStatus === 'ERROR' ||
-    providerStatus === 'DISCONNECTED'
+    providerStatus === 'ERROR'
   ) {
     for (const code of currencies) {
       const requiredForCurrency = requiredPairs.filter((p) => {

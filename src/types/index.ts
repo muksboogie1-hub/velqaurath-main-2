@@ -420,4 +420,5 @@ export interface DashboardPayload {
   marketProviderStatus: ProviderStatus;
   fundamentalProviderStatus?: FundamentalProviderStatus;
   fundamentalDatasetMode?: FundamentalDatasetMode;
+  marketQuotes?: MarketQuote[];
 }

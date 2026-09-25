@@ -103,10 +103,58 @@ export class MarketDataService {
     const cacheInfo = this.cache.getCacheInfo();
     const secondaryStatus = this.secondaryProvider?.getStatus();
 
+    const connectionStatus =
+      activeStatus.connectionStatus ??
+      (activeStatus.streamState === 'CONNECTED'
+        ? 'CONNECTED'
+        : activeStatus.streamState === 'CONNECTING'
+        ? 'CONNECTING'
+        : activeStatus.health === 'ERROR'
+        ? 'ERROR'
+        : 'DISCONNECTED');
+
+    const snapshotHealth =
+      activeStatus.snapshotHealth ??
+      (cacheInfo.hasData && !cacheInfo.isExpired
+        ? 'FRESH'
+        : cacheInfo.hasData
+        ? 'AGING'
+        : 'UNAVAILABLE');
+
+    const runtimeFeedState =
+      activeStatus.runtimeFeedState ??
+      (activeStatus.quotesCount === 0
+        ? 'UNAVAILABLE'
+        : connectionStatus === 'CONNECTED' && snapshotHealth === 'FRESH'
+        ? 'CONNECTED'
+        : snapshotHealth === 'FRESH'
+        ? 'DATA_AVAILABLE'
+        : snapshotHealth === 'AGING'
+        ? 'DEGRADED'
+        : 'UNAVAILABLE');
+
+    const strengthAvailable =
+      this.latestStrengths.size > 0
+        ? Array.from(this.latestStrengths.values()).filter((s) => s.marketStrength !== null).length
+        : activeStatus.availablePairsCount > 0 ? this.currencies.length : 0;
+
     return {
       ...activeStatus,
       activeProvider: this.activeProvider.name,
       source: this.activeProvider.name,
+      connectionStatus,
+      snapshotHealth,
+      runtimeFeedState,
+      quoteCoverage: activeStatus.quoteCoverage ?? {
+        available: activeStatus.availablePairsCount,
+        required: this.requiredPairs.length,
+        ratio: `${activeStatus.availablePairsCount}/${this.requiredPairs.length}`
+      },
+      strengthAvailability: {
+        available: strengthAvailable,
+        total: this.currencies.length,
+        ratio: `${strengthAvailable}/${this.currencies.length}`
+      },
       cacheExpiresAt: cacheInfo.expiresAt,
       fallbackAvailable: secondaryStatus?.isConfigured ?? false,
       fallbackStatus: secondaryStatus?.health ?? 'NOT_CONFIGURED'
@@ -142,7 +190,7 @@ export class MarketDataService {
         if (
           primaryQuotes.length > 0 &&
           (primaryStatus.health === 'CONNECTED' ||
-            (primaryStatus.health === 'DEGRADED' && freshPrimaryQuotes.length > 0))
+            (primaryStatus.health === 'DEGRADED' && (freshPrimaryQuotes.length > 0 || primaryStatus.snapshotHealth === 'FRESH')))
         ) {
           this.activeProvider = this.primaryProvider;
           this.cache.setQuotes(primaryQuotes);
@@ -171,6 +219,12 @@ export class MarketDataService {
           return primaryQuotes;
         }
 
+        // A failed snapshot MUST NOT erase the last valid snapshot
+        const cachedFallback = this.cache.getQuotesEvenIfExpired();
+        if (cachedFallback && cachedFallback.length > 0) {
+          return cachedFallback;
+        }
+
         return [];
       } finally {
         this.inFlightPromise = null;
@@ -190,7 +244,8 @@ export class MarketDataService {
       currencies: this.currencies,
       requiredPairs: this.requiredPairs,
       providerStatus: providerStatus.health,
-      providerSource: providerStatus.activeProvider || providerStatus.providerName
+      providerSource: providerStatus.activeProvider || providerStatus.providerName,
+      snapshotHealth: providerStatus.snapshotHealth
     });
     this.latestStrengths = strengths;
     return strengths;
@@ -214,7 +269,8 @@ export class MarketDataService {
         currencies: this.currencies,
         requiredPairs: this.requiredPairs,
         providerStatus: providerStatus.health,
-        providerSource: providerStatus.activeProvider || providerStatus.providerName
+        providerSource: providerStatus.activeProvider || providerStatus.providerName,
+        snapshotHealth: providerStatus.snapshotHealth
       });
     }
 
@@ -222,7 +278,8 @@ export class MarketDataService {
       currencies: this.currencies,
       requiredPairs: this.requiredPairs,
       providerStatus: providerStatus.health,
-      providerSource: providerStatus.activeProvider || providerStatus.providerName
+      providerSource: providerStatus.activeProvider || providerStatus.providerName,
+      snapshotHealth: providerStatus.snapshotHealth
     });
   }
 

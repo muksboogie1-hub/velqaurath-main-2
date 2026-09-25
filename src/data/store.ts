@@ -427,7 +427,21 @@ export class DataStore {
 
   public getDashboard(date: Date = new Date()): DashboardPayload {
     const allStates = this.getAllCurrencyStates();
-    const providerStatus = this.state.marketProviderStatus ?? marketDataService.getStatus();
+    const liveStatus = marketDataService.getStatus();
+    const providerStatus: ProviderStatus = {
+      ...liveStatus,
+      ...(this.state.marketProviderStatus ?? {}),
+      connectionStatus: liveStatus.connectionStatus,
+      snapshotHealth: liveStatus.snapshotHealth,
+      runtimeFeedState: liveStatus.runtimeFeedState,
+      streamState: liveStatus.streamState ?? this.state.marketProviderStatus?.streamState,
+      quoteCoverage: liveStatus.quoteCoverage,
+      strengthAvailability: {
+        available: allStates.filter((s) => s.marketStrength !== null).length,
+        total: allStates.length,
+        ratio: `${allStates.filter((s) => s.marketStrength !== null).length}/${allStates.length}`
+      }
+    };
     const fundStatus = this.state.fundamentalProviderStatus;
 
     const dataStatus = this.state.isDataFeedConnected ? 'CONNECTED' : 'NOT_CONNECTED';
@@ -488,7 +502,8 @@ export class DataStore {
       dataSources: this.state.dataSources,
       marketProviderStatus: providerStatus,
       fundamentalProviderStatus: fundStatus,
-      fundamentalDatasetMode: this.state.fundamentalDatasetMode
+      fundamentalDatasetMode: this.state.fundamentalDatasetMode,
+      marketQuotes: this.state.marketQuotes
     };
   }
 }

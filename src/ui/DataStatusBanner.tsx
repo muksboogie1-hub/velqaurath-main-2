@@ -98,14 +98,15 @@ export const DataStatusBanner: React.FC<DataStatusBannerProps> = ({
               {marketProviderStatus && (
                 <span
                   className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${
-                    fxHealth === 'CONNECTED'
+                    marketProviderStatus.runtimeFeedState === 'CONNECTED' || fxHealth === 'CONNECTED'
                       ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
-                      : fxHealth === 'DEGRADED'
+                      : marketProviderStatus.runtimeFeedState === 'DATA_AVAILABLE' || fxHealth === 'DEGRADED'
                       ? 'bg-amber-950/60 border-amber-500/40 text-amber-300'
                       : 'bg-neutral-800 border-neutral-700 text-neutral-400'
                   }`}
                 >
-                  FX: {marketProviderStatus.activeProvider || marketProviderStatus.providerName} ({fxHealth})
+                  FX: {marketProviderStatus.activeProvider || marketProviderStatus.providerName} ({marketProviderStatus.runtimeFeedState || fxHealth})
+                  {marketProviderStatus.quoteCoverage?.ratio ? ` [${marketProviderStatus.quoteCoverage.ratio}]` : ''}
                 </span>
               )}
 
@@ -117,8 +118,13 @@ export const DataStatusBanner: React.FC<DataStatusBannerProps> = ({
             <div className="flex flex-wrap items-center gap-3 mt-1.5 text-[11px] text-neutral-400 font-mono">
               <span>Source: <span className="text-neutral-200">{fundamentalProviderStatus?.providerName || 'Finance Calendar'}</span></span>
               <span>· Mode: <span className={fundamentalDatasetMode === 'LIVE' ? 'text-emerald-400 font-bold' : 'text-purple-400 font-bold'}>{fundamentalDatasetMode}</span></span>
-              <span>· Last Update: <span className="text-neutral-200">{lastUpdateFormatted}</span></span>
-              <span>· Freshness: <span className={fundamentalProviderStatus?.freshness === 'FRESH' ? 'text-emerald-400' : 'text-amber-400'}>{fundamentalProviderStatus?.freshness || 'UNAVAILABLE'}</span></span>
+              <span>· Macro Freshness: <span className={fundamentalProviderStatus?.freshness === 'FRESH' ? 'text-emerald-400' : 'text-amber-400'}>{fundamentalProviderStatus?.freshness || 'UNAVAILABLE'}</span></span>
+              {marketProviderStatus?.snapshotHealth && (
+                <span>· FX Snapshot: <span className={marketProviderStatus.snapshotHealth === 'FRESH' ? 'text-emerald-400' : marketProviderStatus.snapshotHealth === 'AGING' ? 'text-amber-400' : 'text-rose-400'}>{marketProviderStatus.snapshotHealth}</span></span>
+              )}
+              {marketProviderStatus?.connectionStatus && (
+                <span>· Stream: <span className={marketProviderStatus.connectionStatus === 'CONNECTED' ? 'text-emerald-400' : 'text-neutral-400'}>{marketProviderStatus.connectionStatus}</span></span>
+              )}
             </div>
 
             <p className="text-[11px] text-neutral-400 mt-1 leading-relaxed">

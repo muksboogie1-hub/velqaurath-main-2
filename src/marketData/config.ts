@@ -9,7 +9,14 @@ export const SUPPORTED_MAJOR_CURRENCIES: string[] = [
   'NZD'
 ];
 
-export const DEFAULT_LIQUID_PAIRS: string[] = [
+/**
+ * AUTHORITATIVE CANONICAL 15-PAIR UNIVERSE
+ *
+ * Exactly 15 liquid FX pairs supported by Biquote and Twelve Data:
+ * EUR/USD, GBP/USD, USD/JPY, USD/CHF, AUD/USD, NZD/USD, USD/CAD,
+ * EUR/GBP, EUR/JPY, GBP/JPY, EUR/CHF, GBP/CHF, AUD/JPY, NZD/JPY, CAD/JPY.
+ */
+export const CANONICAL_15_PAIRS: readonly string[] = Object.freeze([
   'EUR/USD',
   'GBP/USD',
   'USD/JPY',
@@ -25,11 +32,22 @@ export const DEFAULT_LIQUID_PAIRS: string[] = [
   'AUD/JPY',
   'NZD/JPY',
   'CAD/JPY'
-];
+]);
+
+export const DEFAULT_LIQUID_PAIRS: string[] = [...CANONICAL_15_PAIRS];
 
 export const DEFAULT_CACHE_TTL_MS = 10 * 60 * 1000;
 export const HEALTH_CACHE_TTL_MS = 60 * 1000;
 export const DEFAULT_FRESHNESS_THRESHOLD_SECONDS = 30;
+
+/**
+ * Snapshot freshness thresholds:
+ * - FRESH: <= 10 minutes (within 2 refresh cycles)
+ * - AGING: > 10 minutes and <= 25 minutes
+ * - STALE: > 25 minutes (beyond cache validity window)
+ */
+export const SNAPSHOT_FRESH_THRESHOLD_MS = 10 * 60 * 1000;
+export const SNAPSHOT_AGING_THRESHOLD_MS = 25 * 60 * 1000;
 
 export const BIQUOTE_API_BASE_URL = 'https://biquote.io';
 export const BIQUOTE_WS_HUB_URL = 'wss://biquote.io/hubs/tick';

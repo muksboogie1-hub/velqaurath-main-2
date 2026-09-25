@@ -12,6 +12,41 @@ export type MarketDataHealth =
 
 export type ProviderHealth = MarketDataHealth;
 
+/**
+ * Authoritative provider stream connection states.
+ */
+export type ProviderConnectionStatus =
+  | 'CONNECTED'
+  | 'CONNECTING'
+  | 'DISCONNECTED'
+  | 'ERROR';
+
+/**
+ * Authoritative daily snapshot health states.
+ */
+export type SnapshotHealth =
+  | 'FRESH'
+  | 'AGING'
+  | 'STALE'
+  | 'UNAVAILABLE';
+
+/**
+ * Authoritative runtime feed states:
+ * - CONFIGURED: Provider initialized and ready, awaiting first payload
+ * - CONNECTED: Live tick stream connected and daily snapshot fresh with full 15-pair coverage
+ * - DATA_AVAILABLE: Usable quotes actively available from valid REST snapshot (even if stream is disconnected/reconnecting)
+ * - DEGRADED: Partial quote coverage, aging snapshot, or stream disconnected with active cached snapshot
+ * - STALE: Cached snapshot has exceeded its validity window
+ * - UNAVAILABLE: Zero usable quotes available
+ */
+export type RuntimeFeedState =
+  | 'CONFIGURED'
+  | 'CONNECTED'
+  | 'DATA_AVAILABLE'
+  | 'DEGRADED'
+  | 'STALE'
+  | 'UNAVAILABLE';
+
 export type StreamState =
   | 'CONNECTED'
   | 'CONNECTING'
@@ -53,6 +88,8 @@ export interface MarketQuote {
   mid?: number;
   spread?: number;
   dailyReturnPercent?: number | null; // Preserved daily return distinct from live tick change
+  snapshotTimestamp?: string;
+  snapshotAgeSeconds?: number;
 }
 
 export interface PairContribution {
@@ -96,10 +133,24 @@ export interface ProviderStatus {
   providerName: string;
   activeProvider: string;
   health: MarketDataHealth;
+  connectionStatus?: ProviderConnectionStatus;
+  snapshotHealth?: SnapshotHealth;
+  runtimeFeedState?: RuntimeFeedState;
+  quoteCoverage?: {
+    available: number;
+    required: number;
+    ratio: string;
+  };
+  strengthAvailability?: {
+    available: number;
+    total: number;
+    ratio: string;
+  };
   streamState: StreamState;
   message: string;
   lastFetchedAt: string | null;
   lastSuccessfulUpdate?: string | null;
+  lastSuccessfulSnapshotAt?: string | null;
   lastAttemptAt?: string | null;
   nextRefreshAt?: string | null;
   quotesCount: number;
@@ -145,4 +196,5 @@ export interface StrengthEngineOptions {
   minCoverageThreshold?: number; // Minimum coverage ratio required (e.g. 0.5 = 50%)
   providerStatus?: MarketDataHealth | string;
   providerSource?: string;
+  snapshotHealth?: SnapshotHealth | string;
 }

@@ -50,7 +50,6 @@ export function App() {
 
         if (dashRes.ok) {
           const dashData: DashboardPayload = await dashRes.json();
-          setDashboard(dashData);
 
           if (dashData.marketProviderStatus && dashData.allCurrencies) {
             const strengthsMap = new Map();
@@ -81,7 +80,7 @@ export function App() {
               });
             });
             globalStore.setMarketData(
-              [],
+              dashData.marketQuotes || [],
               strengthsMap,
               dashData.marketProviderStatus
             );
@@ -103,6 +102,9 @@ export function App() {
               globalStore.setFundamentalStatus(dashData.fundamentalProviderStatus);
             }
           }
+
+          // Authoritative state update from server payload
+          setDashboard(dashData);
         }
 
         if (pairsRes.ok) {

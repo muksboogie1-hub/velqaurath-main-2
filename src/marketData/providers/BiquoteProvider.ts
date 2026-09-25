@@ -1,10 +1,19 @@
 import {
   DEFAULT_LIQUID_PAIRS,
   DEFAULT_FRESHNESS_THRESHOLD_SECONDS,
+  SNAPSHOT_FRESH_THRESHOLD_MS,
+  SNAPSHOT_AGING_THRESHOLD_MS,
   BIQUOTE_API_BASE_URL,
   BIQUOTE_WS_HUB_URL
 } from '../config';
-import { MarketQuote, ProviderHealth, ProviderStatus } from '../types';
+import {
+  MarketQuote,
+  ProviderHealth,
+  ProviderStatus,
+  ProviderConnectionStatus,
+  SnapshotHealth,
+  RuntimeFeedState
+} from '../types';
 
 export const INTERNAL_TO_BIQUOTE: Record<string, string> = Object.freeze({
   'EUR/USD': 'EURUSD',
@@ -66,10 +75,14 @@ export interface BiquoteProviderOptions {
 export class BiquoteProvider {
   public readonly name: string = 'Biquote';
   public health: ProviderHealth = 'DISCONNECTED';
+  public connectionStatus: ProviderConnectionStatus = 'DISCONNECTED';
+  public snapshotHealth: SnapshotHealth = 'UNAVAILABLE';
+  public runtimeFeedState: RuntimeFeedState = 'CONFIGURED';
   public message: string =
     'Biquote live stream disconnected and no usable market data is available.';
   public lastFetchedAt: string | null = null;
   public lastSuccessfulUpdate: string | null = null;
+  public lastSuccessfulSnapshotAt: string | null = null;
   public lastQuotes: Map<string, MarketQuote> = new Map();
   public missingPairs: string[] = [];
 
@@ -168,6 +181,7 @@ export class BiquoteProvider {
 
       this.lastFetchedAt = new Date(now).toISOString();
       this.lastSuccessfulUpdate = this.lastFetchedAt;
+      this.lastSuccessfulSnapshotAt = this.lastFetchedAt;
       this.evaluateStatus(symbols);
       return Array.from(this.lastQuotes.values());
     } catch (err) {
@@ -504,6 +518,32 @@ export class BiquoteProvider {
     const allFreshAndComplete =
       freshCount === symbols.length && missing.length === 0 && stale.length === 0;
 
+    // 1. Connection status
+    if (this.streamState === 'CONNECTED') {
+      this.connectionStatus = 'CONNECTED';
+    } else if (this.streamState === 'CONNECTING') {
+      this.connectionStatus = 'CONNECTING';
+    } else if (this.health === 'ERROR') {
+      this.connectionStatus = 'ERROR';
+    } else {
+      this.connectionStatus = 'DISCONNECTED';
+    }
+
+    // 2. Snapshot health
+    if (!this.lastSuccessfulSnapshotAt || totalQuotes === 0) {
+      this.snapshotHealth = 'UNAVAILABLE';
+    } else {
+      const snapshotAgeMs = now - Date.parse(this.lastSuccessfulSnapshotAt);
+      if (snapshotAgeMs <= SNAPSHOT_FRESH_THRESHOLD_MS) {
+        this.snapshotHealth = 'FRESH';
+      } else if (snapshotAgeMs <= SNAPSHOT_AGING_THRESHOLD_MS) {
+        this.snapshotHealth = 'AGING';
+      } else {
+        this.snapshotHealth = 'STALE';
+      }
+    }
+
+    // 3. Provider overall health (preserves exact test compatibility)
     if (this.streamState === 'CONNECTED' && allFreshAndComplete && !this.isReconnecting) {
       this.health = 'CONNECTED';
       this.message = `Biquote live stream connected. All ${symbols.length}/${symbols.length} pairs fresh.`;
@@ -526,6 +566,21 @@ export class BiquoteProvider {
       this.health = 'ERROR';
       this.message = 'Biquote error: No valid market quotes available.';
     }
+
+    // 4. Authoritative runtime feed state
+    if (totalQuotes === 0) {
+      this.runtimeFeedState = this.streamState === 'CONNECTING' ? 'CONFIGURED' : 'UNAVAILABLE';
+    } else if (this.connectionStatus === 'CONNECTED' && this.snapshotHealth === 'FRESH' && allFreshAndComplete) {
+      this.runtimeFeedState = 'CONNECTED';
+    } else if (this.snapshotHealth === 'FRESH' && (freshCount > 0 || totalQuotes === symbols.length)) {
+      this.runtimeFeedState = 'DATA_AVAILABLE';
+    } else if (this.snapshotHealth === 'AGING' || (freshCount > 0 && stale.length > 0)) {
+      this.runtimeFeedState = 'DEGRADED';
+    } else if (this.snapshotHealth === 'STALE') {
+      this.runtimeFeedState = 'STALE';
+    } else {
+      this.runtimeFeedState = 'UNAVAILABLE';
+    }
   }
 
   public getQuotes(): MarketQuote[] {
@@ -540,14 +595,29 @@ export class BiquoteProvider {
     const freshQuotes = quotes.filter((q) => !q.stale && q.changePercent !== null);
     const ages = quotes.map((q) => q.quoteAgeSeconds ?? 0);
     const oldestQuoteAge = ages.length > 0 ? Math.max(...ages) : null;
+    const availablePairsCount = freshQuotes.length > 0 ? freshQuotes.length : (this.snapshotHealth === 'FRESH' ? quotes.length : 0);
 
     return {
       providerName: this.name,
       activeProvider: this.name,
       health: this.health,
+      connectionStatus: this.connectionStatus,
+      snapshotHealth: this.snapshotHealth,
+      runtimeFeedState: this.runtimeFeedState,
+      quoteCoverage: {
+        available: availablePairsCount,
+        required: this.requiredPairs.length,
+        ratio: `${availablePairsCount}/${this.requiredPairs.length}`
+      },
+      strengthAvailability: {
+        available: availablePairsCount > 0 ? 8 : 0,
+        total: 8,
+        ratio: `${availablePairsCount > 0 ? 8 : 0}/8`
+      },
       message: this.message,
       lastFetchedAt: this.lastFetchedAt,
       lastSuccessfulUpdate: this.lastSuccessfulUpdate,
+      lastSuccessfulSnapshotAt: this.lastSuccessfulSnapshotAt,
       quotesCount: quotes.length,
       requiredPairsCount: this.requiredPairs.length,
       availablePairsCount: freshQuotes.length,

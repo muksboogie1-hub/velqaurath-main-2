@@ -94,7 +94,7 @@ export class RefreshScheduler {
 
     // 1. Establish background interval timers first
     this.marketTimer = setInterval(() => {
-      this.refreshMarketSnapshot(false).catch((err) => {
+      this.refreshMarketSnapshot(true).catch((err) => {
         console.error('[VELQOARATH] Background market refresh error:', err?.message || err);
       });
     }, this.marketIntervalMs);
