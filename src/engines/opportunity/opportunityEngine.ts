@@ -83,6 +83,17 @@ export function evaluatePairOpportunity(intelligence: PairIntelligence): Structu
   const policySpread = intelligence.fundamentalDifferential?.policyDifferential?.rateSpread ?? null;
   const dataQuality = (confluence.dataQuality as any) || 'COMPLETE';
 
+  const dataGaps: string[] = [];
+  if (confluence?.missingComponents && confluence.missingComponents.length > 0) {
+    dataGaps.push(...confluence.missingComponents.map((c) => `Missing ${c} component`));
+  }
+  if ((baseState.confidenceMetadata?.observationCount ?? 0) === 0) {
+    dataGaps.push(`No live macroeconomic observations for ${pair.baseCurrency}`);
+  }
+  if ((quoteState.confidenceMetadata?.observationCount ?? 0) === 0) {
+    dataGaps.push(`No live macroeconomic observations for ${pair.quoteCurrency}`);
+  }
+
   let state: OpportunityState = 'MONITOR';
   let whyThisPair = '';
   const watchFactors: string[] = [];
@@ -147,14 +158,18 @@ export function evaluatePairOpportunity(intelligence: PairIntelligence): Structu
     whyThisPair = `MONITOR (EVENT RISK): Imminent high-impact release (${imminentCatalysts[0].name}) within execution window. Elevated binary risk.`;
   } else if (
     score >= 70 &&
-    thesisStatus === 'SUPPORTED' &&
+    (thesisStatus === 'SUPPORTED' || thesisStatus === 'VALIDATED') &&
     Math.abs(relativeStrengthDelta) >= 0.10 &&
     moderateContradictions.length === 0 &&
     !hasFundamentalDivergence
   ) {
     state = 'PRIMARY_WATCH';
     whyThisPair = `PRIMARY WATCH: High multi-factor confluence (${score}/100) aligned with ${orientationDirection} orientation and zero severe contradictions.`;
-  } else if (score >= 50 && (thesisStatus === 'SUPPORTED' || thesisStatus === 'MIXED') && !hasFundamentalDivergence) {
+  } else if (
+    score >= 50 &&
+    (thesisStatus === 'SUPPORTED' || thesisStatus === 'VALIDATED' || thesisStatus === 'TENTATIVE' || thesisStatus === 'MIXED') &&
+    !hasFundamentalDivergence
+  ) {
     state = 'SECONDARY_WATCH';
     whyThisPair = `SECONDARY WATCH: Moderate confluence (${score}/100) with coherent macro alignment and manageable event risk.`;
   } else {
@@ -170,7 +185,7 @@ export function evaluatePairOpportunity(intelligence: PairIntelligence): Structu
     opportunityClassification = 'WAIT_FOR_CATALYST';
   } else if (hasFundamentalDivergence || (severeContradictions.length > 0 && Math.abs(relativeStrengthDelta) >= 0.15)) {
     opportunityClassification = 'MEAN_REVERSION';
-  } else if (score >= 65 && thesisStatus === 'SUPPORTED' && Math.abs(relativeStrengthDelta) >= 0.10) {
+  } else if (score >= 65 && (thesisStatus === 'SUPPORTED' || thesisStatus === 'VALIDATED') && Math.abs(relativeStrengthDelta) >= 0.10) {
     opportunityClassification = 'EXPANSION';
   } else if (hasInvalidated || thesisStatus === 'INVALIDATED' || severeContradictions.length > 0) {
     opportunityClassification = 'NO_SETUP';
@@ -198,6 +213,7 @@ export function evaluatePairOpportunity(intelligence: PairIntelligence): Structu
     whyThisPair,
     watchReason: whyThisPair,
     watchFactors,
+    dataGaps,
     keyCatalysts: imminentCatalysts.length > 0 ? imminentCatalysts : catalystIntelligence.slice(0, 3),
     risks: currentRisks,
     invalidationRules,

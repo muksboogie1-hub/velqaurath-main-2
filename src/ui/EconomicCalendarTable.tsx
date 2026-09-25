@@ -35,8 +35,9 @@ export const EconomicCalendarTable: React.FC<EconomicCalendarTableProps> = ({
               <th className="py-2 px-2 font-medium font-sans">Event</th>
               <th className="py-2 px-2 font-medium">Imp</th>
               <th className="py-2 px-2 font-medium text-right">Prev</th>
-              <th className="py-2 px-2 font-medium text-right">Consensus</th>
+              <th className="py-2 px-2 font-medium text-right">Forecast</th>
               <th className="py-2 px-2 font-medium text-right">Actual</th>
+              <th className="py-2 px-2 font-medium text-right">Surprise</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-800/60">
@@ -52,6 +53,9 @@ export const EconomicCalendarTable: React.FC<EconomicCalendarTableProps> = ({
                 timeZone: 'UTC'
               });
 
+              const hasSurprise = e.actual !== null && e.forecast !== null;
+              const surpriseVal = hasSurprise ? Math.round((e.actual! - e.forecast!) * 100) / 100 : null;
+
               return (
                 <tr key={`${e.id || 'evt'}-${idx}`} className="hover:bg-neutral-800/40 transition-colors">
                   <td className="py-2.5 px-2 text-neutral-400 whitespace-nowrap">
@@ -66,7 +70,14 @@ export const EconomicCalendarTable: React.FC<EconomicCalendarTableProps> = ({
                     </button>
                   </td>
                   <td className="py-2.5 px-2 font-sans font-medium text-neutral-200 min-w-[200px]">
-                    {e.name}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span>{e.name}</span>
+                      {e.category && (
+                        <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-neutral-800 text-neutral-400 border border-neutral-700/60">
+                          {e.category}
+                        </span>
+                      )}
+                    </div>
                     {e.source && (
                       <span className="block text-[10px] text-neutral-500 font-mono mt-0.5">
                         Source: {e.source}
@@ -99,6 +110,25 @@ export const EconomicCalendarTable: React.FC<EconomicCalendarTableProps> = ({
                       <span className="font-bold text-emerald-400">
                         {e.actual}{e.unit}
                       </span>
+                    )}
+                  </td>
+                  <td className="py-2.5 px-2 text-right tabular-nums">
+                    {hasSurprise && surpriseVal !== null ? (
+                      <span
+                        className={`font-mono font-bold text-[11px] ${
+                          surpriseVal > 0
+                            ? 'text-emerald-400'
+                            : surpriseVal < 0
+                            ? 'text-rose-400'
+                            : 'text-neutral-400'
+                        }`}
+                      >
+                        {surpriseVal > 0 ? '+' : ''}{surpriseVal}{e.unit}
+                      </span>
+                    ) : e.actual !== null ? (
+                      <span className="text-neutral-500 text-[10px] italic">No forecast</span>
+                    ) : (
+                      <span className="text-neutral-600 text-[10px]">Awaiting</span>
                     )}
                   </td>
                 </tr>

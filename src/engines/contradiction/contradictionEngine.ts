@@ -50,6 +50,10 @@ export function evaluateStructuredContradictions(
     fundamentalDiff?.fundamentalDifferential?.delta ??
     (baseScore !== undefined && baseScore !== null && quoteScore !== undefined && quoteScore !== null
       ? Math.round((baseScore - quoteScore) * 100) / 100
+      : baseScore !== undefined && baseScore !== null
+      ? Math.round(baseScore * 100) / 100
+      : quoteScore !== undefined && quoteScore !== null
+      ? Math.round(-quoteScore * 100) / 100
       : null);
   const policySpread =
     fundamentalDiff?.policyDifferential?.rateSpread ??
@@ -274,67 +278,9 @@ export function evaluateStructuredContradictions(
     }
   }
 
-  // 4. STRONG CURRENCY BUT NO LIVE FUNDAMENTAL EVIDENCE (DATA QUALITY CONTRADICTION)
-  const baseObsCount = baseState.confidenceMetadata?.observationCount ?? 0;
-  const quoteObsCount = quoteState.confidenceMetadata?.observationCount ?? 0;
-
-  if (baseState.marketState === 'STRONG' && baseObsCount === 0) {
-    contradictions.push({
-      id: `contra-${pair.symbol.toLowerCase()}-strong-base-no-fund`,
-      pair: pair.symbol,
-      currency: pair.baseCurrency,
-      category: 'DATA_QUALITY',
-      contradictionType: 'DATA_QUALITY',
-      sourceA: 'Market Basket Relative Strength Engine',
-      sourceB: 'Live Fundamental Economic Observations',
-      statementA: `Market strength evaluates ${pair.baseCurrency} as STRONG (≥ +0.10%)`,
-      statementB: `Zero authenticated live fundamental observations recorded for ${pair.baseCurrency}`,
-      conflictDescription: `${pair.baseCurrency} is classified as STRONG by market price action, but possesses no live fundamental evidence to substantiate the move.`,
-      description: `${pair.baseCurrency} is classified as STRONG by market price action, but possesses no live fundamental evidence to substantiate the move.`,
-      directionA: 'BULLISH_BASE',
-      directionB: 'DATA_UNAVAILABLE',
-      severity: 'MEDIUM',
-      directionalImpact: 'Unsubstantiated momentum; move may be technical or speculative.',
-      penaltyPoints: 8,
-      affectedComponents: ['MARKET_STRENGTH', 'DATA_QUALITY'],
-      status: 'UNRESOLVED',
-      detectedTimestamp: nowIso,
-      sourceTimestamps: {
-        sourceA: nowIso,
-        sourceB: null
-      },
-      provenance: 'Data Quality & Provenance Validation'
-    });
-  }
-
-  if (quoteState.marketState === 'STRONG' && quoteObsCount === 0) {
-    contradictions.push({
-      id: `contra-${pair.symbol.toLowerCase()}-strong-quote-no-fund`,
-      pair: pair.symbol,
-      currency: pair.quoteCurrency,
-      category: 'DATA_QUALITY',
-      contradictionType: 'DATA_QUALITY',
-      sourceA: 'Market Basket Relative Strength Engine',
-      sourceB: 'Live Fundamental Economic Observations',
-      statementA: `Market strength evaluates ${pair.quoteCurrency} as STRONG (≥ +0.10%)`,
-      statementB: `Zero authenticated live fundamental observations recorded for ${pair.quoteCurrency}`,
-      conflictDescription: `${pair.quoteCurrency} is classified as STRONG by market price action, but possesses no live fundamental evidence to substantiate the move.`,
-      description: `${pair.quoteCurrency} is classified as STRONG by market price action, but possesses no live fundamental evidence to substantiate the move.`,
-      directionA: 'BEARISH_BASE',
-      directionB: 'DATA_UNAVAILABLE',
-      severity: 'MEDIUM',
-      directionalImpact: 'Unsubstantiated momentum; move may be technical or speculative.',
-      penaltyPoints: 8,
-      affectedComponents: ['MARKET_STRENGTH', 'DATA_QUALITY'],
-      status: 'UNRESOLVED',
-      detectedTimestamp: nowIso,
-      sourceTimestamps: {
-        sourceA: nowIso,
-        sourceB: null
-      },
-      provenance: 'Data Quality & Provenance Validation'
-    });
-  }
+  // 4. EVIDENCE CHECK: ABSENCE OF EVIDENCE IS NOT A CONTRADICTION
+  // Contradictions require genuine conflicting evidence (e.g. Bullish Price vs Contractionary Fundamentals).
+  // Lack of macro observations is an UNKNOWN / UNSUBSTANTIATED state tracked via data gaps, not an evidence contradiction.
 
   // 5. MULTIPLE COUNTER-THESIS EVIDENCE
   const counterCount =

@@ -585,12 +585,16 @@ console.log('================================================================\n'
   });
 
   assert(
-    missingFundConfluence.components.fundamentals.points === 5,
-    'Test 6.16a: Missing fundamental scores receive partial neutral allocation (5/20 pts)'
+    missingFundConfluence.components.fundamentals.points === 0,
+    'Test 6.16a: Missing fundamental data receives 0 points (MISSING ≠ NEUTRAL, MISSING ≠ POSITIVE)'
   );
   assert(
-    missingFundConfluence.components.fundamentals.explanation.includes('Partial macroeconomic observations'),
-    'Test 6.16b: Missing fundamentals honestly disclosed in explanation'
+    missingFundConfluence.components.fundamentals.availability === 'UNAVAILABLE',
+    'Test 6.16b: Missing fundamentals marked UNAVAILABLE'
+  );
+  assert(
+    missingFundConfluence.components.fundamentals.explanation.includes('No verified live macro observations available'),
+    'Test 6.16c: Missing fundamentals explicitly stated as unavailable'
   );
 }
 

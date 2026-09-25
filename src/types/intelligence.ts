@@ -136,7 +136,9 @@ export interface StructuredInvalidationCondition {
 }
 
 export type ThesisStatus =
+  | 'VALIDATED'
   | 'SUPPORTED'
+  | 'TENTATIVE'
   | 'MIXED'
   | 'WEAKENED'
   | 'INVALIDATED'
@@ -231,6 +233,7 @@ export interface StructuredOpportunity {
   whyThisPair: string;
   watchReason: string;
   watchFactors: string[];
+  dataGaps?: string[];
   keyCatalysts?: CatalystEvent[];
   risks?: string[];
   invalidationRules?: string[];

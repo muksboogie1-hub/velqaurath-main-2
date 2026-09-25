@@ -109,6 +109,9 @@ export interface CentralBank {
   fetchedTimestamp?: string;
   dataStatus?: FundamentalDataStatus;
   provenance?: string;
+  sourceType?: 'LIVE' | 'REFERENCE' | 'STATIC' | 'UNAVAILABLE';
+  freshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE' | 'REFERENCE';
+  dataSourceMode?: 'LIVE' | 'REFERENCE' | 'STATIC' | 'UNAVAILABLE';
 }
 
 export type CentralBankPolicy = CentralBank;
@@ -158,6 +161,7 @@ export interface EconomicEvent {
   unit: string;
   source?: string;
   status: 'UPCOMING' | 'RELEASED' | 'CANCELLED';
+  category?: string;
 }
 
 export interface DataSource {
@@ -305,11 +309,23 @@ export type DirectionalConfidenceLevel =
   | 'NEUTRAL'
   | 'DATA_UNAVAILABLE';
 
+export type ConfluenceComponentAvailability =
+  | 'AVAILABLE'
+  | 'PARTIAL'
+  | 'REFERENCE_ONLY'
+  | 'STATIC'
+  | 'UNAVAILABLE';
+
 export interface ConfluenceComponent {
   points: number;
   maxPoints: number;
   weightPercent: number;
   explanation: string;
+  availability?: ConfluenceComponentAvailability;
+  evidenceCount?: number;
+  source?: string;
+  freshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE' | 'REFERENCE';
+  provenance?: string;
   supportingData?: Record<string, any>;
 }
 
@@ -334,6 +350,10 @@ export interface ConfluenceAssessment {
       reason: string;
     };
   };
+  availableComponents?: string[];
+  missingComponents?: string[];
+  staleComponents?: string[];
+  referenceOnlyComponents?: string[];
   dataQualityAdjustment: {
     factor: number;
     quality: 'COMPLETE' | 'PARTIAL' | 'DEGRADED' | 'UNAVAILABLE';

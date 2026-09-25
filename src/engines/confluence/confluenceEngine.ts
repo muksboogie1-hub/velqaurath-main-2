@@ -20,6 +20,7 @@ import {
   PairOrientationDirection,
   ConfluenceAssessment,
   ConfluenceComponent,
+  ConfluenceComponentAvailability,
   DirectionalConfidenceLevel,
   FundamentalDifferential
 } from '../../types';
@@ -111,6 +112,8 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
   // COMPONENT 1: MARKET STRENGTH CONTRIBUTION (Weight: 25 pts)
   // Evaluates signed percentage-based divergence between BASE and QUOTE relative movements.
   // ----------------------------------------------------
+  const baseCoverage = baseState.relativeStrengthBreakdown?.coverage;
+  const quoteCoverage = quoteState.relativeStrengthBreakdown?.coverage;
   const baseMkt = baseState.marketStrength ?? 0;
   const quoteMkt = quoteState.marketStrength ?? 0;
   const delta = relativeStrengthDelta;
@@ -153,6 +156,11 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     maxPoints: 25,
     weightPercent: 25,
     explanation: mktExplanation,
+    availability: baseMkt === null && quoteMkt === null ? 'UNAVAILABLE' : 'AVAILABLE',
+    evidenceCount: (baseCoverage?.available ?? 0) + (quoteCoverage?.available ?? 0),
+    source: 'Biquote',
+    freshness: (baseCoverage?.stalePairs?.length ?? 0) > 0 || (quoteCoverage?.stalePairs?.length ?? 0) > 0 ? 'AGING' : 'FRESH',
+    provenance: 'Biquote live market basket relative strength calculation',
     supportingData: {
       baseCurrency: pair.baseCurrency,
       quoteCurrency: pair.quoteCurrency,
@@ -178,10 +186,27 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     fundDelta = fundamentalDiff.fundamentalDifferential.delta;
   }
 
+  const baseObsCount = baseState.confidenceMetadata?.observationCount ?? 0;
+  const quoteObsCount = quoteState.confidenceMetadata?.observationCount ?? 0;
+  const totalObsCount = baseObsCount + quoteObsCount;
+
   let fundPoints = 0;
   let fundExplanation = '';
+  let fundAvailability: ConfluenceComponentAvailability = 'AVAILABLE';
+  let fundFreshness: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE' = 'FRESH';
 
-  if (fundDelta !== null) {
+  // Strict non-fabrication rule: if no macro observations or scores exist, points MUST be 0 and availability UNAVAILABLE!
+  if (fundDelta === null || (baseScore === null && quoteScore === null && totalObsCount === 0)) {
+    fundPoints = 0;
+    fundAvailability = 'UNAVAILABLE';
+    fundFreshness = 'UNAVAILABLE';
+    fundExplanation = 'No verified live macro observations available for this comparison.';
+  } else {
+    fundFreshness =
+      baseState.confidenceMetadata?.dataStatus === 'CONNECTED' || quoteState.confidenceMetadata?.dataStatus === 'CONNECTED'
+        ? 'FRESH'
+        : 'STALE';
+
     const fundAligns =
       (isBullishBase && fundDelta > 0) || (isBearishBase && fundDelta < 0);
     const absFundDelta = Math.abs(fundDelta);
@@ -205,11 +230,8 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
       fundExplanation = `Macro fundamentals are balanced between ${pair.baseCurrency} and ${pair.quoteCurrency} (Fund Δ = ${fundDelta >= 0 ? '+' : ''}${fundDelta.toFixed(2)}).`;
     } else {
       fundPoints = 0;
-      fundExplanation = `Macro fundamentals conflict with current directional skew (Fund Δ = ${fundDelta >= 0 ? '+' : ''}${fundDelta.toFixed(2)}).`;
+      fundExplanation = `Fundamentals contradict the thesis: Macro fundamentals conflict with current directional skew (Fund Δ = ${fundDelta >= 0 ? '+' : ''}${fundDelta.toFixed(2)}).`;
     }
-  } else {
-    fundPoints = 5;
-    fundExplanation = 'Partial macroeconomic observations available; neutral contribution assigned.';
   }
 
   const fundamentalsComponent: ConfluenceComponent = {
@@ -217,6 +239,11 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     maxPoints: 20,
     weightPercent: 20,
     explanation: fundExplanation,
+    availability: fundAvailability,
+    evidenceCount: totalObsCount,
+    source: 'Finance Calendar',
+    freshness: fundFreshness,
+    provenance: fundAvailability === 'UNAVAILABLE' ? 'No authenticated releases' : 'Macroeconomic released observations',
     supportingData: {
       baseScore,
       quoteScore,
@@ -228,10 +255,20 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
   // COMPONENT 3: CENTRAL BANK POLICY & CARRY SPREAD (Weight: 20 pts)
   // Nominal policy rate spread (max 12 pts) + Stance divergence (max 8 pts).
   // ----------------------------------------------------
-  const baseRate = baseState.centralBank.currentPolicyRate ?? null;
-  const quoteRate = quoteState.centralBank.currentPolicyRate ?? null;
-  const baseStance = baseState.centralBank.stance;
-  const quoteStance = quoteState.centralBank.stance;
+  const baseCb = baseState.centralBank;
+  const quoteCb = quoteState.centralBank;
+  const baseRate = baseCb?.currentPolicyRate ?? null;
+  const quoteRate = quoteCb?.currentPolicyRate ?? null;
+  const baseStance = baseCb?.stance ?? 'UNAVAILABLE';
+  const quoteStance = quoteCb?.stance ?? 'UNAVAILABLE';
+
+  // Determine source type for both central banks
+  const baseSourceType =
+    baseCb?.sourceType ??
+    (baseCb?.sourceMetadata?.status === 'CONNECTED' ? 'LIVE' : 'REFERENCE');
+  const quoteSourceType =
+    quoteCb?.sourceType ??
+    (quoteCb?.sourceMetadata?.status === 'CONNECTED' ? 'LIVE' : 'REFERENCE');
 
   let policySpread: number | null = null;
   if (baseRate !== null && quoteRate !== null) {
@@ -275,24 +312,74 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     stancePoints = 0;
   }
 
-  const policyPoints = carryPoints + stancePoints;
+  const rawPolicyPoints = carryPoints + stancePoints;
+
+  let policyPoints = 0;
+  let policyAvailability: ConfluenceComponentAvailability = 'AVAILABLE';
+  let policyFreshness: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE' | 'REFERENCE' = 'FRESH';
+  let policySource = 'Official central-bank wire';
+  let policyProvenance = 'Live official central bank policy rate announcements';
+  let policyExplanation = '';
+
   const carryText =
     policySpread !== null
       ? `Policy carry spread: ${policySpread >= 0 ? '+' : ''}${policySpread.toFixed(2)}% (${carryPoints}/12 pts).`
       : 'Policy rate data unavailable.';
-  const stanceText = `Monetary posture: ${baseState.centralBank.institution} (${baseStance}) vs ${quoteState.centralBank.institution} (${quoteStance}) (${stancePoints}/8 pts).`;
+  const stanceText = `Monetary posture: ${baseCb?.institution || pair.baseCurrency} (${baseStance}) vs ${quoteCb?.institution || pair.quoteCurrency} (${quoteStance}) (${stancePoints}/8 pts).`;
+
+  if (
+    baseSourceType === 'UNAVAILABLE' ||
+    quoteSourceType === 'UNAVAILABLE' ||
+    baseRate === null ||
+    quoteRate === null
+  ) {
+    policyAvailability = 'UNAVAILABLE';
+    policyPoints = 0;
+    policyFreshness = 'UNAVAILABLE';
+    policySource = 'Official central-bank archive';
+    policyProvenance = 'No authenticated policy release record (UNAVAILABLE)';
+    policyExplanation = 'Official central bank policy rate data unavailable for this comparison.';
+  } else if (baseSourceType === 'STATIC' || quoteSourceType === 'STATIC') {
+    policyAvailability = 'STATIC';
+    policyPoints = 0;
+    policyFreshness = 'REFERENCE';
+    policySource = 'Official central-bank archive';
+    policyProvenance = 'Static policy benchmarks (STATIC - contextual only)';
+    policyExplanation = `${carryText} ${stanceText} [STATIC: Baseline contextual data only; zero live points awarded].`;
+  } else if (baseSourceType === 'REFERENCE' || quoteSourceType === 'REFERENCE') {
+    policyAvailability = 'REFERENCE_ONLY';
+    policyPoints = 0;
+    policyFreshness = 'REFERENCE';
+    policySource = 'Official central-bank archive';
+    policyProvenance = 'Official central-bank benchmark archive (REFERENCE)';
+    policyExplanation = `${carryText} ${stanceText} [REFERENCE_ONLY: Historical policy benchmarks provide contextual baseline; zero live points awarded].`;
+  } else {
+    // Both are LIVE
+    policyAvailability = 'AVAILABLE';
+    policyPoints = rawPolicyPoints;
+    policyFreshness =
+      baseCb?.freshness === 'STALE' || quoteCb?.freshness === 'STALE' ? 'STALE' : 'FRESH';
+    policyExplanation = `${carryText} ${stanceText}`;
+  }
 
   const policyComponent: ConfluenceComponent = {
     points: policyPoints,
     maxPoints: 20,
     weightPercent: 20,
-    explanation: `${carryText} ${stanceText}`,
+    explanation: policyExplanation,
+    availability: policyAvailability,
+    evidenceCount: policyAvailability === 'UNAVAILABLE' ? 0 : 2,
+    source: policySource,
+    freshness: policyFreshness,
+    provenance: policyProvenance,
     supportingData: {
       basePolicyRate: baseRate,
       quotePolicyRate: quoteRate,
       policyRateSpread: policySpread,
       baseStance,
-      quoteStance
+      quoteStance,
+      baseSourceType,
+      quoteSourceType
     }
   };
 
@@ -300,14 +387,19 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
   // COMPONENT 4: MACRO EXPECTATIONS & SURPRISES (Weight: 15 pts)
   // Economic indicator consensus surprise momentum.
   // ----------------------------------------------------
-  const baseObs = baseState.confidenceMetadata?.observationCount ?? 0;
-  const quoteObs = quoteState.confidenceMetadata?.observationCount ?? 0;
+  const baseObs = baseObsCount;
+  const quoteObs = quoteObsCount;
   const expDiff = fundamentalDiff?.expectationsDifferential;
 
   let expPoints = 0;
   let expExplanation = '';
+  let expAvailability: ConfluenceComponentAvailability = 'AVAILABLE';
+  let expFreshness: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE' = 'FRESH';
+  let expEvidenceCount = baseObs + quoteObs;
 
   if (expDiff?.comparison) {
+    expAvailability = 'AVAILABLE';
+    expFreshness = 'FRESH';
     if (
       (isBullishBase && expDiff.comparison.includes(pair.baseCurrency)) ||
       (isBearishBase && expDiff.comparison.includes(pair.quoteCurrency))
@@ -321,12 +413,18 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
       expPoints = 2;
       expExplanation = `Recent economic surprises lean against current price action: ${expDiff.comparison}`;
     }
-  } else if (baseObs > 0 || quoteObs > 0) {
-    expPoints = 7;
-    expExplanation = `Macroeconomic observation coverage verified across ${baseObs + quoteObs} releases.`;
+  } else if (totalObsCount > 0) {
+    expAvailability = 'PARTIAL';
+    expFreshness = 'AGING';
+    expPoints = 5;
+    expExplanation = `Macroeconomic observation coverage verified across ${totalObsCount} releases; no consensus surprise differential available.`;
   } else {
-    expPoints = 4;
-    expExplanation = 'Expectations tracking running on baseline economic calendar observations.';
+    // Missing! Zero points awarded!
+    expPoints = 0;
+    expAvailability = 'UNAVAILABLE';
+    expFreshness = 'UNAVAILABLE';
+    expEvidenceCount = 0;
+    expExplanation = 'Evidence unavailable: No macroeconomic consensus expectations or release surprises recorded.';
   }
 
   const expectationsComponent: ConfluenceComponent = {
@@ -334,6 +432,11 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     maxPoints: 15,
     weightPercent: 15,
     explanation: expExplanation,
+    availability: expAvailability,
+    evidenceCount: expEvidenceCount,
+    source: 'Finance Calendar',
+    freshness: expFreshness,
+    provenance: expAvailability === 'UNAVAILABLE' ? 'No consensus expectations record' : 'Economic indicator consensus surprise momentum',
     supportingData: {
       baseObservations: baseObs,
       quoteObservations: quoteObs,
@@ -379,6 +482,11 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     maxPoints: 10,
     weightPercent: 10,
     explanation: sessionExplanation,
+    availability: 'AVAILABLE',
+    evidenceCount: openSessionNames.length,
+    source: 'Session Intelligence',
+    freshness: 'FRESH',
+    provenance: 'DERIVED',
     supportingData: {
       primarySession: sessionRel.primarySession,
       activeSessions: openSessionNames,
@@ -400,8 +508,15 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
 
   let catalystPoints = 0;
   let catalystExplanation = '';
+  let catalystAvailability: ConfluenceComponentAvailability = 'AVAILABLE';
+  let catalystFreshness: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE' = 'FRESH';
 
-  if (highImpactEvents.length > 0) {
+  if (upcomingPairEvents.length === 0 && !isDataFeedConnected) {
+    catalystAvailability = 'UNAVAILABLE';
+    catalystFreshness = 'UNAVAILABLE';
+    catalystPoints = 0;
+    catalystExplanation = 'Evidence unavailable: Economic calendar feed disconnected or unpopulated.';
+  } else if (highImpactEvents.length > 0) {
     const nextEvent = highImpactEvents[0];
     const msUntilEvent = new Date(nextEvent.scheduledTime).getTime() - date.getTime();
     const hoursUntil = msUntilEvent / (1000 * 60 * 60);
@@ -429,6 +544,11 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     maxPoints: 10,
     weightPercent: 10,
     explanation: catalystExplanation,
+    availability: catalystAvailability,
+    evidenceCount: upcomingPairEvents.length,
+    source: 'Finance Calendar',
+    freshness: catalystFreshness,
+    provenance: catalystAvailability === 'UNAVAILABLE' ? 'Feed disconnected' : 'Finance Calendar upcoming schedule',
     supportingData: {
       totalUpcomingCount: upcomingPairEvents.length,
       highImpactCount: highImpactEvents.length
@@ -494,9 +614,6 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
   // ----------------------------------------------------
   // DATA QUALITY ADJUSTMENT FACTOR (0.50 to 1.00 multiplier)
   // ----------------------------------------------------
-  const baseCoverage = baseState.relativeStrengthBreakdown?.coverage;
-  const quoteCoverage = quoteState.relativeStrengthBreakdown?.coverage;
-
   let qualityFactor = 1.0;
   let qualityStatus: 'COMPLETE' | 'PARTIAL' | 'DEGRADED' | 'UNAVAILABLE' = 'COMPLETE';
   let qualityReason = 'Full pair basket quotes and verified macroeconomic datasets active.';
@@ -634,6 +751,31 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     }
   };
 
+  const allComponents = [
+    { name: 'Market Strength', comp: marketStrengthComponent },
+    { name: 'Fundamentals', comp: fundamentalsComponent },
+    { name: 'Policy', comp: policyComponent },
+    { name: 'Expectations', comp: expectationsComponent },
+    { name: 'Session', comp: sessionComponent },
+    { name: 'Catalysts', comp: catalystsComponent }
+  ];
+
+  const availableComponents = allComponents
+    .filter((c) => c.comp.availability === 'AVAILABLE' || c.comp.availability === 'PARTIAL')
+    .map((c) => c.name);
+
+  const missingComponents = allComponents
+    .filter((c) => c.comp.availability === 'UNAVAILABLE')
+    .map((c) => c.name);
+
+  const referenceOnlyComponents = allComponents
+    .filter((c) => c.comp.availability === 'REFERENCE_ONLY' || c.comp.availability === 'STATIC')
+    .map((c) => c.name);
+
+  const staleComponents = allComponents
+    .filter((c) => c.comp.freshness === 'STALE' || c.comp.freshness === 'AGING')
+    .map((c) => c.name);
+
   return {
     confluenceScore: finalScore,
     directionalConfidence: confidenceLevel,
@@ -655,6 +797,10 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
         reason: qualityReason
       }
     },
+    availableComponents,
+    missingComponents,
+    staleComponents,
+    referenceOnlyComponents,
     dataQualityAdjustment: {
       factor: qualityFactor,
       quality: qualityStatus,

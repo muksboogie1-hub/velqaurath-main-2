@@ -153,41 +153,151 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
                 {intelligence.confluence.explanation}
               </p>
 
+              {/* Evidence Inventory Tags */}
+              <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono">
+                {intelligence.confluence.availableComponents && intelligence.confluence.availableComponents.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-800 text-emerald-300">
+                    Active: {intelligence.confluence.availableComponents.join(', ')}
+                  </span>
+                )}
+                {intelligence.confluence.missingComponents && intelligence.confluence.missingComponents.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded bg-rose-950/60 border border-rose-900 text-rose-300">
+                    Missing: {intelligence.confluence.missingComponents.join(', ')}
+                  </span>
+                )}
+                {intelligence.confluence.referenceOnlyComponents && intelligence.confluence.referenceOnlyComponents.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-800 text-purple-300">
+                    Reference Context: {intelligence.confluence.referenceOnlyComponents.join(', ')}
+                  </span>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono text-[10px] pt-1">
-                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded">
-                  <span className="text-neutral-500 block uppercase">MARKET STRENGTH</span>
+                {/* 1. Market Strength */}
+                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-neutral-500 uppercase">MARKET STRENGTH</span>
+                    <span className={`text-[9px] font-bold px-1 rounded ${
+                      intelligence.confluence.components.marketStrength.availability === 'AVAILABLE'
+                        ? 'bg-emerald-950 text-emerald-400'
+                        : 'bg-neutral-800 text-neutral-400'
+                    }`}>
+                      {intelligence.confluence.components.marketStrength.availability || 'AVAILABLE'}
+                    </span>
+                  </div>
                   <span className="font-bold text-emerald-400 text-xs">
                     +{intelligence.confluence.components.marketStrength.points}/25 pts
                   </span>
+                  <span className="text-[9px] text-neutral-500 mt-1 truncate">
+                    {intelligence.confluence.components.marketStrength.source || 'Biquote'} · {intelligence.confluence.components.marketStrength.freshness || 'FRESH'}
+                  </span>
                 </div>
-                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded">
-                  <span className="text-neutral-500 block uppercase">FUNDAMENTALS</span>
-                  <span className="font-bold text-emerald-400 text-xs">
+
+                {/* 2. Fundamentals */}
+                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-neutral-500 uppercase">FUNDAMENTALS</span>
+                    <span className={`text-[9px] font-bold px-1 rounded ${
+                      intelligence.confluence.components.fundamentals.availability === 'AVAILABLE'
+                        ? 'bg-emerald-950 text-emerald-400'
+                        : intelligence.confluence.components.fundamentals.availability === 'UNAVAILABLE'
+                        ? 'bg-rose-950 text-rose-400'
+                        : 'bg-amber-950 text-amber-400'
+                    }`}>
+                      {intelligence.confluence.components.fundamentals.availability || 'AVAILABLE'}
+                    </span>
+                  </div>
+                  <span className={`font-bold text-xs ${
+                    intelligence.confluence.components.fundamentals.points > 0 ? 'text-emerald-400' : 'text-neutral-500'
+                  }`}>
                     +{intelligence.confluence.components.fundamentals.points}/20 pts
                   </span>
+                  <span className="text-[9px] text-neutral-500 mt-1 truncate">
+                    {intelligence.confluence.components.fundamentals.source || 'Finance Calendar'} · {intelligence.confluence.components.fundamentals.freshness || 'FRESH'}
+                  </span>
                 </div>
-                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded">
-                  <span className="text-neutral-500 block uppercase">POLICY & CARRY</span>
-                  <span className="font-bold text-emerald-400 text-xs">
+
+                {/* 3. Policy & Carry */}
+                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-neutral-500 uppercase">POLICY & CARRY</span>
+                    <span className={`text-[9px] font-bold px-1 rounded ${
+                      intelligence.confluence.components.policy.availability === 'AVAILABLE'
+                        ? 'bg-emerald-950 text-emerald-400'
+                        : intelligence.confluence.components.policy.availability === 'REFERENCE_ONLY'
+                        ? 'bg-purple-950 text-purple-400'
+                        : 'bg-neutral-800 text-neutral-400'
+                    }`}>
+                      {intelligence.confluence.components.policy.availability || 'AVAILABLE'}
+                    </span>
+                  </div>
+                  <span className={`font-bold text-xs ${
+                    intelligence.confluence.components.policy.points > 0 ? 'text-emerald-400' : 'text-neutral-500'
+                  }`}>
                     +{intelligence.confluence.components.policy.points}/20 pts
                   </span>
-                </div>
-                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded">
-                  <span className="text-neutral-500 block uppercase">EXPECTATIONS</span>
-                  <span className="font-bold text-emerald-400 text-xs">
-                    +{intelligence.confluence.components.expectations.points}/15 pts
+                  <span className="text-[9px] text-neutral-500 mt-1 truncate">
+                    {intelligence.confluence.components.policy.source || 'Central Bank'} · {intelligence.confluence.components.policy.freshness || 'REFERENCE'}
                   </span>
                 </div>
-                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded">
-                  <span className="text-neutral-500 block uppercase">SESSION CONTEXT</span>
+
+                {/* 4. Expectations */}
+                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-neutral-500 uppercase">EXPECTATIONS</span>
+                    <span className={`text-[9px] font-bold px-1 rounded ${
+                      intelligence.confluence.components.expectations.availability === 'AVAILABLE'
+                        ? 'bg-emerald-950 text-emerald-400'
+                        : intelligence.confluence.components.expectations.availability === 'PARTIAL'
+                        ? 'bg-amber-950 text-amber-400'
+                        : 'bg-rose-950 text-rose-400'
+                    }`}>
+                      {intelligence.confluence.components.expectations.availability || 'AVAILABLE'}
+                    </span>
+                  </div>
+                  <span className={`font-bold text-xs ${
+                    intelligence.confluence.components.expectations.points > 0 ? 'text-emerald-400' : 'text-neutral-500'
+                  }`}>
+                    +{intelligence.confluence.components.expectations.points}/15 pts
+                  </span>
+                  <span className="text-[9px] text-neutral-500 mt-1 truncate">
+                    {intelligence.confluence.components.expectations.source || 'Finance Calendar'} · {intelligence.confluence.components.expectations.freshness || 'FRESH'}
+                  </span>
+                </div>
+
+                {/* 5. Session */}
+                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-neutral-500 uppercase">SESSION CONTEXT</span>
+                    <span className="text-[9px] font-bold px-1 rounded bg-emerald-950 text-emerald-400">
+                      AVAILABLE
+                    </span>
+                  </div>
                   <span className="font-bold text-emerald-400 text-xs">
                     +{intelligence.confluence.components.session.points}/10 pts
                   </span>
+                  <span className="text-[9px] text-neutral-500 mt-1 truncate">
+                    Session · DERIVED
+                  </span>
                 </div>
-                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded">
-                  <span className="text-neutral-500 block uppercase">CATALYSTS & RISK</span>
+
+                {/* 6. Catalysts */}
+                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-neutral-500 uppercase">CATALYSTS & RISK</span>
+                    <span className={`text-[9px] font-bold px-1 rounded ${
+                      intelligence.confluence.components.catalysts.availability === 'AVAILABLE'
+                        ? 'bg-emerald-950 text-emerald-400'
+                        : 'bg-rose-950 text-rose-400'
+                    }`}>
+                      {intelligence.confluence.components.catalysts.availability || 'AVAILABLE'}
+                    </span>
+                  </div>
                   <span className="font-bold text-emerald-400 text-xs">
                     +{intelligence.confluence.components.catalysts.points}/10 pts
+                  </span>
+                  <span className="text-[9px] text-neutral-500 mt-1 truncate">
+                    {intelligence.confluence.components.catalysts.source || 'Finance Calendar'} · {intelligence.confluence.components.catalysts.freshness || 'FRESH'}
                   </span>
                 </div>
               </div>

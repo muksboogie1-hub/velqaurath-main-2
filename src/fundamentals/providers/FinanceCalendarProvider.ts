@@ -138,22 +138,48 @@ export function detectCategoryFromEvent(item: any): FundamentalCategory | null {
   const cat = String(item.category || '').toLowerCase();
   const text = `${item.title || ''} ${item.name || ''}`.toUpperCase();
 
+  // Strict Phase 7 rule:
+  // War, geopolitical shocks, tariff announcements, bond auctions, generic political events
+  // must NOT automatically become a macro observation in an unrelated category (e.g. GROWTH or CENTRAL_BANK).
+  if (
+    text.includes('WAR') ||
+    text.includes('GEOPOLITICAL') ||
+    text.includes('CRISIS') ||
+    text.includes('TARIFF') ||
+    text.includes('SANCTION') ||
+    text.includes('ELECTION') ||
+    text.includes('POLITICAL') ||
+    text.includes('AUCTION') ||
+    text.includes('SPEECH') ||
+    cat.includes('political') ||
+    cat.includes('geopolitical') ||
+    cat.includes('shock') ||
+    cat.includes('auction') ||
+    cat.includes('speech')
+  ) {
+    return null; // UNCLASSIFIED / UNSUPPORTED for macro fundamental pillars; remains catalyst/event only
+  }
+
+  // 1. Central Bank Monetary Policy & Rate Decisions
   if (
     cat.includes('central-bank') ||
     cat.includes('monetary') ||
     text.includes('RATE DECISION') ||
-    text.includes('FOMC') ||
-    text.includes('ECB') ||
-    text.includes('BOE') ||
-    text.includes('BOJ') ||
-    text.includes('SNB') ||
-    text.includes('RBA') ||
-    text.includes('RBNZ') ||
-    text.includes('BOC') ||
-    text.includes('INTEREST RATE DECISION')
+    text.includes('INTEREST RATE DECISION') ||
+    text.includes('FOMC RATE') ||
+    text.includes('ECB RATE') ||
+    text.includes('BOE RATE') ||
+    text.includes('BOJ RATE') ||
+    text.includes('SNB RATE') ||
+    text.includes('RBA RATE') ||
+    text.includes('RBNZ RATE') ||
+    text.includes('BOC RATE') ||
+    text.includes('FED FUNDS RATE')
   ) {
     return 'CENTRAL_BANK';
   }
+
+  // 2. Inflation
   if (
     text.includes('CPI') ||
     text.includes('INFLATION') ||
@@ -163,38 +189,49 @@ export function detectCategoryFromEvent(item: any): FundamentalCategory | null {
   ) {
     return 'INFLATION';
   }
+
+  // 3. Employment
   if (
-    text.includes('JOB') ||
-    text.includes('EMPLOYMENT') ||
+    text.includes('NON-FARM') ||
+    text.includes('NONFARM') ||
+    text.includes('NFP') ||
     text.includes('PAYROLL') ||
     text.includes('UNEMPLOYMENT') ||
-    text.includes('NFP') ||
+    text.includes('EMPLOYMENT CHANGE') ||
+    text.includes('JOBLESS CLAIMS') ||
     text.includes('JOLTS') ||
-    text.includes('LABOR') ||
-    text.includes('WAGES') ||
-    text.includes('CLAIMS')
+    text.includes('AVERAGE HOURLY EARNINGS') ||
+    text.includes('LABOR FORCE') ||
+    text.includes('WAGES')
   ) {
     return 'EMPLOYMENT';
   }
+
+  // 4. Housing
   if (
     text.includes('HOME SALES') ||
-    text.includes('HOUSING') ||
+    text.includes('HOUSING STARTS') ||
     text.includes('BUILDING PERMITS') ||
     text.includes('HOUSE PRICE') ||
     text.includes('MORTGAGE')
   ) {
     return 'HOUSING';
   }
+
+  // 5. Consumption
   if (
     text.includes('RETAIL SALES') ||
-    text.includes('CONSUMER') ||
-    text.includes('CONSUMPTION') ||
-    text.includes('SPENDING') ||
+    text.includes('CONSUMER SPENDING') ||
+    text.includes('CONSUMER CONFIDENCE') ||
     text.includes('MICHIGAN') ||
-    text.includes('CONFIDENCE')
+    text.includes('HOUSEHOLD SPENDING') ||
+    text.includes('PERSONAL SPENDING') ||
+    text.includes('CONSUMPTION')
   ) {
     return 'CONSUMPTION';
   }
+
+  // 6. Business Activity / PMI
   if (
     text.includes('PMI') ||
     text.includes('MANUFACTURING') ||
@@ -203,33 +240,75 @@ export function detectCategoryFromEvent(item: any): FundamentalCategory | null {
     text.includes('BUSINESS CLIMATE') ||
     text.includes('IFO') ||
     text.includes('ZEW') ||
-    text.includes('PRODUCTION') ||
+    text.includes('INDUSTRIAL PRODUCTION') ||
     text.includes('FACTORY ORDERS')
   ) {
     return 'BUSINESS_ACTIVITY';
   }
-  if (text.includes('GDP') || text.includes('GROWTH') || text.includes('ECONOMIC OUTPUT')) {
+
+  // 7. Growth / GDP
+  if (
+    text.includes('GDP') ||
+    text.includes('GROSS DOMESTIC PRODUCT') ||
+    text.includes('ECONOMIC OUTPUT')
+  ) {
     return 'GROWTH';
   }
-  if (text.includes('FISCAL') || text.includes('BUDGET') || text.includes('DEBT') || text.includes('DEFICIT') || text.includes('TREASURY')) {
+
+  // 8. Fiscal
+  if (
+    text.includes('FISCAL BALANCE') ||
+    text.includes('BUDGET DEFICIT') ||
+    text.includes('DEBT-TO-GDP') ||
+    text.includes('GOVERNMENT DEBT')
+  ) {
     return 'FISCAL';
   }
-  if (text.includes('TRADE') || text.includes('CURRENT ACCOUNT') || text.includes('EXPORTS') || text.includes('IMPORTS')) {
+
+  // 9. Trade / External Balance
+  if (
+    text.includes('TRADE BALANCE') ||
+    text.includes('CURRENT ACCOUNT') ||
+    text.includes('EXPORTS') ||
+    text.includes('IMPORTS')
+  ) {
     return 'TRADE';
   }
-  if (text.includes('COMMODITY') || text.includes('OIL') || text.includes('ENERGY') || text.includes('GOLD') || text.includes('DAIRY') || text.includes('TERMS OF TRADE')) {
-    return 'TRADE';
-  }
-  if (text.includes('SHOCK') || text.includes('CRISIS') || text.includes('WAR') || text.includes('GEOPOLITICAL') || text.includes('TARIFF')) {
-    return 'GROWTH';
-  }
-  if (text.includes('YIELD') || text.includes('BOND') || text.includes('AUCTION') || text.includes('INTEREST RATE') || text.includes('10-YEAR') || text.includes('2-YEAR')) {
-    return 'CENTRAL_BANK';
-  }
-  if (text.includes('EXPECTATION') || text.includes('FUTURES') || text.includes('SURVEY') || text.includes('CONSENSUS')) {
+
+  // 10. Market Expectations
+  if (
+    text.includes('EXPECTATIONS') ||
+    text.includes('CONSENSUS FORECAST') ||
+    text.includes('RATE FUTURES') ||
+    text.includes('OIS')
+  ) {
     return 'MARKET_EXPECTATIONS';
   }
+
   return null;
+}
+
+export function detectEventCategory(item: any): string {
+  const macro = detectCategoryFromEvent(item);
+  if (macro) return macro;
+
+  const text = `${item.title || ''} ${item.name || ''}`.toUpperCase();
+  if (text.includes('WAR') || text.includes('GEOPOLITICAL') || text.includes('CRISIS')) {
+    return 'GEOPOLITICAL';
+  }
+  if (text.includes('TARIFF') || text.includes('TRADE WAR') || text.includes('SANCTION')) {
+    return 'TARIFF';
+  }
+  if (text.includes('AUCTION') || text.includes('BOND') || text.includes('YIELD')) {
+    return 'BOND_AUCTION';
+  }
+  if (text.includes('SPEECH') || text.includes('TESTIMONY')) {
+    return 'CENTRAL_BANK_SPEECH';
+  }
+  if (text.includes('ELECTION') || text.includes('POLITICAL')) {
+    return 'POLITICAL';
+  }
+  return 'UNCLASSIFIED';
 }
 
 export function parseMacroNumericValue(val: any): { num: number | null; unit: string } {
@@ -385,6 +464,12 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
       oldestObsTime = sorted[0] || null;
     }
 
+    const populatedDimensions = categoriesAvailable;
+    const missingDimensions = defaultCategories.filter((c) => !categoriesSet.has(c));
+    const livePopulatedDimensionsCount = categoriesAvailable.length;
+    const supportedDimensionsCount = defaultCategories.length;
+    const missingDimensionsCount = supportedDimensionsCount - livePopulatedDimensionsCount;
+
     return {
       providerName: this.name,
       isConfigured: this.isConfigured,
@@ -393,8 +478,13 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
       datasetMode: 'LIVE',
       categoriesAvailable,
       categoriesConfigured,
-      categoriesPopulatedCount: categoriesAvailable.length,
-      categoriesConfiguredCount: categoriesConfigured.length,
+      categoriesPopulatedCount: livePopulatedDimensionsCount,
+      categoriesConfiguredCount: supportedDimensionsCount,
+      supportedDimensionsCount,
+      livePopulatedDimensionsCount,
+      missingDimensionsCount,
+      populatedDimensions,
+      missingDimensions,
       currenciesAvailable,
       lastFetchedAt: this.lastFetchedAt,
       lastSuccessfulUpdate: this.lastSuccessfulUpdate,
@@ -576,7 +666,8 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
             actual,
             unit,
             source,
-            status
+            status,
+            category: detectEventCategory(item)
           });
 
           // 2. Fundamental Observation model (only for released facts or verified historicals with classified category)

@@ -44,11 +44,11 @@ export function evaluateStructuredThesis(params: ThesisEvaluationParams): Struct
     quoteState,
     relativeStrengthDelta,
     orientationDirection,
-    supportingEvidence,
-    counterEvidence,
-    catalysts,
-    contradictions,
-    invalidationConditions,
+    supportingEvidence = [],
+    counterEvidence = [],
+    catalysts = [],
+    contradictions = [],
+    invalidationConditions = [],
     fundamentalDiff,
     isDataFeedConnected = true,
     now = new Date()
@@ -116,14 +116,19 @@ export function evaluateStructuredThesis(params: ThesisEvaluationParams): Struct
   const severeContradictions = contradictions.filter((c) => c.severity === 'HIGH');
 
   let status: ThesisStatus = 'SUPPORTED';
-  if (hasTriggeredInvalidation) {
+  if (relativeStrengthDelta === null && supportingEvidence.length === 0) {
+    status = 'INSUFFICIENT_DATA';
+  } else if (hasTriggeredInvalidation) {
     status = 'INVALIDATED';
   } else if (hasTriggeredWeakening || severeContradictions.length > 0) {
     status = 'WEAKENED';
   } else if (contradictions.length > 0 || counterEvidence.length > supportingEvidence.length) {
     status = 'MIXED';
   } else if (dataGaps.length > 1) {
-    status = 'INSUFFICIENT_DATA';
+    // Missing data gaps create a tentative thesis rather than an invalid or insufficient one when market data is valid
+    status = 'TENTATIVE';
+  } else if (dataGaps.length === 0 && supportingEvidence.length >= 2) {
+    status = 'SUPPORTED';
   } else {
     status = 'SUPPORTED';
   }

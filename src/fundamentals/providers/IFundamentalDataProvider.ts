@@ -23,6 +23,11 @@ export interface FundamentalProviderStatus {
   categoriesConfigured?: FundamentalCategory[];
   categoriesPopulatedCount?: number;
   categoriesConfiguredCount?: number;
+  supportedDimensionsCount?: number;
+  livePopulatedDimensionsCount?: number;
+  missingDimensionsCount?: number;
+  populatedDimensions?: FundamentalCategory[];
+  missingDimensions?: FundamentalCategory[];
   currenciesAvailable: string[];
   lastFetchedAt: string | null;
   message: string;

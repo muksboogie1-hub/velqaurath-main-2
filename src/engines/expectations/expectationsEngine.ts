@@ -222,15 +222,24 @@ export function analyzeObservationExpectations(
   const hasForecast = obs.forecast !== null;
 
   if (!isConnected || !hasActual) {
+    const isForecastOnly = obs.forecast !== null;
+    const isPreviousOnly = obs.previous !== null && obs.forecast === null;
+
     const fallbackStatements: FactInterpretationBundle = {
-      fact: `FACT: Factual release data for ${obs.indicatorName} is unavailable / disconnected.`,
-      expectation:
-        obs.forecast !== null
-          ? `EXPECTATION: Consensus forecast was ${obs.forecast}${obs.unit}.`
-          : 'EXPECTATION: Consensus forecast unavailable.',
-      interpretation: 'INTERPRETATION: Cannot evaluate print against market expectations.',
-      engineAnalysis:
-        'ENGINE_ANALYSIS: Macroeconomic analysis suspended until verified data release is connected.'
+      fact: isPreviousOnly
+        ? `FACT: Historical fact only; previous release for ${obs.indicatorName} was ${obs.previous}${obs.unit}.`
+        : `FACT: Official release data for ${obs.indicatorName} is pending / unavailable.`,
+      expectation: isForecastOnly
+        ? `EXPECTATION: Consensus market expectation is ${obs.forecast}${obs.unit}.`
+        : 'EXPECTATION: No consensus forecast recorded.',
+      interpretation: isForecastOnly
+        ? 'INTERPRETATION: Expectation only; cannot calculate surprise before actual release.'
+        : isPreviousOnly
+        ? 'INTERPRETATION: Historical factual baseline only.'
+        : 'INTERPRETATION: Cannot evaluate print without verified data release.',
+      engineAnalysis: isForecastOnly
+        ? 'ENGINE_ANALYSIS: Market expectation established; awaiting authenticated release to determine surprise.'
+        : 'ENGINE_ANALYSIS: Fundamental analysis suspended until authenticated release and consensus expectations are verified.'
     };
 
     return {
@@ -244,12 +253,17 @@ export function analyzeObservationExpectations(
       surpriseDelta: null,
       percentageSurprise: null,
       unit: obs.unit,
-      surpriseType: 'UNAVAILABLE',
+      surpriseType: 'UNKNOWN',
       expectationStatus: 'UNKNOWN',
-      directionSummary: 'DATA UNAVAILABLE / NOT CONNECTED',
-      monetaryPolicyImplication:
-        'No interpretation possible without authenticated factual data release.',
-      classification: 'ENGINE_ANALYSIS',
+      directionSummary: isForecastOnly
+        ? `Expectation only: Consensus forecast at ${obs.forecast}${obs.unit}.`
+        : isPreviousOnly
+        ? `Historical fact only: Previous print at ${obs.previous}${obs.unit}.`
+        : 'DATA UNAVAILABLE / PENDING RELEASE',
+      monetaryPolicyImplication: isForecastOnly
+        ? 'Awaiting actual print to assess potential central bank policy surprise.'
+        : 'Historical factual context only; surprise analysis suspended.',
+      classification: isForecastOnly ? 'EXPECTATION' : 'FACT',
       statements: fallbackStatements
     };
   }

@@ -169,8 +169,20 @@ export function buildCentralBankProfile(
   }
 
   const sourceType = overrides?.sourceType ?? 'REFERENCE';
-  const dataSourceMode = overrides?.dataSourceMode ?? 'REFERENCE';
-  const freshness = overrides?.freshness ?? 'FRESH';
+  const dataSourceMode = overrides?.dataSourceMode ?? (sourceType === 'LIVE' ? 'LIVE' : 'REFERENCE');
+  const freshness =
+    overrides?.freshness ??
+    (sourceType === 'LIVE' ? 'FRESH' : sourceType === 'REFERENCE' ? 'STALE' : 'UNAVAILABLE');
+
+  const provenance =
+    overrides?.provenance ??
+    (sourceType === 'LIVE'
+      ? `Live official policy decision wire from ${existing.institution}`
+      : sourceType === 'REFERENCE'
+      ? `Official policy benchmark & archive from ${existing.institution} (REFERENCE - historical context)`
+      : sourceType === 'STATIC'
+      ? `Static historical policy benchmark for ${existing.institution} (STATIC)`
+      : `No authenticated policy release record for ${existing.institution} (UNAVAILABLE)`);
 
   return {
     id: existing.id,
@@ -198,7 +210,7 @@ export function buildCentralBankProfile(
     freshness,
     dataSourceMode,
     dataStatus,
-    provenance: `Official policy release benchmark & archive from ${existing.institution} (${sourceType})`,
+    provenance,
     ...overrides
   };
 }
