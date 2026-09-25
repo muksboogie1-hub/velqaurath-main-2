@@ -503,6 +503,95 @@ console.log('================================================================\n'
     penalizedConfluence.confluenceScore < confluence.confluenceScore,
     'Test 6.13: Penalized confluence score is lower than fully aligned score'
   );
+
+  // Test 6.14: Neutral orientation guard
+  const neutralConfluence = calculatePairConfluence({
+    pair,
+    baseState: mockBaseState,
+    quoteState: mockQuoteState,
+    relativeStrengthDelta: 0.02, // Tight differential
+    orientationDirection: 'NEUTRAL',
+    events: [],
+    isDataFeedConnected: true
+  });
+
+  assert(neutralConfluence.direction === 'NEUTRAL', 'Test 6.14a: Neutral orientation produces NEUTRAL direction');
+  assert(
+    neutralConfluence.directionalConfidence === 'NEUTRAL',
+    'Test 6.14b: Neutral orientation strictly forces directionalConfidence to NEUTRAL'
+  );
+
+  // Test 6.15: Data quality adjustment multiplier on degraded/stale quotes
+  const degradedBaseState: CurrencyState = {
+    ...mockBaseState,
+    relativeStrengthBreakdown: {
+      ...mockBaseState.relativeStrengthBreakdown,
+      coverage: {
+        available: 4,
+        required: 5,
+        percent: 80,
+        stalePairs: ['USD/JPY']
+      }
+    }
+  };
+
+  const degradedConfluence = calculatePairConfluence({
+    pair,
+    baseState: degradedBaseState,
+    quoteState: mockQuoteState,
+    relativeStrengthDelta: 0.39,
+    orientationDirection: 'BULLISH_BASE',
+    events: [],
+    isDataFeedConnected: true
+  });
+
+  assert(
+    degradedConfluence.dataQualityAdjustment.factor === 0.75,
+    `Test 6.15a: Stale pair coverage applies 0.75x data quality multiplier (got ${degradedConfluence.dataQualityAdjustment.factor})`
+  );
+  assert(
+    degradedConfluence.dataQualityAdjustment.quality === 'DEGRADED',
+    'Test 6.15b: Stale pair coverage marks quality as DEGRADED'
+  );
+  assert(
+    degradedConfluence.confluenceScore <= confluence.confluenceScore * 0.75 + 1,
+    'Test 6.15c: Degraded data reduces final confluence score'
+  );
+
+  // Test 6.16: Missing fundamental data transparency
+  const missingFundBaseState: CurrencyState = {
+    ...mockBaseState,
+    fundamentalState: {
+      ...mockBaseState.fundamentalState,
+      fundamentalScore: null as any
+    }
+  };
+  const missingFundQuoteState: CurrencyState = {
+    ...mockQuoteState,
+    fundamentalState: {
+      ...mockQuoteState.fundamentalState,
+      fundamentalScore: null as any
+    }
+  };
+
+  const missingFundConfluence = calculatePairConfluence({
+    pair,
+    baseState: missingFundBaseState,
+    quoteState: missingFundQuoteState,
+    relativeStrengthDelta: 0.39,
+    orientationDirection: 'BULLISH_BASE',
+    events: [],
+    isDataFeedConnected: true
+  });
+
+  assert(
+    missingFundConfluence.components.fundamentals.points === 5,
+    'Test 6.16a: Missing fundamental scores receive partial neutral allocation (5/20 pts)'
+  );
+  assert(
+    missingFundConfluence.components.fundamentals.explanation.includes('Partial macroeconomic observations'),
+    'Test 6.16b: Missing fundamentals honestly disclosed in explanation'
+  );
 }
 
 console.log(`\n================================================================`);

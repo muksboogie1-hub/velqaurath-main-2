@@ -138,6 +138,12 @@ export const DataSourcesModal: React.FC<DataSourcesModalProps> = ({
                 <span className="text-neutral-200">8 (USD, EUR, GBP, JPY, CHF, CAD, AUD, NZD)</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-neutral-500">10 Macro Categories:</span>
+                <span className="text-neutral-200 font-bold">
+                  {fundamentalProviderStatus?.categoriesPopulatedCount ?? 0} Populated / {fundamentalProviderStatus?.categoriesConfiguredCount ?? 10} Configured
+                </span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-neutral-500">Last Successful Sync:</span>
                 <span>
                   {fundamentalProviderStatus?.lastSuccessfulUpdate

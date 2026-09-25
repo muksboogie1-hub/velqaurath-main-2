@@ -111,7 +111,9 @@ export const DataStatusBanner: React.FC<DataStatusBannerProps> = ({
               )}
 
               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-300 border border-neutral-700">
-                {connectedMacroCount}/{macroSources.length} Macro Feeds
+                {fundamentalProviderStatus?.categoriesPopulatedCount !== undefined
+                  ? `${fundamentalProviderStatus.categoriesPopulatedCount}/${fundamentalProviderStatus.categoriesConfiguredCount || 10} Macro Categories Populated`
+                  : `${connectedMacroCount}/${macroSources.length} Macro Agencies`}
               </span>
             </div>
 

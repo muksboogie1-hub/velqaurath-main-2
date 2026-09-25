@@ -132,11 +132,21 @@ export function App() {
   }, []);
 
   const handleToggleFeed = () => {
-    globalStore.toggleDataFeed();
+    const nextState = globalStore.toggleDataFeed();
+    fetch('/api/data-feed/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ connected: nextState })
+    }).catch(() => {});
   };
 
   const handleSaveThresholds = (strong: number, weak: number) => {
     globalStore.updateThresholds(strong, weak);
+    fetch('/api/thresholds', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ strongThreshold: strong, weakThreshold: weak })
+    }).catch(() => {});
   };
 
   const currencyDetail = selectedCurrency
