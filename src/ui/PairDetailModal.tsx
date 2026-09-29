@@ -51,94 +51,90 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
   const isBearish = orientationDirection === 'BEARISH_BASE';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex justify-end">
-      <div className="w-full max-w-2xl bg-neutral-950 border-l border-neutral-800 h-full overflow-y-auto p-4 sm:p-6 text-neutral-200">
+    <div className="fixed inset-0 z-50 flex justify-end bg-velqo-ink/80 backdrop-blur-md">
+      <div className="velqo-scroll h-full w-full max-w-2xl overflow-y-auto border-l border-white/[0.06] bg-velqo-ink/95 px-4 py-5 text-slate-200 sm:px-7 sm:py-7">
         {/* Header */}
-        <div className="flex items-start justify-between pb-4 border-b border-neutral-800">
+        <div className="mb-5 flex items-start justify-between border-b border-white/[0.06] pb-4">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold font-mono text-neutral-100">
+            <p className="velqo-eyebrow mb-1.5">Pair evidence</p>
+            <div className="flex flex-wrap items-baseline gap-2">
+              <span className="velqo-display text-2xl text-white sm:text-3xl">
                 {pair.symbol}
               </span>
-              <span className="text-xs font-mono text-neutral-500">
-                ({baseCurrency.code} Base / {quoteCurrency.code} Quote)
+              <span className="text-[0.72rem] text-slate-500">
+                {baseCurrency.code} base · {quoteCurrency.code} quote
               </span>
             </div>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="mt-2 flex flex-wrap items-center gap-3">
               <button
                 onClick={() => onSelectCurrency?.(baseCurrency.code)}
-                className="text-xs font-mono text-emerald-400 hover:underline"
+                className="text-[0.75rem] text-teal-300 transition-colors hover:text-teal-200 hover:underline"
               >
-                Inspect {baseCurrency.code} →
+                Inspect {baseCurrency.code}
               </button>
-              <span className="text-neutral-600">·</span>
               <button
                 onClick={() => onSelectCurrency?.(quoteCurrency.code)}
-                className="text-xs font-mono text-emerald-400 hover:underline"
+                className="text-[0.75rem] text-teal-300 transition-colors hover:text-teal-200 hover:underline"
               >
-                Inspect {quoteCurrency.code} →
+                Inspect {quoteCurrency.code}
               </button>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded hover:bg-neutral-800 text-neutral-400 hover:text-neutral-100 transition-colors"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.07] text-slate-400 transition-colors hover:border-teal-400/30 hover:text-teal-200"
             aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="py-4 space-y-4 text-xs">
+        <div className="space-y-4 text-xs">
           {/* Macro Bias Banner */}
-          <div className="p-3 bg-neutral-900/60 border border-neutral-800 rounded">
-            <div className="flex items-center justify-between pb-2 border-b border-neutral-800/80 mb-2 font-mono">
-              <span className="text-[11px] text-neutral-400 uppercase tracking-wider">
-                Macro Relative Bias
-              </span>
-              <div className="flex items-center gap-2">
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+            <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/[0.06] pb-2">
+              <span className="velqo-eyebrow">Macro relative bias</span>
+              <div className="flex flex-wrap items-center gap-2">
                 {structuredOpportunity && (
                   <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    className={`velqo-chip !py-0.5 !text-[0.62rem] ${
                       structuredOpportunity.state === 'PRIMARY_WATCH'
-                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                        ? '!border-teal-400/30 !text-teal-200'
                         : structuredOpportunity.state === 'SECONDARY_WATCH'
-                        ? 'bg-sky-950 text-sky-300 border border-sky-800'
+                        ? '!border-sky-400/30 !text-sky-200'
                         : structuredOpportunity.state === 'WAIT'
-                        ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                        : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
+                        ? '!border-rose-400/30 !text-rose-200'
+                        : '!border-white/10 !text-slate-400'
                     }`}
                   >
                     {structuredOpportunity.state}
                   </span>
                 )}
-                <span className="text-xs font-bold">
+                <span className="text-[0.75rem] font-semibold">
                   {delta === null ? (
-                    <span className="text-amber-400 flex items-center">
-                      <AlertTriangle className="w-3.5 h-3.5 mr-1" />
-                      MACRO-DERIVED BIAS · {deltaLabel}
-                      {intelligence.marketEvidenceState === 'STALE'
-                        ? ' (stale)'
-                        : ''}
+                    <span className="flex items-center text-amber-200">
+                      <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+                      Macro-derived bias · {deltaLabel}
+                      {intelligence.marketEvidenceState === 'STALE' ? ' (stale)' : ''}
                     </span>
                   ) : isBullish ? (
-                    <span className="text-emerald-400 flex items-center">
-                      <TrendingUp className="w-3.5 h-3.5 mr-1" /> BULLISH BIAS ({deltaLabel})
+                    <span className="flex items-center text-teal-200">
+                      <TrendingUp className="mr-1 h-3.5 w-3.5" /> Bullish bias ({deltaLabel})
                     </span>
                   ) : isBearish ? (
-                    <span className="text-rose-400 flex items-center">
-                      <TrendingDown className="w-3.5 h-3.5 mr-1" /> BEARISH BIAS ({deltaLabel})
+                    <span className="flex items-center text-rose-200">
+                      <TrendingDown className="mr-1 h-3.5 w-3.5" /> Bearish bias ({deltaLabel})
                     </span>
                   ) : (
-                    <span className="text-neutral-400">NEUTRAL ({deltaLabel})</span>
+                    <span className="text-slate-400">Balanced ({deltaLabel})</span>
                   )}
                 </span>
               </div>
             </div>
-            <p className="text-neutral-300 leading-relaxed font-sans">{orientationExplanation}</p>
+            <p className="leading-relaxed text-slate-300">{orientationExplanation}</p>
             {structuredOpportunity && (
-              <p className="text-[11px] text-neutral-400 font-sans mt-2 pt-2 border-t border-neutral-800/60">
-                <span className="text-neutral-500 font-mono uppercase text-[10px]">Watch Rationale: </span>
+              <p className="mt-2 border-t border-white/[0.06] pt-2 text-[0.72rem] text-slate-400">
+                <span className="velqo-eyebrow mb-1 block">Why this pair</span>
                 {structuredOpportunity.whyThisPair}
               </p>
             )}
@@ -146,178 +142,176 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
 
           {/* Confluence & Directional Confidence Breakdown */}
           {intelligence.confluence && (
-            <div className="p-3 bg-neutral-900/70 border border-emerald-900/60 rounded space-y-2.5">
-              <div className="flex items-center justify-between pb-1.5 border-b border-neutral-800 font-mono text-xs">
-                <span className="font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                  Multi-Factor Confluence Model
-                </span>
+            <div className="rounded-2xl border border-teal-400/[0.14] bg-teal-400/[0.03] px-3.5 py-3">
+              <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/[0.06] pb-1.5">
+                <span className="text-[0.78rem] font-semibold text-teal-200">Multi-factor confluence</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-neutral-100 bg-neutral-800 px-2 py-0.5 rounded">
+                  <span className="tnum rounded-full border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 text-[0.7rem] font-semibold text-slate-200">
                     {intelligence.confluence.confluenceScore}/100
                   </span>
-                  <span className="text-[10px] font-bold text-sky-400">
-                    [{intelligence.confluence.directionalConfidence} CONFIDENCE]
+                  <span className="text-[0.65rem] text-sky-200">
+                    {intelligence.confluence.directionalConfidence} confidence
                   </span>
                 </div>
               </div>
 
-              <p className="text-[11px] text-neutral-300 font-sans leading-relaxed">
+              <p className="text-[0.72rem] leading-relaxed text-slate-400">
                 {intelligence.confluence.explanation}
               </p>
 
               {/* Evidence Inventory Tags */}
-              <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono">
+              <div className="flex flex-wrap items-center gap-1.5 text-[0.65rem]">
                 {intelligence.confluence.availableComponents && intelligence.confluence.availableComponents.length > 0 && (
-                  <span className="px-1.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-800 text-emerald-300">
+                  <span className="rounded-full border border-teal-400/25 bg-teal-400/[0.07] px-2 py-0.5 text-teal-200">
                     Active: {intelligence.confluence.availableComponents.join(', ')}
                   </span>
                 )}
                 {intelligence.confluence.missingComponents && intelligence.confluence.missingComponents.length > 0 && (
-                  <span className="px-1.5 py-0.5 rounded bg-rose-950/60 border border-rose-900 text-rose-300">
+                  <span className="rounded-full border border-rose-400/25 bg-rose-400/[0.07] px-2 py-0.5 text-rose-200">
                     Missing: {intelligence.confluence.missingComponents.join(', ')}
                   </span>
                 )}
                 {intelligence.confluence.referenceOnlyComponents && intelligence.confluence.referenceOnlyComponents.length > 0 && (
-                  <span className="px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-800 text-purple-300">
-                    Reference Context: {intelligence.confluence.referenceOnlyComponents.join(', ')}
+                  <span className="rounded-full border border-violet-400/25 bg-violet-400/[0.07] px-2 py-0.5 text-violet-200">
+                    Reference only: {intelligence.confluence.referenceOnlyComponents.join(', ')}
                   </span>
                 )}
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono text-[10px] pt-1">
+              <div className="grid grid-cols-2 gap-2 pt-1 text-[0.68rem] sm:grid-cols-3">
                 {/* 1. Market Strength */}
-                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded flex flex-col justify-between">
+                <div className="flex flex-col justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-neutral-500 uppercase">MARKET STRENGTH</span>
-                    <span className={`text-[9px] font-bold px-1 rounded ${
+                    <span className="text-[0.62rem] font-medium uppercase tracking-wide text-slate-500">MARKET STRENGTH</span>
+                    <span className={`velqo-chip !px-1.5 !py-0 !text-[0.58rem] ${
                       intelligence.confluence.components.marketStrength.availability === 'AVAILABLE'
-                        ? 'bg-emerald-950 text-emerald-400'
-                        : 'bg-neutral-800 text-neutral-400'
+                        ? '!border-teal-400/30 !text-teal-200'
+                        : '!border-white/10 !text-slate-400'
                     }`}>
                       {intelligence.confluence.components.marketStrength.availability || 'AVAILABLE'}
                     </span>
                   </div>
-                  <span className="font-bold text-emerald-400 text-xs">
+                  <span className="text-[0.78rem] font-semibold text-teal-200">
                     +{intelligence.confluence.components.marketStrength.points}/25 pts
                   </span>
-                  <span className="text-[9px] text-neutral-500 mt-1 truncate">
+                  <span className="mt-1 truncate text-[0.6rem] text-slate-600">
                     {intelligence.confluence.components.marketStrength.source || 'Biquote'} · {intelligence.confluence.components.marketStrength.freshness || 'FRESH'}
                   </span>
                 </div>
 
                 {/* 2. Fundamentals */}
-                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded flex flex-col justify-between">
+                <div className="flex flex-col justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-neutral-500 uppercase">FUNDAMENTALS</span>
-                    <span className={`text-[9px] font-bold px-1 rounded ${
+                    <span className="text-[0.62rem] font-medium uppercase tracking-wide text-slate-500">FUNDAMENTALS</span>
+                    <span className={`velqo-chip !px-1.5 !py-0 !text-[0.58rem] ${
                       intelligence.confluence.components.fundamentals.availability === 'AVAILABLE'
-                        ? 'bg-emerald-950 text-emerald-400'
+                        ? '!border-teal-400/30 !text-teal-200'
                         : intelligence.confluence.components.fundamentals.availability === 'UNAVAILABLE'
-                        ? 'bg-rose-950 text-rose-400'
-                        : 'bg-amber-950 text-amber-400'
+                        ? '!border-rose-400/30 !text-rose-200'
+                        : '!border-amber-400/30 !text-amber-200'
                     }`}>
                       {intelligence.confluence.components.fundamentals.availability || 'AVAILABLE'}
                     </span>
                   </div>
                   <span className={`font-bold text-xs ${
-                    intelligence.confluence.components.fundamentals.points > 0 ? 'text-emerald-400' : 'text-neutral-500'
+                    intelligence.confluence.components.fundamentals.points > 0 ? 'text-teal-200' : 'text-slate-500'
                   }`}>
                     +{intelligence.confluence.components.fundamentals.points}/20 pts
                   </span>
-                  <span className="text-[9px] text-neutral-500 mt-1 truncate">
+                  <span className="mt-1 truncate text-[0.6rem] text-slate-600">
                     {intelligence.confluence.components.fundamentals.source || 'Finance Calendar'} · {intelligence.confluence.components.fundamentals.freshness || 'FRESH'}
                   </span>
                 </div>
 
                 {/* 3. Policy & Carry */}
-                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded flex flex-col justify-between">
+                <div className="flex flex-col justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-neutral-500 uppercase">POLICY & CARRY</span>
-                    <span className={`text-[9px] font-bold px-1 rounded ${
+                    <span className="text-[0.62rem] font-medium uppercase tracking-wide text-slate-500">POLICY & CARRY</span>
+                    <span className={`velqo-chip !px-1.5 !py-0 !text-[0.58rem] ${
                       intelligence.confluence.components.policy.availability === 'AVAILABLE'
-                        ? 'bg-emerald-950 text-emerald-400'
+                        ? '!border-teal-400/30 !text-teal-200'
                         : intelligence.confluence.components.policy.availability === 'REFERENCE_ONLY'
-                        ? 'bg-purple-950 text-purple-400'
-                        : 'bg-neutral-800 text-neutral-400'
+                        ? '!border-violet-400/30 !text-violet-200'
+                        : '!border-white/10 !text-slate-400'
                     }`}>
                       {intelligence.confluence.components.policy.availability || 'AVAILABLE'}
                     </span>
                   </div>
                   <span className={`font-bold text-xs ${
-                    intelligence.confluence.components.policy.points > 0 ? 'text-emerald-400' : 'text-neutral-500'
+                    intelligence.confluence.components.policy.points > 0 ? 'text-teal-200' : 'text-slate-500'
                   }`}>
                     +{intelligence.confluence.components.policy.points}/20 pts
                   </span>
-                  <span className="text-[9px] text-neutral-500 mt-1 truncate">
+                  <span className="mt-1 truncate text-[0.6rem] text-slate-600">
                     {intelligence.confluence.components.policy.source || 'Central Bank'} · {intelligence.confluence.components.policy.freshness || 'REFERENCE'}
                   </span>
                 </div>
 
                 {/* 4. Expectations */}
-                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded flex flex-col justify-between">
+                <div className="flex flex-col justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-neutral-500 uppercase">EXPECTATIONS</span>
-                    <span className={`text-[9px] font-bold px-1 rounded ${
+                    <span className="text-[0.62rem] font-medium uppercase tracking-wide text-slate-500">EXPECTATIONS</span>
+                    <span className={`velqo-chip !px-1.5 !py-0 !text-[0.58rem] ${
                       intelligence.confluence.components.expectations.availability === 'AVAILABLE'
-                        ? 'bg-emerald-950 text-emerald-400'
+                        ? '!border-teal-400/30 !text-teal-200'
                         : intelligence.confluence.components.expectations.availability === 'PARTIAL'
-                        ? 'bg-amber-950 text-amber-400'
-                        : 'bg-rose-950 text-rose-400'
+                        ? '!border-amber-400/30 !text-amber-200'
+                        : '!border-rose-400/30 !text-rose-200'
                     }`}>
                       {intelligence.confluence.components.expectations.availability || 'AVAILABLE'}
                     </span>
                   </div>
                   <span className={`font-bold text-xs ${
-                    intelligence.confluence.components.expectations.points > 0 ? 'text-emerald-400' : 'text-neutral-500'
+                    intelligence.confluence.components.expectations.points > 0 ? 'text-teal-200' : 'text-slate-500'
                   }`}>
                     +{intelligence.confluence.components.expectations.points}/15 pts
                   </span>
-                  <span className="text-[9px] text-neutral-500 mt-1 truncate">
+                  <span className="mt-1 truncate text-[0.6rem] text-slate-600">
                     {intelligence.confluence.components.expectations.source || 'Finance Calendar'} · {intelligence.confluence.components.expectations.freshness || 'FRESH'}
                   </span>
                 </div>
 
                 {/* 5. Session */}
-                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded flex flex-col justify-between">
+                <div className="flex flex-col justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-neutral-500 uppercase">SESSION CONTEXT</span>
-                    <span className="text-[9px] font-bold px-1 rounded bg-emerald-950 text-emerald-400">
+                    <span className="text-[0.62rem] font-medium uppercase tracking-wide text-slate-500">SESSION CONTEXT</span>
+                    <span className="velqo-chip !border-teal-400/30 !px-1.5 !py-0 !text-[0.58rem] !text-teal-200">
                       AVAILABLE
                     </span>
                   </div>
-                  <span className="font-bold text-emerald-400 text-xs">
+                  <span className="text-[0.78rem] font-semibold text-teal-200">
                     +{intelligence.confluence.components.session.points}/10 pts
                   </span>
-                  <span className="text-[9px] text-neutral-500 mt-1 truncate">
+                  <span className="mt-1 truncate text-[0.6rem] text-slate-600">
                     Session · DERIVED
                   </span>
                 </div>
 
                 {/* 6. Catalysts */}
-                <div className="p-2 bg-neutral-950/80 border border-neutral-800 rounded flex flex-col justify-between">
+                <div className="flex flex-col justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-neutral-500 uppercase">CATALYSTS & RISK</span>
-                    <span className={`text-[9px] font-bold px-1 rounded ${
+                    <span className="text-[0.62rem] font-medium uppercase tracking-wide text-slate-500">CATALYSTS & RISK</span>
+                    <span className={`velqo-chip !px-1.5 !py-0 !text-[0.58rem] ${
                       intelligence.confluence.components.catalysts.availability === 'AVAILABLE'
-                        ? 'bg-emerald-950 text-emerald-400'
-                        : 'bg-rose-950 text-rose-400'
+                        ? '!border-teal-400/30 !text-teal-200'
+                        : '!border-rose-400/30 !text-rose-200'
                     }`}>
                       {intelligence.confluence.components.catalysts.availability || 'AVAILABLE'}
                     </span>
                   </div>
-                  <span className="font-bold text-emerald-400 text-xs">
+                  <span className="text-[0.78rem] font-semibold text-teal-200">
                     +{intelligence.confluence.components.catalysts.points}/10 pts
                   </span>
-                  <span className="text-[9px] text-neutral-500 mt-1 truncate">
+                  <span className="mt-1 truncate text-[0.6rem] text-slate-600">
                     {intelligence.confluence.components.catalysts.source || 'Finance Calendar'} · {intelligence.confluence.components.catalysts.freshness || 'FRESH'}
                   </span>
                 </div>
               </div>
 
               {intelligence.confluence.components.contradictionPenalty.penaltyPoints > 0 && (
-                <div className="p-2 bg-rose-950/30 border border-rose-900/50 rounded font-mono text-[10px] text-rose-300">
-                  <span className="font-bold uppercase block mb-1">
-                    CONTRADICTION DEDUCTION: -{intelligence.confluence.components.contradictionPenalty.penaltyPoints} PTS
+                <div className="rounded-xl border border-rose-400/20 bg-rose-400/[0.05] px-3 py-2 text-[0.72rem] text-rose-200">
+                  <span className="mb-1 block font-semibold">
+                    Contradiction deduction · −{intelligence.confluence.components.contradictionPenalty.penaltyPoints} pts
                   </span>
                   <ul className="list-disc list-inside space-y-0.5">
                     {intelligence.confluence.components.contradictionPenalty.reasons.map((r: string, i: number) => (
@@ -331,113 +325,111 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
 
           {/* Phase B: Fundamental Differential Section */}
           {fundamentalDifferential && (
-            <div className="p-3 bg-neutral-900/60 border border-neutral-800 rounded space-y-2.5">
-              <div className="flex items-center justify-between pb-1.5 border-b border-neutral-800 font-mono text-xs">
-                <span className="font-bold text-neutral-200 uppercase tracking-wider flex items-center gap-1.5">
-                  <Scale className="w-3.5 h-3.5 text-sky-400" /> Fundamental Differential ({pair.baseCurrency} vs {pair.quoteCurrency})
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+              <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/[0.06] pb-1.5">
+                <span className="flex items-center gap-1.5 text-[0.78rem] font-semibold text-slate-200">
+                  <Scale className="h-3.5 w-3.5 text-sky-300" /> Fundamental differential
                 </span>
-                <span className="text-[10px] text-sky-400 font-bold">
-                  QUALITY: {fundamentalDifferential.dataQuality}
+                <span className="text-[0.65rem] text-sky-200">
+                  {fundamentalDifferential.dataQuality}
                 </span>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 font-mono text-[11px]">
-                <div className="p-2 bg-neutral-950/70 border border-neutral-800/70 rounded">
-                  <span className="text-[10px] text-neutral-500 block uppercase">MARKET STRENGTH Δ</span>
-                  <span className="font-bold text-neutral-200">
+              <div className="grid grid-cols-3 gap-2 text-[0.75rem]">
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
+                  <span className="mb-0.5 block text-[0.6rem] uppercase tracking-wide text-slate-500">Market Δ</span>
+                  <span className="font-semibold text-slate-200 tnum">
                     {fundamentalDifferential.marketStrengthDifferential !== null
                       ? `${fundamentalDifferential.marketStrengthDifferential >= 0 ? '+' : ''}${fundamentalDifferential.marketStrengthDifferential.toFixed(2)}%`
-                      : 'N/A'}
+                      : 'n/a'}
                   </span>
                 </div>
-                <div className="p-2 bg-neutral-950/70 border border-neutral-800/70 rounded">
-                  <span className="text-[10px] text-neutral-500 block uppercase">FUNDAMENTAL Δ</span>
-                  <span className="font-bold text-neutral-200">
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
+                  <span className="mb-0.5 block text-[0.6rem] uppercase tracking-wide text-slate-500">Fundamental Δ</span>
+                  <span className="font-semibold text-slate-200 tnum">
                     {fundamentalDifferential.fundamentalDifferential.delta !== null
                       ? `${fundamentalDifferential.fundamentalDifferential.delta >= 0 ? '+' : ''}${fundamentalDifferential.fundamentalDifferential.delta.toFixed(2)}`
-                      : 'N/A'}
+                      : 'n/a'}
                   </span>
                 </div>
-                <div className="p-2 bg-neutral-950/70 border border-neutral-800/70 rounded">
-                  <span className="text-[10px] text-neutral-500 block uppercase">POLICY RATE SPREAD</span>
-                  <span className="font-bold text-neutral-200">
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
+                  <span className="mb-0.5 block text-[0.6rem] uppercase tracking-wide text-slate-500">Policy spread</span>
+                  <span className="font-semibold text-slate-200 tnum">
                     {fundamentalDifferential.policyDifferential.rateSpread !== null
                       ? `${fundamentalDifferential.policyDifferential.rateSpread >= 0 ? '+' : ''}${fundamentalDifferential.policyDifferential.rateSpread.toFixed(2)}%`
-                      : 'N/A'}
+                      : 'n/a'}
                   </span>
                 </div>
               </div>
 
               {/* Policy Stance Comparison */}
-              <div className="p-2 bg-neutral-950/70 border border-neutral-800/70 rounded text-[11px] font-sans text-neutral-300">
-                <span className="font-mono text-[10px] text-neutral-500 uppercase block mb-0.5">CENTRAL BANK POLICY DIVERGENCE</span>
+              <div className="mt-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-2 text-[0.75rem] text-slate-300">
+                <span className="velqo-eyebrow mb-1 block">Policy divergence</span>
                 {fundamentalDifferential.policyDifferential.stanceDelta}
               </div>
 
               {/* Expectations Comparison */}
-              <div className="p-2 bg-neutral-950/70 border border-neutral-800/70 rounded text-[11px] font-sans text-neutral-300">
-                <span className="font-mono text-[10px] text-neutral-500 uppercase block mb-0.5">EXPECTATIONS MOMENTUM</span>
+              <div className="mt-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-2 text-[0.75rem] text-slate-300">
+                <span className="velqo-eyebrow mb-1 block">Expectations momentum</span>
                 {fundamentalDifferential.expectationsDifferential.comparison}
               </div>
             </div>
           )}
 
           {/* Convergence / Divergence */}
-          <div className="p-3 bg-neutral-900/60 border border-neutral-800 rounded">
-            <div className="flex items-center justify-between pb-2 border-b border-neutral-800/80 mb-2 font-mono">
-              <span className="text-[11px] text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
-                <ArrowLeftRight className="w-3.5 h-3.5 text-neutral-400" /> Market vs Fundamental Alignment
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+            <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/[0.06] pb-2">
+              <span className="flex items-center gap-1.5 text-[0.78rem] font-semibold text-slate-200">
+                <ArrowLeftRight className="h-3.5 w-3.5 text-slate-400" /> Market vs fundamental alignment
               </span>
               <span
-                className={`text-xs font-bold ${
+                className={`text-[0.7rem] font-semibold ${
                   convergenceDivergence === 'CONVERGENCE'
-                    ? 'text-emerald-400'
+                    ? 'text-teal-200'
                     : convergenceDivergence === 'DIVERGENCE'
-                    ? 'text-rose-400'
-                    : 'text-amber-400'
+                    ? 'text-rose-200'
+                    : 'text-amber-200'
                 }`}
               >
                 {convergenceDivergence}
               </span>
             </div>
-            <p className="text-neutral-300 leading-relaxed font-sans">{convergenceExplanation}</p>
+            <p className="leading-relaxed text-slate-300">{convergenceExplanation}</p>
           </div>
 
           {/* Structural Thesis */}
-          <div className="p-3 bg-neutral-900/40 border border-neutral-800 rounded">
-            <div className="flex items-center justify-between pb-1.5 border-b border-neutral-800/80 mb-2 font-mono">
-              <span className="text-[11px] uppercase tracking-wider text-neutral-400 font-semibold">
-                Structural Macro Thesis
-              </span>
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+            <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/[0.06] pb-1.5">
+              <span className="text-[0.78rem] font-semibold text-slate-200">Structural macro thesis</span>
               {structuredThesis && (
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    className={`velqo-chip !py-0.5 !text-[0.62rem] ${
                       structuredThesis.status === 'SUPPORTED'
-                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                        ? '!border-teal-400/30 !text-teal-200'
                         : structuredThesis.status === 'MIXED'
-                        ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                        ? '!border-amber-400/30 !text-amber-200'
                         : structuredThesis.status === 'WEAKENED'
-                        ? 'bg-orange-950 text-orange-300 border border-orange-800'
+                        ? '!border-orange-400/30 !text-orange-200'
                         : structuredThesis.status === 'INVALIDATED'
-                        ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                        : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
+                        ? '!border-rose-400/30 !text-rose-200'
+                        : '!border-white/10 !text-slate-400'
                     }`}
                   >
                     {structuredThesis.status}
                   </span>
-                  <span className="text-[10px] text-neutral-500 font-mono">
-                    [{structuredThesis.evidenceQuality}]
+                  <span className="text-[0.65rem] text-slate-500">
+                    {structuredThesis.evidenceQuality}
                   </span>
                 </div>
               )}
             </div>
-            <p className="text-neutral-200 leading-relaxed font-sans">
+            <p className="leading-relaxed text-slate-200">
               {structuredThesis?.summary || thesis}
             </p>
             {structuredThesis && structuredThesis.dataGaps.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-neutral-800/60 font-mono text-[10px] text-neutral-500">
-                <span className="text-amber-500 uppercase">Data Gaps: </span>
+              <div className="mt-2 border-t border-white/[0.06] pt-2 text-[0.7rem] text-slate-500">
+                <span className="text-amber-200">Known gaps: </span>
                 {structuredThesis.dataGaps.join(' · ')}
               </div>
             )}
@@ -445,26 +437,26 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
 
           {/* Structured Contradictions */}
           {structuredContradictions && structuredContradictions.length > 0 && (
-            <div className="p-3 bg-rose-950/20 border border-rose-900/50 rounded space-y-2">
-              <div className="flex items-center justify-between pb-1.5 border-b border-rose-900/40 font-mono text-xs text-rose-300">
-                <span className="font-bold uppercase tracking-wider flex items-center gap-1.5">
-                  <ShieldAlert className="w-3.5 h-3.5 text-rose-400" /> Detected Contradictions ({structuredContradictions.length})
+            <div className="rounded-2xl border border-rose-400/20 bg-rose-400/[0.05] px-3.5 py-3">
+              <div className="mb-2 flex items-center justify-between gap-2 border-b border-rose-400/15 pb-1.5">
+                <span className="flex items-center gap-1.5 text-[0.78rem] font-semibold text-rose-200">
+                  <ShieldAlert className="h-3.5 w-3.5" /> Detected contradictions ({structuredContradictions.length})
                 </span>
-                <span className="text-[10px] bg-rose-900/50 px-2 py-0.5 rounded font-bold">
-                  UNRESOLVED CONFLICTS
+                <span className="velqo-chip !py-0.5 !text-[0.6rem] !border-rose-400/30 !text-rose-200">
+                  Unresolved conflicts
                 </span>
               </div>
               <div className="space-y-2">
                 {structuredContradictions.map((c) => (
-                  <div key={c.id} className="p-2 bg-neutral-950/80 border border-rose-950 rounded text-[11px] font-sans">
-                    <div className="flex items-center justify-between font-mono text-[10px] mb-1">
-                      <span className="text-rose-400 font-bold uppercase">{c.category.replace(/_/g, ' ')}</span>
-                      <span className="text-neutral-500">Severity: {c.severity}</span>
+                  <div key={c.id} className="rounded-xl border border-rose-400/15 bg-velqo-ink/60 px-3 py-2 text-[0.75rem]">
+                    <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-[0.65rem]">
+                      <span className="font-semibold text-rose-200">{c.category.replace(/_/g, ' ')}</span>
+                      <span className="text-slate-500">Severity {c.severity}</span>
                     </div>
-                    <p className="text-neutral-300 leading-snug">{c.conflictDescription}</p>
-                    <div className="grid grid-cols-2 gap-2 mt-1.5 pt-1.5 border-t border-neutral-800/50 font-mono text-[10px] text-neutral-400">
-                      <div><span className="text-neutral-500">A: </span>{c.statementA}</div>
-                      <div><span className="text-neutral-500">B: </span>{c.statementB}</div>
+                    <p className="leading-snug text-slate-300">{c.conflictDescription}</p>
+                    <div className="mt-1.5 grid grid-cols-2 gap-2 border-t border-white/[0.06] pt-1.5 text-[0.68rem] text-slate-400">
+                      <div><span className="text-slate-500">A: </span>{c.statementA}</div>
+                      <div><span className="text-slate-500">B: </span>{c.statementB}</div>
                     </div>
                   </div>
                 ))}
@@ -473,35 +465,35 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
           )}
 
           {/* Invalidation Conditions */}
-          <div className="p-3 bg-neutral-950/80 border border-neutral-800 rounded">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-rose-400 block mb-1.5 font-semibold flex items-center gap-1">
-              <ShieldAlert className="w-3.5 h-3.5" /> Invalidation Conditions & Trigger Status
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+            <span className="mb-2 flex items-center gap-1.5 text-[0.78rem] font-semibold text-rose-200">
+              <ShieldAlert className="h-3.5 w-3.5" /> Invalidation conditions and trigger status
             </span>
             {structuredInvalidation && structuredInvalidation.length > 0 ? (
-              <div className="space-y-2 font-mono text-[11px]">
+              <div className="space-y-2 text-[0.75rem]">
                 {structuredInvalidation.map((cond) => (
-                  <div key={cond.id} className="p-2 bg-neutral-900/40 border border-neutral-800 rounded">
+                  <div key={cond.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-neutral-300 font-bold">{cond.description}</span>
+                      <span className="font-medium text-slate-300">{cond.description}</span>
                       <span
-                        className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                        className={`velqo-chip !py-0.5 !text-[0.6rem] ${
                           cond.triggered
-                            ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                            : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            ? '!border-rose-400/30 !text-rose-200'
+                            : '!border-teal-400/30 !text-teal-200'
                         }`}
                       >
                         {cond.evaluationStatus}
                       </span>
                     </div>
-                    <div className="flex justify-between text-[10px] text-neutral-500">
-                      <span>Current: <span className="text-neutral-300">{cond.currentValue}</span></span>
-                      <span>Trigger: <span className="text-neutral-400">{cond.triggerCondition}</span></span>
+                    <div className="flex flex-wrap justify-between gap-2 text-[0.68rem] text-slate-500">
+                      <span>Current <span className="text-slate-300 tnum">{cond.currentValue}</span></span>
+                      <span>Trigger <span className="text-slate-400">{cond.triggerCondition}</span></span>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <ul className="space-y-1.5 text-neutral-300 list-disc list-inside font-sans">
+              <ul className="list-inside list-disc space-y-1.5 text-slate-300">
                 {invalidationConditions.map((cond, idx) => (
                   <li key={idx} className="leading-snug">{cond}</li>
                 ))}
@@ -511,41 +503,41 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
 
           {/* Session Relevance & Watch Window */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="p-3 bg-neutral-900/40 border border-neutral-800 rounded">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-sky-400 block mb-1 flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" /> Institutional Session
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+              <span className="velqo-eyebrow mb-1.5 block !text-sky-200/80">
+                Institutional session
               </span>
-              <p className="font-bold text-neutral-200 font-mono text-sm">{sessionRelevance.primarySession}</p>
-              <p className="text-neutral-400 text-[11px] mt-1 font-sans">{sessionRelevance.structuralRationale}</p>
+              <p className="text-[0.9rem] font-semibold text-slate-100">{sessionRelevance.primarySession}</p>
+              <p className="mt-1 text-[0.72rem] text-slate-400">{sessionRelevance.structuralRationale}</p>
             </div>
 
-            <div className="p-3 bg-neutral-900/40 border border-neutral-800 rounded">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-amber-400 block mb-1">
-                Watch Window State
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+              <span className="velqo-eyebrow mb-1.5 block !text-amber-200/80">
+                Watch window
               </span>
-              <p className="font-bold text-neutral-200 font-mono text-sm">{watchWindow.watchState}</p>
-              <p className="text-neutral-400 text-[11px] font-mono mt-1">Window: {watchWindow.watchWindow}</p>
+              <p className="text-[0.9rem] font-semibold text-slate-100">{watchWindow.watchState}</p>
+              <p className="mt-1 text-[0.72rem] text-slate-400">{watchWindow.watchWindow}</p>
             </div>
           </div>
 
           {/* Evidence Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="p-3 bg-neutral-950/70 border border-neutral-800 rounded">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-emerald-400 block mb-1.5 font-semibold">
-                Supporting Evidence ({supportingEvidence.length})
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+              <span className="mb-2 block text-[0.78rem] font-semibold text-teal-200">
+                Supporting evidence ({supportingEvidence.length})
               </span>
-              <ul className="space-y-1 text-neutral-300 list-disc list-inside">
+              <ul className="list-inside list-disc space-y-1 text-slate-300">
                 {supportingEvidence.map((ev, idx) => (
                   <li key={idx} className="leading-snug">{ev}</li>
                 ))}
               </ul>
             </div>
 
-            <div className="p-3 bg-neutral-950/70 border border-neutral-800 rounded">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-rose-400 block mb-1.5 font-semibold">
-                Counter-Evidence / Risks ({counterEvidence.length})
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+              <span className="mb-2 block text-[0.78rem] font-semibold text-rose-200">
+                Counter-evidence and risks ({counterEvidence.length})
               </span>
-              <ul className="space-y-1 text-neutral-300 list-disc list-inside">
+              <ul className="list-inside list-disc space-y-1 text-slate-300">
                 {counterEvidence.map((ev, idx) => (
                   <li key={idx} className="leading-snug">{ev}</li>
                 ))}
@@ -554,45 +546,45 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
           </div>
 
           {/* Catalysts & Event Intelligence */}
-          <div className="border-t border-neutral-800 pt-3">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 block mb-2 font-semibold">
+          <div className="border-t border-white/[0.06] pt-3">
+            <span className="mb-2 block text-[0.78rem] font-semibold text-slate-200">
               Relevant Macro Catalysts ({catalystIntelligence?.length ?? catalysts.length})
             </span>
             {(catalystIntelligence && catalystIntelligence.length > 0) ? (
-              <div className="space-y-2 font-mono text-[11px]">
+              <div className="space-y-2 text-[0.75rem]">
                 {catalystIntelligence.map((cat) => (
-                  <div key={cat.id} className="p-2.5 bg-neutral-900/60 border border-neutral-800 rounded">
+                  <div key={cat.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-neutral-200 text-xs">{cat.name}</span>
-                        <span className="text-[10px] text-neutral-400 font-mono">({cat.currency})</span>
+                        <span className="text-[0.78rem] font-semibold text-slate-200">{cat.name}</span>
+                        <span className="text-[0.68rem] text-slate-500">({cat.currency})</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span
-                          className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                          className={`velqo-chip !py-0.5 !text-[0.6rem] ${
                             cat.lifecycle === 'IMMINENT'
-                              ? 'bg-rose-950 text-rose-300 border border-rose-800 animate-pulse'
+                              ? 'animate-pulse !border-rose-400/30 !text-rose-200'
                               : cat.lifecycle === 'REACTING'
-                              ? 'bg-amber-950 text-amber-300 border border-amber-800'
-                              : 'bg-neutral-800 text-neutral-400'
+                              ? '!border-amber-400/30 !text-amber-200'
+                              : '!border-white/10 !text-slate-400'
                           }`}
                         >
                           {cat.lifecycle}
                         </span>
-                        <span className={`text-[10px] font-bold ${cat.importance === 'HIGH' ? 'text-rose-400' : 'text-amber-400'}`}>
+                        <span className={`text-[0.68rem] font-semibold ${cat.importance === 'HIGH' ? 'text-rose-200' : 'text-amber-200'}`}>
                           {cat.importance}
                         </span>
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-[10px] text-neutral-400 my-1">
-                      <div>Prev: <span className="text-neutral-300">{cat.previous !== null ? `${cat.previous}${cat.unit}` : 'N/A'}</span></div>
-                      <div>Consensus: <span className="text-neutral-300">{cat.forecast !== null ? `${cat.forecast}${cat.unit}` : 'N/A'}</span></div>
-                      <div>Actual: <span className="font-bold text-neutral-100">{cat.actual !== null ? `${cat.actual}${cat.unit}` : 'PENDING'}</span></div>
+                    <div className="my-1.5 grid grid-cols-3 gap-2 text-[0.68rem] text-slate-400">
+                      <div>Prev <span className="text-slate-300 tnum">{cat.previous !== null ? `${cat.previous}${cat.unit}` : 'n/a'}</span></div>
+                      <div>Consensus <span className="text-slate-300 tnum">{cat.forecast !== null ? `${cat.forecast}${cat.unit}` : 'n/a'}</span></div>
+                      <div>Actual <span className="font-semibold text-slate-100 tnum">{cat.actual !== null ? `${cat.actual}${cat.unit}` : 'pending'}</span></div>
                     </div>
-                    <div className="text-[10px] text-neutral-400 pt-1 border-t border-neutral-800/50 flex justify-between items-center">
-                      <span className="text-neutral-500 font-sans">{cat.timingRelevance.windowDescription}</span>
+                    <div className="flex items-center justify-between gap-2 border-t border-white/[0.06] pt-1 text-[0.68rem] text-slate-400">
+                      <span className="text-slate-500">{cat.timingRelevance.windowDescription}</span>
                       {cat.directionalEvidence.bias !== 'UNKNOWN' && (
-                        <span className={`font-bold ${cat.directionalEvidence.bias === 'BULLISH' ? 'text-emerald-400' : cat.directionalEvidence.bias === 'BEARISH' ? 'text-rose-400' : 'text-neutral-400'}`}>
+                        <span className={`font-semibold ${cat.directionalEvidence.bias === 'BULLISH' ? 'text-teal-200' : cat.directionalEvidence.bias === 'BEARISH' ? 'text-rose-200' : 'text-slate-400'}`}>
                           {cat.directionalEvidence.bias} BIAS
                         </span>
                       )}
@@ -601,16 +593,16 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
                 ))}
               </div>
             ) : catalysts.length === 0 ? (
-              <p className="text-neutral-500 italic font-mono text-[11px]">No upcoming events for {pair.symbol}.</p>
+              <p className="text-[0.75rem] italic text-slate-500">No upcoming events for {pair.symbol}.</p>
             ) : (
-              <div className="space-y-1.5 font-mono text-[11px]">
+              <div className="space-y-1.5 text-[0.75rem]">
                 {catalysts.map((cat) => (
-                  <div key={cat.id} className="p-2 bg-neutral-900/50 border border-neutral-800 rounded flex justify-between items-center">
+                  <div key={cat.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2">
                     <div>
-                      <span className="font-bold text-neutral-200 block text-xs">{cat.name}</span>
-                      <span className="text-neutral-500 text-[10px]">Date: {new Date(cat.scheduledTime).toUTCString()}</span>
+                      <span className="block text-[0.78rem] font-semibold text-slate-200">{cat.name}</span>
+                      <span className="text-[0.68rem] text-slate-500">{new Date(cat.scheduledTime).toUTCString()}</span>
                     </div>
-                    <span className={`text-[10px] font-bold ${cat.importance === 'HIGH' ? 'text-rose-400' : 'text-amber-400'}`}>
+                    <span className={`text-[0.68rem] font-semibold ${cat.importance === 'HIGH' ? 'text-rose-200' : 'text-amber-200'}`}>
                       {cat.importance}
                     </span>
                   </div>

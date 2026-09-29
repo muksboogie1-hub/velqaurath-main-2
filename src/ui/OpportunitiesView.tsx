@@ -90,37 +90,35 @@ export const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({
   return (
     <div className="space-y-4">
       {/* Engine Header */}
-      <div className="p-4 bg-neutral-900/60 border border-neutral-800 rounded-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-neutral-800 mb-3">
-          <div>
-            <h2 className="text-sm font-semibold font-mono text-neutral-100 uppercase tracking-wide flex items-center gap-2">
-              <Compass className="w-4 h-4 text-emerald-400" />
-              Opportunity Intelligence Engine
+      <div className="velqo-card px-4 py-4 sm:px-6 sm:py-5">
+        <div className="flex flex-col gap-3 border-b border-white/[0.06] pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="velqo-eyebrow mb-1.5">What matters now</p>
+            <h2 className="velqo-display flex items-center gap-2 text-lg text-white sm:text-xl">
+              <Compass className="h-4 w-4 text-teal-300" />
+              Watchlist
             </h2>
-            <p className="text-xs text-neutral-400 font-sans mt-0.5">
-              Multi-dimensional operational assessment across the canonical 15-pair universe. Answers &quot;Which pairs deserve analytical attention right now?&quot; based on market strength, fundamental delta, carry, contradictions, and catalyst runways.
+            <p className="mt-1.5 max-w-2xl text-[0.75rem] leading-relaxed text-slate-400">
+              Which pairs deserve analytical attention right now — assessed on market strength,
+              fundamental delta, verified policy carry, contradictions and catalyst runways.
             </p>
           </div>
-          <div className="flex items-center gap-2 font-mono text-[11px]">
-            <span className="px-2 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-neutral-300">
-              {pairIntelligences.length} Pairs Evaluated
-            </span>
-          </div>
+          <span className="velqo-chip shrink-0 tnum">{pairIntelligences.length} pairs evaluated</span>
         </div>
 
         {/* Dual Filter Bar: State & Setup Classification */}
-        <div className="space-y-2">
+        <div className="space-y-2.5 pt-4">
           {/* Operational Watch States (Requirement 14 & 20) */}
-          <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs">
-            <span className="text-[10px] text-neutral-400 uppercase font-bold mr-1">Watch State:</span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="velqo-eyebrow mr-1">Watch state</span>
             {(
               [
-                { id: 'ALL', label: 'All States' },
-                { id: 'PRIMARY_WATCH', label: 'Primary Watch' },
-                { id: 'SECONDARY_WATCH', label: 'Secondary Watch' },
+                { id: 'ALL', label: 'All states' },
+                { id: 'PRIMARY_WATCH', label: 'Primary' },
+                { id: 'SECONDARY_WATCH', label: 'Secondary' },
                 { id: 'MONITOR', label: 'Monitor' },
                 { id: 'WAIT', label: 'Wait' },
-                { id: 'INSUFFICIENT_DATA', label: 'Insufficient Data' }
+                { id: 'INSUFFICIENT_DATA', label: 'Insufficient data' }
               ] as const
             ).map((item) => {
               const count = stateCounts[item.id] || 0;
@@ -129,43 +127,37 @@ export const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({
                 <button
                   key={item.id}
                   onClick={() => setStateFilter(item.id)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors flex items-center gap-1.5 ${
+                  className={`flex min-h-8 items-center gap-1.5 rounded-full border px-2.5 text-[0.7rem] font-medium transition-colors ${
                     isActive
                       ? item.id === 'PRIMARY_WATCH'
-                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                        ? 'border-teal-400/35 bg-teal-400/[0.12] text-teal-200'
                         : item.id === 'SECONDARY_WATCH'
-                        ? 'bg-sky-950 text-sky-300 border border-sky-700'
+                        ? 'border-sky-400/30 bg-sky-400/[0.1] text-sky-200'
                         : item.id === 'WAIT'
-                        ? 'bg-rose-950 text-rose-300 border border-rose-700'
-                        : 'bg-neutral-800 text-neutral-100 border border-neutral-600'
-                      : 'bg-neutral-950/60 text-neutral-400 hover:text-neutral-200 border border-neutral-800'
+                        ? 'border-rose-400/30 bg-rose-400/[0.1] text-rose-200'
+                        : 'border-white/[0.12] bg-white/[0.05] text-slate-200'
+                      : 'border-white/[0.07] bg-white/[0.02] text-slate-500 hover:text-slate-300'
                   }`}
                 >
                   <span>{item.label}</span>
-                  <span
-                    className={`text-[9px] px-1 py-0.2 rounded ${
-                      isActive ? 'bg-neutral-700 text-emerald-300' : 'bg-neutral-900 text-neutral-500'
-                    }`}
-                  >
-                    {count}
-                  </span>
+                  <span className="tnum text-[0.65rem] opacity-70">{count}</span>
                 </button>
               );
             })}
           </div>
 
           {/* Setup Classification */}
-          <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs pt-1 border-t border-neutral-800/60">
-            <span className="text-[10px] text-neutral-400 uppercase font-bold mr-1">Setup Type:</span>
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-white/[0.06] pt-2.5">
+            <span className="velqo-eyebrow mr-1">Setup</span>
             {(
               [
-                { id: 'ALL', label: 'All Setups' },
+                { id: 'ALL', label: 'All setups' },
                 { id: 'EXPANSION', label: 'Expansion' },
-                { id: 'MEAN_REVERSION', label: 'Mean Reversion' },
-                { id: 'WAIT_FOR_CATALYST', label: 'Wait for Catalyst' },
-                { id: 'MONITOR_ONLY', label: 'Monitor Only' },
-                { id: 'NO_SETUP', label: 'No Setup' },
-                { id: 'DATA_DEFICIENT', label: 'Data Deficient' }
+                { id: 'MEAN_REVERSION', label: 'Mean reversion' },
+                { id: 'WAIT_FOR_CATALYST', label: 'Wait for catalyst' },
+                { id: 'MONITOR_ONLY', label: 'Monitor only' },
+                { id: 'NO_SETUP', label: 'No setup' },
+                { id: 'DATA_DEFICIENT', label: 'Data deficient' }
               ] as const
             ).map((item) => {
               const count = counts[item.id] || 0;
@@ -174,20 +166,14 @@ export const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({
                 <button
                   key={item.id}
                   onClick={() => setFilter(item.id)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors flex items-center gap-1.5 ${
+                  className={`flex min-h-8 items-center gap-1.5 rounded-full border px-2.5 text-[0.7rem] transition-colors ${
                     isActive
-                      ? 'bg-neutral-800 text-neutral-100 border border-neutral-600'
-                      : 'bg-neutral-950/60 text-neutral-400 hover:text-neutral-200 border border-neutral-800'
+                      ? 'border-white/[0.12] bg-white/[0.05] text-slate-200'
+                      : 'border-white/[0.07] bg-white/[0.02] text-slate-500 hover:text-slate-300'
                   }`}
                 >
                   <span>{item.label}</span>
-                  <span
-                    className={`text-[9px] px-1 py-0.2 rounded ${
-                      isActive ? 'bg-neutral-700 text-emerald-400' : 'bg-neutral-900 text-neutral-500'
-                    }`}
-                  >
-                    {count}
-                  </span>
+                  <span className="tnum text-[0.65rem] opacity-70">{count}</span>
                 </button>
               );
             })}
@@ -214,53 +200,46 @@ export const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({
 
             const stateBadge =
               opp.state === 'PRIMARY_WATCH' ? (
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
-                  ● PRIMARY WATCH
+                <span className="velqo-chip !border-teal-400/30 !bg-teal-400/[0.1] !text-teal-200">
+                  Primary watch
                 </span>
               ) : opp.state === 'SECONDARY_WATCH' ? (
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-950 text-sky-300 border border-sky-800">
-                  ● SECONDARY WATCH
+                <span className="velqo-chip !border-sky-400/25 !bg-sky-400/[0.08] !text-sky-200">
+                  Secondary watch
                 </span>
               ) : opp.state === 'MONITOR' ? (
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-950 text-amber-300 border border-amber-800">
-                  ● MONITOR
+                <span className="velqo-chip !border-amber-400/25 !bg-amber-400/[0.07] !text-amber-200">
+                  Monitor
                 </span>
               ) : opp.state === 'WAIT' ? (
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-950 text-rose-300 border border-rose-800">
-                  ● WAIT
+                <span className="velqo-chip !border-rose-400/25 !bg-rose-400/[0.07] !text-rose-200">
+                  Wait
                 </span>
               ) : (
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-neutral-900 text-neutral-400 border border-neutral-800">
-                  ● INSUFFICIENT DATA
+                <span className="velqo-chip !border-white/[0.08] !text-slate-400">
+                  Insufficient data
                 </span>
               );
 
-            const classificationBadge =
-              classification === 'EXPANSION' ? (
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950/60 text-emerald-400 border border-emerald-800/80">
-                  EXPANSION
-                </span>
-              ) : classification === 'MEAN_REVERSION' ? (
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-950/60 text-amber-400 border border-amber-800/80">
-                  MEAN REVERSION
-                </span>
-              ) : classification === 'WAIT_FOR_CATALYST' ? (
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-950/60 text-purple-400 border border-purple-800/80">
-                  WAIT FOR CATALYST
-                </span>
-              ) : classification === 'MONITOR_ONLY' ? (
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-950/60 text-sky-400 border border-sky-800/80">
-                  MONITOR ONLY
-                </span>
-              ) : classification === 'NO_SETUP' ? (
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-neutral-900 text-neutral-400 border border-neutral-800">
-                  NO SETUP
-                </span>
-              ) : (
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-950/60 text-rose-400 border border-rose-800/80">
-                  DATA DEFICIENT
-                </span>
-              );
+            const classificationBadge = (
+              <span
+                className={`velqo-chip !px-1.5 !py-0 !text-[0.58rem] ${
+                  classification === 'EXPANSION'
+                    ? '!border-teal-400/25 !text-teal-200'
+                    : classification === 'MEAN_REVERSION'
+                    ? '!border-amber-400/25 !text-amber-200'
+                    : classification === 'WAIT_FOR_CATALYST'
+                    ? '!border-violet-400/25 !text-violet-200'
+                    : classification === 'MONITOR_ONLY'
+                    ? '!border-sky-400/25 !text-sky-200'
+                    : classification === 'NO_SETUP'
+                    ? '!border-white/[0.08] !text-slate-400'
+                    : '!border-rose-400/25 !text-rose-200'
+                }`}
+              >
+                {classification.replace(/_/g, ' ')}
+              </span>
+            );
 
             const contradictions = pairIntel.contradictions || pairIntel.structuredContradictions || [];
             const catalysts = opp.keyCatalysts || pairIntel.catalystIntelligence || [];
@@ -268,58 +247,55 @@ export const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({
             return (
               <div
                 key={opp.pair}
-                className="p-4 bg-neutral-900/40 hover:bg-neutral-900/70 border border-neutral-800 hover:border-neutral-700 rounded-lg transition-colors space-y-3"
+                className="velqo-card velqo-card-interactive space-y-3 px-4 py-4 sm:px-5"
               >
                 {/* Top header row */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-neutral-800/80">
+                <div className="flex flex-col gap-2 border-b border-white/[0.06] pb-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-base font-bold font-mono text-neutral-100">
+                    <span className="velqo-display text-lg text-white">
                       {opp.pair}
-                    </span>
-                    <span className="text-xs font-mono text-neutral-500">
-                      ({pairIntel.baseCurrency.code}/{pairIntel.quoteCurrency.code})
                     </span>
                     {stateBadge}
                     {classificationBadge}
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-neutral-800 text-neutral-300 border border-neutral-700">
-                      {opp.directionalBias}
+                    <span className="velqo-chip !px-1.5 !py-0 !text-[0.58rem]">
+                      {String(opp.directionalBias).replace(/_/g, ' ')}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-3 font-mono text-xs">
+                  <div className="flex items-center gap-3 text-[0.72rem]">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-neutral-500 text-[10px] uppercase">Confluence:</span>
-                      <span className="font-bold text-neutral-100 bg-neutral-800 px-2 py-0.5 rounded border border-neutral-700">
+                      <span className="velqo-eyebrow">Confluence</span>
+                      <span className="font-semibold text-slate-100 tnum">
                         {opp.confluenceScore}/100
                       </span>
-                      <span className="text-[10px] text-sky-400 font-bold hidden sm:inline">
-                        [{opp.directionalConfidence}]
+                      <span className="hidden text-[0.65rem] text-sky-300/80 sm:inline">
+                        {String(opp.directionalConfidence).replace(/_/g, ' ')}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-1">
                       {delta === null ? (
                         <span
-                          className="text-amber-400 font-semibold flex items-center"
+                          className="flex items-center font-semibold text-amber-300"
                           title={`Live market-strength evidence is ${
                             pairIntel.marketEvidenceState === 'STALE'
                               ? 'stale'
                               : 'unavailable'
                           }; no relative Δ is claimed.`}
                         >
-                          <AlertTriangle className="w-3.5 h-3.5 mr-0.5" /> Δ N/A
+                          <AlertTriangle className="mr-0.5 h-3.5 w-3.5" /> Δ unavailable
                         </span>
                       ) : isBullish ? (
-                        <span className="text-emerald-400 font-bold flex items-center">
-                          <TrendingUp className="w-3.5 h-3.5 mr-0.5" /> +{delta.toFixed(2)}%
+                        <span className="flex items-center font-semibold text-teal-300 tnum">
+                          <TrendingUp className="mr-0.5 h-3.5 w-3.5" /> +{delta.toFixed(2)}%
                         </span>
                       ) : isBearish ? (
-                        <span className="text-rose-400 font-bold flex items-center">
-                          <TrendingDown className="w-3.5 h-3.5 mr-0.5" /> {delta.toFixed(2)}%
+                        <span className="flex items-center font-semibold text-rose-300 tnum">
+                          <TrendingDown className="mr-0.5 h-3.5 w-3.5" /> {delta.toFixed(2)}%
                         </span>
                       ) : (
-                        <span className="text-neutral-400 flex items-center">
-                          <Minus className="w-3.5 h-3.5 mr-0.5" /> {delta.toFixed(2)}%
+                        <span className="flex items-center text-slate-400 tnum">
+                          <Minus className="mr-0.5 h-3.5 w-3.5" /> {delta.toFixed(2)}%
                         </span>
                       )}
                     </div>
@@ -337,41 +313,40 @@ export const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({
                 </div>
 
                 {/* Why This Pair / Watch Reason */}
-                <div className="p-2.5 bg-neutral-950/60 border border-neutral-800/80 rounded font-sans text-xs text-neutral-300 leading-relaxed">
-                  <span className="font-mono text-[10px] text-emerald-400 uppercase font-bold mr-1.5">
-                    Watch Rationale:
-                  </span>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3 text-[0.78rem] leading-relaxed text-slate-300">
+                  <span className="velqo-eyebrow mr-2 !text-teal-300/80">Why now</span>
                   {opp.watchReason || opp.whyThisPair}
                 </div>
 
                 {/* Data Provenance & Freshness Bar */}
-                <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] text-neutral-400 bg-neutral-950/40 p-1.5 rounded border border-neutral-800/60">
-                  <span>Quality: <strong className="text-neutral-200">{opp.dataQuality}</strong></span>
-                  <span className="text-neutral-600">·</span>
-                  <span>Freshness: <strong className="text-neutral-200">{opp.freshness}</strong></span>
-                  <span className="text-neutral-600">·</span>
-                  <span>Session: <strong className="text-neutral-200">{opp.sessionRelevance}</strong></span>
+                <div className="flex flex-wrap items-center gap-2 text-[0.68rem] text-slate-500">
+                  <span className="velqo-chip !py-0.5">
+                    Quality <strong className="ml-1 font-semibold text-slate-200">{opp.dataQuality}</strong>
+                  </span>
+                  <span className="velqo-chip !py-0.5">
+                    Freshness{' '}
+                    <strong className="ml-1 font-semibold text-slate-200">{opp.freshness}</strong>
+                  </span>
+                  <span className="velqo-chip !py-0.5">{opp.sessionRelevance}</span>
                   {contradictions.length > 0 && (
-                    <>
-                      <span className="text-neutral-600">·</span>
-                      <span className="text-amber-400 font-bold">Contradictions: {contradictions.length}</span>
-                    </>
+                    <span className="velqo-chip !border-amber-400/25 !py-0.5 !text-amber-200">
+                      {contradictions.length} contradiction
+                      {contradictions.length === 1 ? '' : 's'}
+                    </span>
                   )}
                 </div>
 
                 {/* Structured Watch Factors */}
                 {opp.watchFactors && opp.watchFactors.length > 0 && (
-                  <div className="space-y-1 font-mono text-[11px]">
-                    <span className="text-[10px] text-neutral-400 uppercase font-bold block mb-1">
-                      Evidence Factors:
-                    </span>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                  <div className="space-y-1.5">
+                    <span className="velqo-eyebrow block">Evidence factors</span>
+                    <div className="grid grid-cols-1 gap-1.5 md:grid-cols-2">
                       {opp.watchFactors.map((factor, i) => (
                         <div
                           key={i}
-                          className="px-2 py-1 rounded bg-neutral-950/40 border border-neutral-800/60 text-neutral-300 flex items-start gap-1.5"
+                          className="flex items-start gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5 text-[0.72rem] text-slate-300"
                         >
-                          <span className="text-neutral-500 mt-0.5">•</span>
+                          <span className="mt-[0.4rem] h-1 w-1 shrink-0 rounded-full bg-slate-500" />
                           <span className="leading-snug">{factor}</span>
                         </div>
                       ))}
@@ -381,13 +356,14 @@ export const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({
 
                 {/* Contradictions Warning if Present */}
                 {contradictions.length > 0 && (
-                  <div className="p-2.5 bg-rose-950/20 border border-rose-900/40 rounded space-y-1 text-xs">
-                    <span className="font-mono text-[10px] font-bold uppercase text-rose-400 flex items-center gap-1">
-                      <AlertTriangle className="w-3.5 h-3.5" /> Active Contradictions Detected:
+                  <div className="space-y-1 rounded-2xl border border-amber-400/20 bg-amber-400/[0.05] px-3.5 py-3">
+                    <span className="velqo-eyebrow flex items-center gap-1.5 !text-amber-200/90">
+                      <AlertTriangle className="h-3 w-3" /> Active contradictions
                     </span>
                     {contradictions.map((c, i) => (
-                      <p key={i} className="text-neutral-300 text-[11px] font-sans">
-                        • <strong className="font-mono text-rose-300">[{c.severity}]</strong> {c.description || c.conflictDescription}
+                      <p key={i} className="text-[0.72rem] leading-relaxed text-slate-300">
+                        <strong className="font-semibold text-amber-200/90">{c.severity}</strong>{' '}
+                        {c.description || c.conflictDescription}
                       </p>
                     ))}
                   </div>
@@ -395,15 +371,20 @@ export const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({
 
                 {/* Catalysts Runway */}
                 {catalysts.length > 0 && (
-                  <div className="space-y-1 font-mono text-[10px]">
-                    <span className="text-neutral-400 uppercase font-bold block">
-                      Scheduled Catalysts:
-                    </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  <div className="space-y-1.5">
+                    <span className="velqo-eyebrow block">Scheduled catalysts</span>
+                    <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                       {catalysts.slice(0, 2).map((cat, i) => (
-                        <div key={i} className="p-1.5 bg-neutral-950/50 border border-neutral-800/70 rounded flex items-center justify-between">
-                          <span className="text-neutral-300 truncate mr-2">{cat.name}</span>
-                          <span className={`px-1 rounded font-bold ${cat.importance === 'HIGH' ? 'text-rose-400' : 'text-amber-400'}`}>
+                        <div
+                          key={i}
+                          className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5"
+                        >
+                          <span className="mr-2 truncate text-[0.72rem] text-slate-300">{cat.name}</span>
+                          <span
+                            className={`text-[0.65rem] font-semibold ${
+                              cat.importance === 'HIGH' ? 'text-rose-300' : 'text-amber-200'
+                            }`}
+                          >
                             {cat.importance}
                           </span>
                         </div>
@@ -414,11 +395,11 @@ export const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({
 
                 {/* Invalidation Rules & Risks */}
                 {opp.invalidationRules && opp.invalidationRules.length > 0 && (
-                  <div className="p-2 bg-rose-950/20 border border-rose-900/40 rounded font-mono text-[10px] text-rose-300/90 space-y-1">
-                    <span className="font-bold uppercase tracking-wider flex items-center gap-1 text-rose-400">
-                      <ShieldAlert className="w-3 h-3" /> Invalidation Rules:
+                  <div className="space-y-1 rounded-2xl border border-rose-400/20 bg-rose-400/[0.05] px-3.5 py-3 text-[0.7rem] leading-relaxed text-rose-100/80">
+                    <span className="velqo-eyebrow flex items-center gap-1.5 !text-rose-200/90">
+                      <ShieldAlert className="h-3 w-3" /> What would invalidate this
                     </span>
-                    <ul className="space-y-0.5 pl-3 list-disc">
+                    <ul className="list-disc space-y-0.5 pl-4">
                       {opp.invalidationRules.map((rule, i) => (
                         <li key={i}>{rule}</li>
                       ))}

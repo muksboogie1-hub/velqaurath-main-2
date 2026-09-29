@@ -50,38 +50,38 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
   const unknown = analyzedExpectations.filter((a: any) => a.expectationStatus === 'UNKNOWN').length;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex justify-end">
-      <div className="w-full max-w-2xl bg-neutral-950 border-l border-neutral-800 h-full overflow-y-auto p-4 sm:p-6 text-neutral-200">
+    <div className="fixed inset-0 z-50 flex justify-end bg-velqo-ink/80 backdrop-blur-md">
+      <div className="velqo-scroll h-full w-full max-w-2xl overflow-y-auto border-l border-white/[0.06] bg-velqo-ink/95 px-4 py-5 text-slate-200 sm:px-7 sm:py-7">
         {/* Header */}
-        <div className="flex items-start justify-between pb-4 border-b border-neutral-800">
+        <div className="mb-5 flex items-start justify-between border-b border-white/[0.06] pb-4">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold font-mono text-neutral-100">
+            <p className="velqo-eyebrow mb-1.5">Currency evidence</p>
+            <div className="flex flex-wrap items-baseline gap-2">
+              <span className="velqo-display text-2xl text-white sm:text-3xl">
                 {currency.code}
               </span>
-              <span className="text-xs font-mono text-neutral-500">
-                ({currency.name} · {currency.region})
+              <span className="text-[0.72rem] text-slate-500">
+                {currency.name} · {currency.region}
               </span>
             </div>
-            <div className="flex items-center gap-3 mt-1 font-mono text-xs text-neutral-400">
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.75rem] text-slate-400">
               <div className="flex items-center gap-1.5">
-                <span>Market:</span>
+                <span>Market</span>
                 <span
-                  className={`font-bold ${
+                  className={`font-semibold ${
                     marketState === 'STRONG'
-                      ? 'text-emerald-400'
+                      ? 'text-teal-200'
                       : marketState === 'WEAK'
-                      ? 'text-rose-400'
-                      : 'text-neutral-300'
+                      ? 'text-rose-200'
+                      : 'text-slate-300'
                   }`}
                 >
-                  {marketStrength !== null ? `${marketStrength >= 0 ? '+' : ''}${marketStrength.toFixed(2)}% (${marketState})` : 'UNAVAILABLE'}
+                  {marketStrength !== null ? `${marketStrength >= 0 ? '+' : ''}${marketStrength.toFixed(2)}% (${marketState})` : 'Unavailable'}
                 </span>
               </div>
-              <span className="text-neutral-600">·</span>
               <div className="flex items-center gap-1.5">
-                <span>Fundamentals:</span>
-                <span className="font-bold text-sky-400">
+                <span>Fundamentals</span>
+                <span className="font-semibold text-sky-200">
                   {fundamentalState.overallCondition}
                 </span>
               </div>
@@ -89,48 +89,48 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded hover:bg-neutral-800 text-neutral-400 hover:text-neutral-100 transition-colors"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.07] text-slate-400 transition-colors hover:border-teal-400/30 hover:text-teal-200"
             aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="py-4 space-y-5 text-xs">
+        <div className="space-y-4 text-xs">
           {/* Market Strength Section */}
-          <section className="p-3 bg-neutral-900/50 border border-neutral-800 rounded">
-            <div className="flex items-center justify-between pb-2 border-b border-neutral-800 mb-2">
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-2">
               <div>
-                <h3 className="font-mono text-xs font-bold text-neutral-200 uppercase tracking-wider">
+                <h3 className="text-[0.82rem] font-semibold text-slate-100">
                   Market Strength Intelligence
                 </h3>
-                <span className="text-[10px] font-mono text-neutral-500">
+                <span className="text-[0.68rem] text-slate-500">
                   Basket-Relative Movement · Strong ≥ +0.10% · Weak ≤ -0.10%
                 </span>
               </div>
               <span
-                className={`font-mono text-xs font-bold ${
+                className={`text-[0.82rem] font-semibold ${
                   marketState === 'STRONG'
-                    ? 'text-emerald-400'
+                    ? 'text-teal-200'
                     : marketState === 'WEAK'
-                    ? 'text-rose-400'
-                    : 'text-neutral-300'
+                    ? 'text-rose-200'
+                    : 'text-slate-300'
                 }`}
               >
-                {marketStrength !== null ? `${marketStrength >= 0 ? '+' : ''}${marketStrength.toFixed(2)}%` : 'UNAVAILABLE'} ({marketState})
+                {marketStrength !== null ? `${marketStrength >= 0 ? '+' : ''}${marketStrength.toFixed(2)}%` : 'unavailable'} ({marketState})
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 mb-2 font-mono text-[11px] bg-neutral-950/60 p-2 rounded border border-neutral-800/80">
+            <div className="mb-2 grid grid-cols-2 gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-2 text-[0.75rem]">
               <div>
-                <span className="text-neutral-500 block text-[10px] uppercase">Basket-Relative Strength</span>
-                <span className="text-neutral-100 font-bold">
-                  {marketStrength !== null ? `${marketStrength >= 0 ? '+' : ''}${marketStrength.toFixed(2)}%` : 'UNAVAILABLE'}
+                <span className="mb-0.5 block text-[0.6rem] uppercase tracking-wide text-slate-500">Basket-Relative Strength</span>
+                <span className="font-semibold text-slate-100 tnum">
+                  {marketStrength !== null ? `${marketStrength >= 0 ? '+' : ''}${marketStrength.toFixed(2)}%` : 'unavailable'}
                 </span>
               </div>
               <div>
-                <span className="text-neutral-500 block text-[10px] uppercase">Raw Basket Daily Avg</span>
-                <span className="text-neutral-300">
+                <span className="mb-0.5 block text-[0.6rem] uppercase tracking-wide text-slate-500">Raw Basket Daily Avg</span>
+                <span className="text-slate-300 tnum">
                   {relativeStrengthBreakdown.dailyMovementPercent !== undefined && relativeStrengthBreakdown.dailyMovementPercent !== null
                     ? `${relativeStrengthBreakdown.dailyMovementPercent >= 0 ? '+' : ''}${relativeStrengthBreakdown.dailyMovementPercent.toFixed(2)}%`
                     : 'N/A'}
@@ -138,29 +138,29 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
               </div>
             </div>
 
-            <p className="text-neutral-300 leading-relaxed mb-2 font-sans">
+            <p className="mb-2 leading-relaxed text-slate-300">
               {relativeStrengthBreakdown.explanation}
             </p>
             {relativeStrengthBreakdown.contributors && (
-              <div className="mt-2 pt-2 border-t border-neutral-800/80">
-                <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider block mb-1.5">
+              <div className="mt-2 border-t border-white/[0.06] pt-2">
+                <span className="velqo-eyebrow mb-2 block">
                   Pair Contributors ({relativeStrengthBreakdown.contributors.length})
                 </span>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 font-mono text-[11px]">
+                <div className="grid grid-cols-2 gap-1.5 text-[0.72rem] sm:grid-cols-3">
                   {relativeStrengthBreakdown.contributors.map((c) => (
                     <div
                       key={c.pairSymbol}
                       onClick={() => onSelectPair?.(c.pairSymbol)}
-                      className="p-1.5 rounded bg-neutral-900/80 border border-neutral-800 hover:border-neutral-700 cursor-pointer flex justify-between"
+                      className="flex min-h-9 cursor-pointer items-center justify-between gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5 transition-colors hover:border-teal-400/25"
                     >
-                      <span className="text-neutral-300">{c.pairSymbol}</span>
+                      <span className="text-slate-300 tnum">{c.pairSymbol}</span>
                       <span
                         className={
                           c.signedContribution > 0
-                            ? 'text-emerald-400'
+                            ? 'text-teal-200'
                             : c.signedContribution < 0
-                            ? 'text-rose-400'
-                            : 'text-neutral-500'
+                            ? 'text-rose-200'
+                            : 'text-slate-500'
                         }
                       >
                         {c.signedContribution >= 0 ? '+' : ''}
@@ -174,49 +174,47 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
           </section>
 
           {/* Central Bank Intelligence Profile */}
-          <section className="p-3 bg-neutral-900/50 border border-neutral-800 rounded">
-            <div className="flex items-center justify-between pb-2 border-b border-neutral-800 mb-2">
-              <h3 className="font-mono text-xs font-bold text-neutral-200 uppercase tracking-wider">
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-2">
+              <h3 className="text-[0.82rem] font-semibold text-slate-100">
                 Central Bank Intelligence: {centralBank.institution}
               </h3>
               <span
-                className={`font-mono text-xs font-bold ${
+                className={`text-[0.82rem] font-semibold ${
                   centralBank.stance === 'HAWKISH'
-                    ? 'text-emerald-400'
+                    ? 'text-teal-200'
                     : centralBank.stance === 'DOVISH'
-                    ? 'text-rose-400'
-                    : 'text-neutral-300'
+                    ? 'text-rose-200'
+                    : 'text-slate-300'
                 }`}
               >
-                {centralBank.stance} ({centralBank.currentPolicyRate !== null ? `${centralBank.currentPolicyRate}%` : 'N/A'})
+                {centralBank.stance} ({centralBank.currentPolicyRate !== null ? `${centralBank.currentPolicyRate}%` : 'rate unavailable'})
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-2 mb-2.5 font-mono text-[11px] bg-neutral-950/60 p-2 rounded border border-neutral-800/80">
+            <div className="mb-2.5 grid grid-cols-2 gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-2 text-[0.75rem]">
               <div>
-                <span className="text-neutral-500 block text-[10px]">CURRENT POLICY RATE</span>
-                <span className="text-neutral-100 font-bold">{centralBank.currentPolicyRate !== null ? `${centralBank.currentPolicyRate}%` : 'UNAVAILABLE'}</span>
+                <span className="mb-0.5 block text-[0.6rem] uppercase tracking-wide text-slate-500">Current policy rate</span>
+                <span className="font-semibold text-slate-100 tnum">{centralBank.currentPolicyRate !== null ? `${centralBank.currentPolicyRate}%` : 'unavailable'}</span>
               </div>
               <div>
-                <span className="text-neutral-500 block text-[10px]">PREVIOUS POLICY RATE</span>
-                <span className="text-neutral-300">{centralBank.previousPolicyRate !== null ? `${centralBank.previousPolicyRate}%` : 'N/A'}</span>
+                <span className="mb-0.5 block text-[0.6rem] uppercase tracking-wide text-slate-500">Previous policy rate</span>
+                <span className="text-slate-300 tnum">{centralBank.previousPolicyRate !== null ? `${centralBank.previousPolicyRate}%` : 'unavailable'}</span>
               </div>
               <div>
-                <span className="text-neutral-500 block text-[10px]">LATEST DECISION DATE</span>
-                <span className="text-neutral-300">{centralBank.latestDecisionDate ? new Date(centralBank.latestDecisionDate).toLocaleDateString() : 'N/A'}</span>
+                <span className="mb-0.5 block text-[0.6rem] uppercase tracking-wide text-slate-500">Latest decision</span>
+                <span className="text-slate-300 tnum">{centralBank.latestDecisionDate ? new Date(centralBank.latestDecisionDate).toLocaleDateString() : 'unavailable'}</span>
               </div>
               <div>
-                <span className="text-neutral-500 block text-[10px]">NEXT KNOWN DECISION</span>
-                <span className="text-neutral-300">{centralBank.nextKnownDecisionDate ? new Date(centralBank.nextKnownDecisionDate).toLocaleDateString() : 'NOT ANNOUNCED'}</span>
+                <span className="mb-0.5 block text-[0.6rem] uppercase tracking-wide text-slate-500">Next known decision</span>
+                <span className="text-slate-300 tnum">{centralBank.nextKnownDecisionDate ? new Date(centralBank.nextKnownDecisionDate).toLocaleDateString() : 'Not announced'}</span>
               </div>
             </div>
-            <p className="text-neutral-300 leading-relaxed font-sans mb-2">
+            <p className="mb-2 leading-relaxed text-slate-300">
               {centralBank.guidanceSummary || 'Data dependent stance.'}
             </p>
             {centralBank.stanceEvidence.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-neutral-800/80 text-[11px] font-mono text-neutral-400 space-y-1">
-                <span className="text-[10px] text-neutral-500 uppercase tracking-wider block">
-                  Policy Evidence:
-                </span>
+              <div className="mt-2 space-y-1 border-t border-white/[0.06] pt-2 text-[0.72rem] text-slate-400">
+                <span className="velqo-eyebrow block">Policy evidence</span>
                 {centralBank.stanceEvidence.map((ev, idx) => (
                   <p key={idx}>• {ev}</p>
                 ))}
@@ -236,37 +234,37 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
             const populatedCount = FUNDAMENTAL_CATEGORIES.filter((cat) => observedCategoriesSet.has(cat.id)).length;
 
             return (
-              <section className="p-3 bg-neutral-900/50 border border-neutral-800 rounded">
-                <div className="flex items-center justify-between pb-2 border-b border-neutral-800 mb-2">
-                  <h3 className="font-mono text-xs font-bold text-neutral-200 uppercase tracking-wider">
-                    10 Fundamental Categories (Phase B)
+              <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-2">
+                  <h3 className="text-[0.82rem] font-semibold text-slate-100">
+                    Fundamental category coverage
                   </h3>
-                  <span className="font-mono text-[11px] text-neutral-400">
-                    {populatedCount}/10 Populated ({10 - populatedCount} Awaiting Live Observations)
+                  <span className="text-[0.7rem] text-slate-400 tnum">
+                    {populatedCount}/10 populated · {10 - populatedCount} awaiting live observations
                   </span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 font-mono text-[10px]">
+                <div className="grid grid-cols-2 gap-1.5 text-[0.7rem] sm:grid-cols-5">
                   {FUNDAMENTAL_CATEGORIES.map((cat) => {
                     const isObserved = observedCategoriesSet.has(cat.id);
                     return (
                       <div
                         key={cat.id}
                         onClick={() => setSelectedCategory(cat.id)}
-                        className={`p-1.5 rounded border text-center cursor-pointer transition-colors ${
+                        className={`min-h-11 cursor-pointer rounded-xl border px-1.5 py-1.5 text-center transition-colors ${
                           selectedCategory === cat.id
-                            ? 'border-emerald-500 bg-emerald-950/30'
+                            ? 'border-teal-400/40 bg-teal-400/[0.08]'
                             : isObserved
-                            ? 'border-neutral-700 bg-neutral-900/80 hover:border-neutral-600'
-                            : 'border-neutral-800/50 bg-neutral-950/60 opacity-60'
+                            ? 'border-white/[0.08] bg-white/[0.03] hover:border-teal-400/25'
+                            : 'border-white/[0.04] bg-white/[0.01] opacity-60'
                         }`}
                       >
-                        <span className="block font-semibold truncate text-neutral-200">{cat.code}</span>
+                        <span className="block truncate font-semibold text-slate-200">{cat.code}</span>
                         <span
-                          className={`text-[9px] block ${
-                            isObserved ? 'text-emerald-400 font-bold' : 'text-neutral-500'
+                          className={`block text-[0.6rem] ${
+                            isObserved ? 'font-semibold text-teal-200' : 'text-slate-500'
                           }`}
                         >
-                          {isObserved ? 'POPULATED' : 'AWAITING DATA'}
+                          {isObserved ? 'Populated' : 'Awaiting data'}
                         </span>
                       </div>
                     );
@@ -277,38 +275,38 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
           })()}
 
           {/* Expectations Breakdown */}
-          <section className="p-3 bg-neutral-900/50 border border-neutral-800 rounded">
-            <div className="flex items-center justify-between pb-2 border-b border-neutral-800 mb-2 font-mono text-xs">
-              <span className="font-bold text-neutral-200 uppercase tracking-wider">
-                Macroeconomic Expectations Engine
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-2">
+              <span className="text-[0.82rem] font-semibold text-slate-100">
+                Macroeconomic expectations
               </span>
-              <div className="flex items-center gap-2 text-[10px]">
-                <span className="text-emerald-400 font-bold">{beats} Beats</span>
-                <span className="text-rose-400 font-bold">{misses} Misses</span>
-                <span className="text-neutral-400">{inLine} In-line</span>
-                {unknown > 0 && <span className="text-neutral-500">{unknown} Unknown</span>}
+              <div className="flex flex-wrap items-center gap-2 text-[0.68rem]">
+                <span className="font-semibold text-teal-200 tnum">{beats} beats</span>
+                <span className="font-semibold text-rose-200 tnum">{misses} misses</span>
+                <span className="text-slate-400 tnum">{inLine} in line</span>
+                {unknown > 0 && <span className="text-slate-500 tnum">{unknown} unknown</span>}
               </div>
             </div>
 
             {analyzedExpectations.length === 0 ? (
-              <p className="text-neutral-500 italic font-mono text-[11px]">
+              <p className="text-[0.75rem] italic text-slate-500">
                 No recorded releases available for {currency.code}.
               </p>
             ) : (
-              <div className="space-y-2 mt-2">
+              <div className="mt-2 space-y-2">
                 {analyzedExpectations.map((exp: any, i: number) => (
-                  <div key={i} className="p-2.5 bg-neutral-950/70 border border-neutral-800 rounded space-y-1.5">
-                    <div className="flex items-center justify-between font-mono text-[11px]">
-                      <span className="font-bold text-neutral-200">{exp.indicatorName}</span>
+                  <div key={i} className="space-y-1.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[0.78rem]">
+                      <span className="font-semibold text-slate-200">{exp.indicatorName}</span>
                       <span
-                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        className={`velqo-chip !py-0.5 !text-[0.6rem] ${
                           exp.expectationStatus === 'ABOVE_EXPECTATION'
-                            ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                            ? '!border-teal-400/30 !text-teal-200'
                             : exp.expectationStatus === 'BELOW_EXPECTATION'
-                            ? 'bg-rose-950 text-rose-400 border border-rose-800'
+                            ? '!border-rose-400/30 !text-rose-200'
                             : exp.expectationStatus === 'IN_LINE'
-                            ? 'bg-neutral-900 text-neutral-300 border border-neutral-700'
-                            : 'bg-neutral-950 text-neutral-500 border border-neutral-800'
+                            ? '!border-white/10 !text-slate-300'
+                            : '!border-white/[0.07] !text-slate-500'
                         }`}
                       >
                         {exp.expectationStatus.replace('_', ' ')}
@@ -316,21 +314,21 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
                     </div>
 
                     {/* Fact vs Expectation vs Interpretation vs Engine Analysis */}
-                    <div className="space-y-1 text-[11px] font-mono">
-                      <div className="text-neutral-300 bg-neutral-900/40 p-1 rounded">
-                        <span className="text-sky-400 font-bold mr-1">FACT:</span>
+                    <div className="space-y-1 text-[0.72rem]">
+                      <div className="rounded-lg bg-white/[0.02] px-2 py-1 text-slate-300">
+                        <span className="mr-1 font-semibold text-sky-200">Fact</span>
                         {exp.statements?.fact?.replace('FACT: ', '') || `Actual: ${exp.actual}${exp.unit}`}
                       </div>
-                      <div className="text-neutral-400 bg-neutral-900/40 p-1 rounded">
-                        <span className="text-amber-400 font-bold mr-1">EXPECTATION:</span>
+                      <div className="rounded-lg bg-white/[0.02] px-2 py-1 text-slate-400">
+                        <span className="mr-1 font-semibold text-amber-200">Expectation</span>
                         {exp.statements?.expectation?.replace('EXPECTATION: ', '') || `Forecast: ${exp.forecast}${exp.unit}`}
                       </div>
-                      <div className="text-neutral-300 bg-neutral-900/40 p-1 rounded">
-                        <span className="text-emerald-400 font-bold mr-1">INTERPRETATION:</span>
+                      <div className="rounded-lg bg-white/[0.02] px-2 py-1 text-slate-300">
+                        <span className="mr-1 font-semibold text-teal-200">Interpretation</span>
                         {exp.statements?.interpretation?.replace('INTERPRETATION: ', '') || exp.directionSummary}
                       </div>
-                      <div className="text-neutral-400 bg-neutral-900/40 p-1 rounded font-sans">
-                        <span className="text-purple-400 font-bold mr-1 font-mono">ENGINE_ANALYSIS:</span>
+                      <div className="rounded-lg bg-white/[0.02] px-2 py-1 text-slate-400">
+                        <span className="mr-1 font-semibold text-violet-200">Engine analysis</span>
                         {exp.statements?.engineAnalysis?.replace('ENGINE_ANALYSIS: ', '') || exp.monetaryPolicyImplication}
                       </div>
                     </div>
@@ -341,32 +339,32 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
           </section>
 
           {/* Evidence Breakdown */}
-          <section className="border-t border-neutral-800/80 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="p-3 bg-neutral-950/80 border border-neutral-800 rounded">
-              <span className="font-mono text-[11px] font-semibold text-emerald-400 uppercase tracking-wider block mb-2">
-                Supporting Evidence ({supportingEvidence.length})
+          <section className="grid grid-cols-1 gap-3 border-t border-white/[0.06] pt-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+              <span className="mb-2 block text-[0.78rem] font-semibold text-teal-200">
+                Supporting evidence ({supportingEvidence.length})
               </span>
               {supportingEvidence.length === 0 ? (
-                <p className="text-neutral-500 italic">No strong confirming evidence.</p>
+                <p className="text-[0.75rem] italic text-slate-500">No strong confirming evidence.</p>
               ) : (
-                <ul className="space-y-1.5 text-neutral-300 list-disc list-inside">
+                <ul className="list-inside list-disc space-y-1.5 text-[0.72rem] text-slate-300">
                   {supportingEvidence.map((ev, i) => (
-                    <li key={i} className="leading-tight text-[11px] font-sans">{ev}</li>
+                    <li key={i} className="leading-tight">{ev}</li>
                   ))}
                 </ul>
               )}
             </div>
 
-            <div className="p-3 bg-neutral-950/80 border border-neutral-800 rounded">
-              <span className="font-mono text-[11px] font-semibold text-rose-400 uppercase tracking-wider block mb-2">
-                Counter-Evidence / Headwinds ({conflictingEvidence.length})
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+              <span className="mb-2 block text-[0.78rem] font-semibold text-rose-200">
+                Counter-evidence and headwinds ({conflictingEvidence.length})
               </span>
               {conflictingEvidence.length === 0 ? (
-                <p className="text-neutral-500 italic">No material conflicting evidence.</p>
+                <p className="text-[0.75rem] italic text-slate-500">No material conflicting evidence.</p>
               ) : (
-                <ul className="space-y-1.5 text-neutral-300 list-disc list-inside">
+                <ul className="list-inside list-disc space-y-1.5 text-[0.72rem] text-slate-300">
                   {conflictingEvidence.map((ev, i) => (
-                    <li key={i} className="leading-tight text-[11px] font-sans">{ev}</li>
+                    <li key={i} className="leading-tight">{ev}</li>
                   ))}
                 </ul>
               )}
@@ -374,14 +372,15 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
           </section>
 
           {/* Data Gaps & Transparency */}
-          <section className="p-3 bg-neutral-950/80 border border-neutral-800 rounded">
-            <span className="font-mono text-[11px] font-semibold text-amber-400 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
-              <AlertCircle className="w-3.5 h-3.5" /> Data Gaps & Transparency Notice
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+            <span className="mb-1.5 flex items-center gap-1.5 text-[0.78rem] font-semibold text-amber-200">
+              <AlertCircle className="h-3.5 w-3.5" /> Data gaps and transparency
             </span>
-            <p className="text-neutral-400 text-[11px] font-sans mb-2">
-              VELQOARATH strictly prohibits fabricating economic indicators. The following categories currently have no live authenticated data feed configured:
+            <p className="mb-2 text-[0.72rem] text-slate-400">
+              VELQOARATH never fabricates economic indicators. The following categories currently have
+              no live authenticated feed configured, so they are reported as gaps rather than estimated:
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 font-mono text-[10px] text-neutral-500">
+            <div className="grid grid-cols-1 gap-1 text-[0.68rem] text-slate-500 sm:grid-cols-2">
               <div>• Fiscal / Government: Debt-to-GDP & budget balance not configured</div>
               <div>• Interest Rates: Sovereign yield curve feed not configured</div>
               <div>• Major Shocks: Systemic financial stress indices not configured</div>
@@ -390,21 +389,21 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
           </section>
 
           {/* Upcoming Catalysts */}
-          <section className="border-t border-neutral-800/80 pt-3">
-            <h3 className="text-xs font-bold text-neutral-300 uppercase tracking-wider mb-2 font-mono">
+          <section className="border-t border-white/[0.06] pt-4">
+            <h3 className="mb-2 text-[0.82rem] font-semibold text-slate-100">
               Upcoming Scheduled Catalysts ({upcomingEvents.length})
             </h3>
             {upcomingEvents.length === 0 ? (
-              <p className="text-neutral-500 italic font-mono text-[11px]">No scheduled upcoming events in horizon.</p>
+              <p className="text-[0.75rem] italic text-slate-500">No scheduled upcoming events in horizon.</p>
             ) : (
-              <div className="space-y-1.5 font-mono text-[11px]">
+              <div className="space-y-1.5 text-[0.72rem]">
                 {upcomingEvents.map((e, idx) => (
-                  <div key={`${e.id || 'evt'}-${idx}`} className="p-2 bg-neutral-900/50 border border-neutral-800/80 rounded flex items-center justify-between">
+                  <div key={`${e.id || 'evt'}-${idx}`} className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2">
                     <div>
-                      <span className="font-semibold text-neutral-200 font-sans block text-xs">{e.name}</span>
-                      <span className="text-neutral-500 text-[10px]">Scheduled: {new Date(e.scheduledTime).toUTCString()}</span>
+                      <span className="block text-[0.78rem] font-semibold text-slate-200">{e.name}</span>
+                      <span className="text-[0.68rem] text-slate-500">{new Date(e.scheduledTime).toUTCString()}</span>
                     </div>
-                    <span className={`text-[10px] font-bold ${e.importance === 'HIGH' ? 'text-rose-400' : 'text-amber-400'}`}>
+                    <span className={`text-[0.68rem] font-semibold ${e.importance === 'HIGH' ? 'text-rose-200' : 'text-amber-200'}`}>
                       {e.importance}
                     </span>
                   </div>
@@ -414,7 +413,7 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
           </section>
 
           {/* Source Provenance */}
-          <section className="border-t border-neutral-800/80 pt-3 text-[11px] font-mono text-neutral-500 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <section className="flex flex-col justify-between gap-2 border-t border-white/[0.06] pt-4 text-[0.68rem] text-slate-500 sm:flex-row sm:items-center">
             <div>
               <span>Source: {centralBank.sourceMetadata.sourceName}</span>
               {centralBank.sourceMetadata.sourceUrl && (
@@ -422,14 +421,15 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
                   href={centralBank.sourceMetadata.sourceUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="ml-2 text-emerald-400 hover:underline inline-flex items-center gap-0.5"
+                  className="ml-2 inline-flex items-center gap-0.5 text-teal-300 transition-colors hover:text-teal-200 hover:underline"
                 >
-                  Verify <ExternalLink className="w-3 h-3 inline" />
+                  Verify <ExternalLink className="inline h-3 w-3" />
                 </a>
               )}
             </div>
             <div>
-              Last Verified: {confidenceMetadata.lastVerified ? new Date(confidenceMetadata.lastVerified).toUTCString() : 'N/A'}
+              Last verified:{' '}
+              {confidenceMetadata.lastVerified ? new Date(confidenceMetadata.lastVerified).toUTCString() : 'never'}
             </div>
           </section>
         </div>

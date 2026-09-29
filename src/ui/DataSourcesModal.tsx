@@ -1,5 +1,5 @@
 import React from 'react';
-import { Database, Power, Activity, Calendar, ExternalLink, X, RefreshCw } from 'lucide-react';
+import { Power, Activity, Calendar, ExternalLink, X, RefreshCw } from 'lucide-react';
 import { DataSource, ProviderStatus } from '../types';
 import { FundamentalProviderStatus } from '../fundamentals/providers/IFundamentalDataProvider';
 import { FundamentalDatasetMode } from '../types/fundamentals';
@@ -37,211 +37,219 @@ export const DataSourcesModal: React.FC<DataSourcesModalProps> = ({
   const isBenchmark = fundamentalDatasetMode === 'BENCHMARK';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-neutral-950 border border-neutral-800 rounded-lg max-w-2xl w-full max-h-[85vh] flex flex-col text-neutral-200">
-        <div className="flex items-center justify-between p-4 border-b border-neutral-800">
-          <div className="flex items-center gap-2">
-            <Database className="w-4 h-4 text-emerald-400" />
-            <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-100">
-              Primary Data Sources & Pipeline Architecture
-            </h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-velqo-ink/80 p-4 backdrop-blur-md">
+      <div className="velqo-card flex max-h-[85vh] w-full max-w-2xl flex-col">
+        <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
+          <div>
+            <p className="velqo-eyebrow mb-1.5">Provenance</p>
+            <h2 className="velqo-display text-lg text-white">Evidence &amp; sources</h2>
           </div>
-          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-100 p-1">
-            <X className="w-4 h-4" />
+          <button
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.07] text-slate-400 transition-colors hover:border-teal-400/30 hover:text-teal-200"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="p-4 overflow-y-auto space-y-4 text-xs">
+        <div className="space-y-4 overflow-y-auto px-5 py-4 text-xs">
           {/* Integrity Principle */}
-          <div className="p-3 bg-neutral-900 border border-neutral-800 rounded font-sans leading-relaxed text-neutral-300">
-            <span className="font-bold text-neutral-100 block mb-1">
-              VELQOARATH Data Integrity Principle:
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-3.5 leading-relaxed text-slate-300">
+            <span className="mb-1 block font-semibold text-slate-100">
+              VELQOARATH never fabricates evidence
             </span>
-            VELQOARATH never fabricates CPI, GDP, employment, central bank decisions, or FX market quotes. When real feeds are offline or unconfigured, the engine explicitly displays <span className="font-mono text-rose-400">DATA SOURCE NOT CONNECTED</span> or <span className="font-mono text-amber-400">DATA UNAVAILABLE</span> rather than generating placeholder numbers. Every observation retains verified provenance and fact vs expectation separation.
+            CPI, GDP, employment, central bank decisions and FX quotes are only ever shown when a
+            verified feed supplies them. When a feed is offline or unconfigured the product reports{' '}
+            <span className="text-rose-300">source not connected</span> or{' '}
+            <span className="text-amber-200">data unavailable</span> — never a placeholder number.
+            Every observation keeps its provenance and its fact-versus-expectation separation.
           </div>
 
           {/* Macro Connection Toggle */}
-          <div className="flex items-center justify-between p-3 bg-neutral-900/50 border border-neutral-800 rounded font-mono">
+          <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <span className="text-[11px] text-neutral-400 block uppercase">
-                Macro Pipeline Connection State
-              </span>
-              <span className={`font-bold ${isConnected ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {isConnected ? 'LIVE PIPELINE CONNECTED (OFFICIAL DATA)' : 'DISCONNECTED (DATA UNAVAILABLE)'}
+              <span className="velqo-eyebrow mb-1 block">Macro pipeline</span>
+              <span className={`text-[0.8rem] font-semibold ${isConnected ? 'text-teal-200' : 'text-rose-200'}`}>
+                {isConnected ? 'Live · official data connected' : 'Disconnected · data unavailable'}
               </span>
             </div>
             <button
               onClick={onToggleConnection}
-              className={`px-3 py-1.5 rounded font-bold border transition-colors flex items-center gap-1.5 ${
+              className={`flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[0.75rem] font-semibold transition-colors ${
                 isConnected
-                  ? 'bg-rose-950/40 border-rose-800/60 text-rose-300 hover:bg-rose-900/50'
-                  : 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300 hover:bg-emerald-900/50'
+                  ? 'border-rose-400/25 bg-rose-400/[0.07] text-rose-200 hover:bg-rose-400/[0.12]'
+                  : 'border-teal-400/25 bg-teal-400/[0.07] text-teal-200 hover:bg-teal-400/[0.12]'
               }`}
             >
-              <Power className="w-3.5 h-3.5" />
-              {isConnected ? 'Disconnect Macro Feeds' : 'Connect Verified Macro Feeds'}
+              <Power className="h-3.5 w-3.5" />
+              {isConnected ? 'Disconnect macro feeds' : 'Connect verified macro feeds'}
             </button>
           </div>
 
           {/* Fundamental Data Provider: Finance Calendar */}
-          <div className="p-3 bg-neutral-900/70 border border-neutral-800 rounded">
-            <div className="flex items-center justify-between pb-2 border-b border-neutral-800 mb-2.5">
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-3.5">
+            <div className="mb-2.5 flex items-center justify-between gap-2 border-b border-white/[0.06] pb-2">
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-emerald-400" />
-                <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-200">
-                  Fundamental Data Provider: Finance Calendar
+                <Calendar className="h-4 w-4 text-teal-300" />
+                <span className="text-[0.8rem] font-semibold text-slate-200">
+                  Macro provider · Finance Calendar
                 </span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`font-mono text-[10px] px-2 py-0.5 rounded border font-bold ${
-                    isBenchmark
-                      ? 'bg-purple-950/40 border-purple-500/40 text-purple-300'
-                      : fundHealth === 'CONNECTED' || fundHealth === 'AVAILABLE'
-                      ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
-                      : fundHealth === 'DEGRADED'
-                      ? 'bg-amber-950/40 border-amber-500/30 text-amber-300'
-                      : 'bg-rose-950/40 border-rose-500/30 text-rose-300'
-                  }`}
-                >
-                  {isBenchmark ? 'BENCHMARK (TEST)' : `LIVE (${fundHealth})`}
-                </span>
-              </div>
+              <span
+                className={`velqo-chip !py-0.5 !text-[0.62rem] ${
+                  isBenchmark
+                    ? '!border-violet-400/30 !text-violet-200'
+                    : fundHealth === 'CONNECTED' || fundHealth === 'AVAILABLE'
+                    ? '!border-teal-400/30 !text-teal-200'
+                    : fundHealth === 'DEGRADED'
+                    ? '!border-amber-400/30 !text-amber-200'
+                    : '!border-rose-400/30 !text-rose-200'
+                }`}
+              >
+                {isBenchmark ? 'Benchmark (test)' : `Live · ${fundHealth}`}
+              </span>
             </div>
 
-            <div className="space-y-1.5 font-mono text-[11px] text-neutral-300">
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Live Provider Base URL:</span>
-                <span className="text-emerald-400 font-bold truncate max-w-xs">
+            <div className="space-y-1.5 text-[0.72rem] text-slate-300">
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Provider endpoint</span>
+                <span className="truncate text-right text-slate-400">
                   https://www.financecalendar.com/wp-json/fc/v1
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">API Key Requirement:</span>
-                <span className="text-neutral-300">None (Public REST API, edge-cached)</span>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">API key</span>
+                <span className="text-slate-300">None (public REST, edge-cached)</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Dataset Mode:</span>
-                <span className={isBenchmark ? 'text-purple-400 font-bold' : 'text-emerald-400 font-bold'}>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Dataset mode</span>
+                <span className={isBenchmark ? 'text-violet-200' : 'text-teal-200'}>
                   {fundamentalDatasetMode}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Freshness Status:</span>
-                <span className={fundamentalProviderStatus?.freshness === 'FRESH' ? 'text-emerald-400' : 'text-amber-400'}>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Freshness</span>
+                <span
+                  className={
+                    fundamentalProviderStatus?.freshness === 'FRESH' ? 'text-teal-200' : 'text-amber-200'
+                  }
+                >
                   {fundamentalProviderStatus?.freshness || 'UNAVAILABLE'}
-                  {fundamentalProviderStatus?.isStale ? ' (Stale threshold exceeded)' : ''}
+                  {fundamentalProviderStatus?.isStale ? ' · stale threshold exceeded' : ''}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Currencies Supported:</span>
-                <span className="text-neutral-200">8 (USD, EUR, GBP, JPY, CHF, CAD, AUD, NZD)</span>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Currencies</span>
+                <span className="text-slate-200">8 (USD, EUR, GBP, JPY, CHF, CAD, AUD, NZD)</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">10 Macro Categories:</span>
-                <span className="text-neutral-200 font-bold">
-                  {fundamentalProviderStatus?.categoriesPopulatedCount ?? 0} Populated / {fundamentalProviderStatus?.categoriesConfiguredCount ?? 10} Configured
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Macro categories</span>
+                <span className="text-slate-200 tnum">
+                  {fundamentalProviderStatus?.categoriesPopulatedCount ?? 0} populated /{' '}
+                  {fundamentalProviderStatus?.categoriesConfiguredCount ?? 10} configured
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Last Successful Sync:</span>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Last successful sync</span>
                 <span>
                   {fundamentalProviderStatus?.lastSuccessfulUpdate
                     ? new Date(fundamentalProviderStatus.lastSuccessfulUpdate).toUTCString()
                     : 'None'}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Provider Message:</span>
-                <span className="text-neutral-400 text-right max-w-xs line-clamp-1">
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Provider message</span>
+                <span className="max-w-xs text-right text-slate-400">
                   {fundamentalProviderStatus?.message || 'Awaiting initial connection.'}
                 </span>
               </div>
             </div>
 
             {/* Benchmark / Live Mode Toggle */}
-            <div className="mt-3 pt-2.5 border-t border-neutral-800 flex items-center justify-between">
-              <span className="text-[10px] text-neutral-400">
-                Mode: {isBenchmark ? 'Baseline Benchmark (Isolated)' : 'Finance Calendar Live Pipeline'}
+            <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-2.5">
+              <span className="text-[0.68rem] text-slate-500">
+                {isBenchmark ? 'Baseline benchmark (isolated)' : 'Finance Calendar live pipeline'}
               </span>
               {onToggleBenchmarkMode && (
                 <button
                   onClick={() => onToggleBenchmarkMode(!isBenchmark)}
-                  className="px-2.5 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-[10px] font-mono border border-neutral-700 transition-colors"
+                  className="min-h-8 rounded-full border border-white/[0.07] px-3 text-[0.7rem] text-slate-300 transition-colors hover:border-teal-400/30 hover:text-teal-200"
                 >
-                  {isBenchmark ? 'Switch to LIVE Pipeline' : 'Switch to Benchmark (Test)'}
+                  {isBenchmark ? 'Switch to live' : 'Switch to benchmark (test)'}
                 </button>
               )}
             </div>
 
-            <div className="mt-2 text-[10px] text-neutral-500 flex items-center gap-1 font-sans">
-              <span>Data provided by Finance Calendar.</span>
+            <div className="mt-2 flex items-center gap-1 text-[0.68rem] text-slate-500">
+              <span>Macro data provided by Finance Calendar.</span>
               <a
                 href="https://www.financecalendar.com"
                 target="_blank"
                 rel="noreferrer"
-                className="text-emerald-400 hover:underline inline-flex items-center gap-0.5"
+                className="inline-flex items-center gap-0.5 text-teal-300 transition-colors hover:text-teal-200 hover:underline"
               >
-                financecalendar.com <ExternalLink className="w-2.5 h-2.5" />
+                financecalendar.com <ExternalLink className="h-2.5 w-2.5" />
               </a>
             </div>
           </div>
 
           {/* FX Provider Status */}
-          <div className="p-3 bg-neutral-900/70 border border-neutral-800 rounded">
-            <div className="flex items-center justify-between pb-2 border-b border-neutral-800 mb-2.5">
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-3.5">
+            <div className="mb-2.5 flex items-center justify-between gap-2 border-b border-white/[0.06] pb-2">
               <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-cyan-400" />
-                <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-200">
-                  Live FX Market Data Provider
-                </span>
+                <Activity className="h-4 w-4 text-cyan-300" />
+                <span className="text-[0.8rem] font-semibold text-slate-200">Live FX market provider</span>
               </div>
               <span
-                className={`font-mono text-[11px] px-2 py-0.5 rounded border ${
+                className={`velqo-chip !py-0.5 !text-[0.62rem] ${
                   fxHealth === 'CONNECTED'
-                    ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
+                    ? '!border-teal-400/30 !text-teal-200'
                     : fxHealth === 'DEGRADED'
-                    ? 'bg-amber-950/40 border-amber-500/30 text-amber-300'
+                    ? '!border-amber-400/30 !text-amber-200'
                     : fxHealth === 'ERROR'
-                    ? 'bg-rose-950/40 border-rose-500/30 text-rose-300'
-                    : 'bg-neutral-800 border-neutral-700 text-neutral-400'
+                    ? '!border-rose-400/30 !text-rose-200'
+                    : '!border-white/10 !text-slate-400'
                 }`}
               >
                 {fxHealth}
               </span>
             </div>
 
-            <div className="space-y-1.5 font-mono text-[11px] text-neutral-300">
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Active Provider:</span>
-                <span className="text-emerald-400 font-bold">
+            <div className="space-y-1.5 text-[0.72rem] text-slate-300">
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Active provider</span>
+                <span className="text-teal-200">
                   {marketProviderStatus?.activeProvider ?? marketProviderStatus?.providerName ?? 'Biquote'}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Primary Feed:</span>
-                <span className="text-neutral-200">Biquote (Public REST & SignalR Tick Hub)</span>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Primary feed</span>
+                <span className="text-slate-200">Biquote (public REST + SignalR tick hub)</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Secondary Fallback:</span>
-                <span className="text-neutral-400">
-                  Twelve Data ({marketProviderStatus?.fallbackAvailable ? 'Available' : 'Not Configured'})
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Secondary fallback</span>
+                <span className="text-slate-400">
+                  Twelve Data ({marketProviderStatus?.fallbackAvailable ? 'available' : 'not configured'})
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Pairs Observed:</span>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Pairs observed</span>
                 <span>
-                  {marketProviderStatus?.availablePairsCount ?? 0} / {marketProviderStatus?.requiredPairsCount ?? 15} liquid pairs
+                  <span className="tnum">
+                    {marketProviderStatus?.availablePairsCount ?? 0} /{' '}
+                    {marketProviderStatus?.requiredPairsCount ?? 15} liquid pairs
+                  </span>
                   {marketProviderStatus?.stalePairs && marketProviderStatus.stalePairs.length > 0 && (
-                    <span className="text-amber-400 ml-1">
+                    <span className="ml-1 text-amber-300">
                       ({marketProviderStatus.stalePairs.length} stale)
                     </span>
                   )}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Provider Message:</span>
-                <span className="text-neutral-400 text-right max-w-xs line-clamp-1">
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Provider message</span>
+                <span className="max-w-xs text-right text-slate-400">
                   {marketProviderStatus?.message ?? 'Awaiting initialization.'}
                 </span>
               </div>
@@ -250,33 +258,38 @@ export const DataSourcesModal: React.FC<DataSourcesModalProps> = ({
 
           {/* Statistical Agencies */}
           <div className="space-y-2">
-            <span className="font-mono text-[11px] text-neutral-400 uppercase tracking-wider block">
-              Configured Primary Statistical Agencies ({macroSources.length})
+            <span className="velqo-eyebrow block">
+              Configured statistical agencies ({macroSources.length})
             </span>
             {macroSources.map((source) => (
               <div
                 key={source.id}
-                className="p-3 bg-neutral-900/40 border border-neutral-800 rounded hover:border-neutral-700 transition-colors"
+                className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 transition-colors hover:border-white/[0.1]"
               >
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-neutral-200">{source.name}</span>
-                      <span className="text-[10px] font-mono text-neutral-500">({source.institution})</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-slate-200">{source.name}</span>
+                      <span className="text-[0.68rem] text-slate-500">{source.institution}</span>
                     </div>
-                    <div className="mt-1 flex flex-wrap gap-1">
+                    <div className="mt-1.5 flex flex-wrap gap-1">
                       {source.coverage.map((c, i) => (
-                        <span key={i} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-300">
+                        <span
+                          key={i}
+                          className="rounded-full border border-white/[0.06] bg-white/[0.03] px-2 py-0.5 text-[0.65rem] text-slate-400"
+                        >
                           {c}
                         </span>
                       ))}
                     </div>
                   </div>
-                  <div className="text-right shrink-0 font-mono text-[11px]">
-                    <span className={`block font-semibold ${source.status === 'CONNECTED' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {source.status === 'CONNECTED' ? 'CONNECTED' : 'DISCONNECTED'}
+                  <div className="shrink-0 text-right text-[0.7rem]">
+                    <span
+                      className={`block font-semibold ${source.status === 'CONNECTED' ? 'text-teal-200' : 'text-rose-200'}`}
+                    >
+                      {source.status === 'CONNECTED' ? 'Connected' : 'Disconnected'}
                     </span>
-                    <span className="text-[10px] text-neutral-500">Grade: {source.reliabilityGrade}</span>
+                    <span className="text-[0.65rem] text-slate-500">Grade {source.reliabilityGrade}</span>
                   </div>
                 </div>
               </div>

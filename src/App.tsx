@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  LayoutDashboard,
+  Activity,
   Coins,
   ArrowLeftRight,
   Clock,
@@ -8,18 +8,20 @@ import {
   Database,
   Compass,
   AlertTriangle,
-  Landmark
+  Landmark,
+  ShieldCheck
 } from 'lucide-react';
 import { globalStore } from './data/store';
 import { CurrencyFundamentalIntelligence, DashboardPayload, PairIntelligence, StrengthThresholds } from './types';
 import { Header } from './ui/Header';
 import { BottomNav, NavTab } from './ui/BottomNav';
-import { MarketStateSummary } from './ui/MarketStateSummary';
-import { CurrencyMatrix } from './ui/CurrencyMatrix';
-import { TopPairCard } from './ui/TopPairCard';
+import { MarketPulseHero } from './ui/MarketPulseHero';
+import { MarketContext } from './ui/MarketContext';
+import { CurrencyLandscape } from './ui/CurrencyLandscape';
+import { PairInFocusCard } from './ui/PairInFocusCard';
 import { SessionIntelligenceCard } from './ui/SessionIntelligenceCard';
 import { EconomicCalendarTable } from './ui/EconomicCalendarTable';
-import { DataStatusBanner } from './ui/DataStatusBanner';
+import { EvidenceStrip } from './ui/EvidenceStrip';
 import { CurrencyDetailModal } from './ui/CurrencyDetailModal';
 import { PairDetailModal } from './ui/PairDetailModal';
 import { ThresholdsModal } from './ui/ThresholdsModal';
@@ -169,20 +171,19 @@ export function App() {
   const currentThresholds: StrengthThresholds = globalStore.getState().thresholds;
 
   const navItems = [
-    { id: 'dashboard' as NavTab, label: 'Terminal', icon: LayoutDashboard },
-    { id: 'opportunities' as NavTab, label: 'Opportunities', icon: Compass },
+    { id: 'dashboard' as NavTab, label: 'Pulse', icon: Activity },
+    { id: 'opportunities' as NavTab, label: 'Watch', icon: Compass },
     { id: 'currencies' as NavTab, label: 'Currencies', icon: Coins },
-    { id: 'central-banks' as NavTab, label: 'Central Banks', icon: Landmark },
+    { id: 'central-banks' as NavTab, label: 'Central banks', icon: Landmark },
     { id: 'contradictions' as NavTab, label: 'Contradictions', icon: AlertTriangle },
-    { id: 'pairs' as NavTab, label: 'Pairs Matrix', icon: ArrowLeftRight },
+    { id: 'pairs' as NavTab, label: 'Pairs', icon: ArrowLeftRight },
     { id: 'sessions' as NavTab, label: 'Sessions', icon: Clock },
     { id: 'calendar' as NavTab, label: 'Calendar', icon: Calendar },
-    { id: 'sources' as NavTab, label: 'Sources', icon: Database },
+    { id: 'sources' as NavTab, label: 'Evidence', icon: ShieldCheck }
   ];
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-neutral-800 selection:text-emerald-300">
-      {/* Top Header */}
+    <div className="flex min-h-screen flex-col text-slate-100">
       <Header
         dataStatus={dashboard.dataStatus}
         marketProviderStatus={dashboard.marketProviderStatus}
@@ -193,9 +194,9 @@ export function App() {
         onOpenThresholds={() => setIsThresholdsOpen(true)}
       />
 
-      {/* Desktop Navigation */}
-      <div className="hidden md:block border-b border-neutral-800/80 bg-neutral-950/70 sticky top-14 z-20 backdrop-blur-md">
-        <div className="max-w-5xl mx-auto px-4 flex items-center gap-1 py-1.5 font-mono text-xs">
+      {/* Desktop navigation */}
+      <div className="sticky top-[3.9rem] z-20 hidden border-b border-white/[0.05] bg-velqo-ink/80 backdrop-blur-xl md:block">
+        <div className="mx-auto flex max-w-6xl items-center gap-1 px-4 sm:px-6">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentTab === item.id;
@@ -203,24 +204,26 @@ export function App() {
               <button
                 key={item.id}
                 onClick={() => setCurrentTab(item.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors ${
+                className={`relative flex min-h-10 items-center gap-1.5 rounded-full px-3 text-[0.78rem] font-medium transition-colors ${
                   isActive
-                    ? 'bg-neutral-900 text-neutral-100 font-semibold border border-neutral-700/80'
-                    : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900/40'
+                    ? 'text-teal-200'
+                    : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-emerald-400' : ''}`} />
+                <Icon className="h-3.5 w-3.5" strokeWidth={isActive ? 2.2 : 1.8} />
                 <span>{item.label}</span>
+                {isActive && (
+                  <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-gradient-to-r from-teal-300 to-cyan-400" />
+                )}
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 pb-24 md:pb-12 space-y-4">
-        {/* Live Data Status Banner */}
-        <DataStatusBanner
+      <main className="mx-auto w-full max-w-6xl flex-1 space-y-4 px-4 pb-28 pt-4 sm:space-y-5 sm:px-6 sm:pb-16 md:pt-6">
+        {/* Evidence stays available on every view, quietly. */}
+        <EvidenceStrip
           dataStatus={dashboard.dataStatus}
           statusMessage={dashboard.dataStatusMessage}
           dataSources={dashboard.dataSources}
@@ -228,29 +231,31 @@ export function App() {
           fundamentalProviderStatus={dashboard.fundamentalProviderStatus}
           fundamentalDatasetMode={dashboard.fundamentalDatasetMode}
           currencyIntelligence={currencyIntelligences}
-          onToggleConnection={handleToggleFeed}
           onOpenSources={() => setIsSourcesOpen(true)}
         />
 
-        {/* Tab Views */}
         {currentTab === 'dashboard' && (
-          <div className="space-y-4">
-            <MarketStateSummary
+          <div className="space-y-4 sm:space-y-5">
+            <MarketPulseHero
               allCurrencies={dashboard.allCurrencies}
               strongCurrencies={dashboard.strongCurrencies}
               neutralCurrencies={dashboard.neutralCurrencies}
               weakCurrencies={dashboard.weakCurrencies}
-              thresholds={currentThresholds}
-              onSelectCurrency={(code) => setSelectedCurrency(code)}
+              topPair={dashboard.topPairToWatch}
               marketProviderStatus={dashboard.marketProviderStatus}
+              fundamentalProviderStatus={dashboard.fundamentalProviderStatus}
+              fundamentalDatasetMode={dashboard.fundamentalDatasetMode}
+              currencyIntelligence={currencyIntelligences}
+              onSelectCurrency={(code) => setSelectedCurrency(code)}
+              onSelectPair={(symbol) => setSelectedPair(symbol)}
             />
 
-            <TopPairCard
+            <PairInFocusCard
               topPair={dashboard.topPairToWatch}
               onSelectPair={(symbol) => setSelectedPair(symbol)}
             />
 
-            <CurrencyMatrix
+            <CurrencyLandscape
               currencies={dashboard.allCurrencies}
               onSelectCurrency={(code) => setSelectedCurrency(code)}
             />
@@ -272,20 +277,23 @@ export function App() {
         )}
 
         {currentTab === 'currencies' && (
-          <div className="space-y-4">
-            <MarketStateSummary
+          <div className="space-y-4 sm:space-y-5">
+            <MarketContext
               allCurrencies={dashboard.allCurrencies}
               strongCurrencies={dashboard.strongCurrencies}
               neutralCurrencies={dashboard.neutralCurrencies}
               weakCurrencies={dashboard.weakCurrencies}
               thresholds={currentThresholds}
               onSelectCurrency={(code) => setSelectedCurrency(code)}
+              onOpenThresholds={() => setIsThresholdsOpen(true)}
               marketProviderStatus={dashboard.marketProviderStatus}
             />
-            <CurrencyMatrix
+
+            <CurrencyLandscape
               currencies={dashboard.allCurrencies}
               onSelectCurrency={(code) => setSelectedCurrency(code)}
             />
+
             <CurrencyIntelligencePanel intelligences={currencyIntelligences} />
           </div>
         )}
@@ -335,34 +343,32 @@ export function App() {
         )}
 
         {currentTab === 'sources' && (
-          <div className="space-y-4">
-            <div className="p-4 bg-neutral-900/60 border border-neutral-800 rounded-lg">
-              <h2 className="text-sm font-semibold text-neutral-200 uppercase tracking-wide mb-1">
-                Data Provenance & Agency Directory
-              </h2>
-              <p className="text-xs text-neutral-400 leading-relaxed font-sans mb-4">
-                VELQOARATH maintains zero-fabrication standards. Below is the active registry of primary government agencies and central bank sources underpinning all macro observations.
-              </p>
-              <button
-                onClick={() => setIsSourcesOpen(true)}
-                className="px-3 py-2 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-mono font-bold border border-neutral-700 transition-colors"
-              >
-                Open Full Provenance Inspector & Toggle Controls →
-              </button>
-            </div>
+          <div className="velqo-card px-5 py-6 sm:px-6">
+            <p className="velqo-eyebrow mb-1.5">Evidence</p>
+            <h2 className="velqo-display text-lg text-white">Provenance & source directory</h2>
+            <p className="mt-2 max-w-xl text-[0.78rem] leading-relaxed text-slate-400">
+              VELQOARATH does not fabricate evidence. Every macro observation, policy record and
+              market quote below is traceable to a primary agency or market-data provider, and a
+              layer without a verified live record is reported as unavailable rather than inferred.
+            </p>
+            <button
+              onClick={() => setIsSourcesOpen(true)}
+              className="mt-4 flex min-h-10 items-center gap-2 rounded-full border border-teal-400/25 bg-teal-400/[0.07] px-4 text-[0.78rem] font-medium text-teal-200 transition-colors hover:border-teal-400/45 hover:bg-teal-400/[0.12]"
+            >
+              <Database className="h-4 w-4" />
+              Open the full provenance inspector
+            </button>
           </div>
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="w-full border-t border-neutral-900 py-4 px-4 text-center text-[10px] font-mono text-neutral-600">
-        <p>VELQOARATH · Global Market Intelligence Terminal</p>
-        <p className="mt-0.5 text-neutral-700">
+      <footer className="border-t border-white/[0.05] px-4 py-6 text-center">
+        <p className="text-[0.72rem] font-medium text-slate-500">VELQOARATH · Global Market Intelligence</p>
+        <p className="mt-1 text-[0.7rem] text-slate-600">
           Built by Boogie · Fundamental intelligence for currencies. Not an execution venue.
         </p>
       </footer>
 
-      {/* Mobile Navigation */}
       <BottomNav
         currentTab={currentTab}
         onSelectTab={(tab) => {
@@ -374,7 +380,6 @@ export function App() {
         }}
       />
 
-      {/* Modals */}
       <CurrencyDetailModal
         currencyState={currencyDetail}
         events={dashboard.economicCalendar}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RotateCcw, Check, X, Sliders } from 'lucide-react';
+import { RotateCcw, Check, X } from 'lucide-react';
 import { StrengthThresholds } from '../types';
 
 interface ThresholdsModalProps {
@@ -31,32 +31,32 @@ export const ThresholdsModal: React.FC<ThresholdsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-neutral-950 border border-neutral-800 rounded-lg max-w-md w-full p-5 text-neutral-200">
-        <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-4">
-          <div className="flex items-center gap-2">
-            <Sliders className="w-4 h-4 text-emerald-400" />
-            <h3 className="font-mono text-sm font-bold uppercase tracking-wider text-neutral-100">
-              Configure Strength Thresholds
-            </h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-velqo-ink/80 p-4 backdrop-blur-md">
+      <div className="velqo-card w-full max-w-md px-5 py-5">
+        <div className="mb-4 flex items-center justify-between border-b border-white/[0.06] pb-3">
+          <div>
+            <p className="velqo-eyebrow mb-1.5">Framework</p>
+            <h3 className="velqo-display text-lg text-white">Strength thresholds</h3>
           </div>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-100 p-1"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.07] text-slate-400 transition-colors hover:border-teal-400/30 hover:text-teal-200"
+            aria-label="Close"
           >
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        <p className="text-xs text-neutral-400 mb-4 leading-relaxed font-sans">
-          Adjust the relative basket score boundaries used to classify currencies into Strong, Neutral, or Weak market states.
+        <p className="mb-4 text-[0.78rem] leading-relaxed text-slate-400">
+          Adjust the relative basket boundaries used to classify currencies as strong, balanced or
+          weak. Changing a threshold re-labels evidence; it never changes the evidence itself.
         </p>
 
-        <div className="space-y-4 mb-6">
+        <div className="mb-6 space-y-4">
           <div>
-            <div className="flex justify-between text-xs font-mono mb-1.5">
-              <span className="text-neutral-300">Strong Threshold (≥):</span>
-              <span className="text-emerald-400 font-bold">+{strong.toFixed(2)}</span>
+            <div className="mb-2 flex items-center justify-between text-[0.78rem]">
+              <span className="text-slate-400">Strong at or above</span>
+              <span className="font-semibold text-teal-300 tnum">+{strong.toFixed(2)}%</span>
             </div>
             <input
               type="range"
@@ -65,14 +65,15 @@ export const ThresholdsModal: React.FC<ThresholdsModalProps> = ({
               step="0.01"
               value={strong}
               onChange={(e) => setStrong(parseFloat(e.target.value))}
-              className="w-full accent-emerald-500 bg-neutral-800 rounded cursor-pointer"
+              aria-label="Strong threshold"
+              className="w-full cursor-pointer accent-teal-400"
             />
           </div>
 
           <div>
-            <div className="flex justify-between text-xs font-mono mb-1.5">
-              <span className="text-neutral-300">Weak Threshold (≤):</span>
-              <span className="text-rose-400 font-bold">{weak.toFixed(2)}</span>
+            <div className="mb-2 flex items-center justify-between text-[0.78rem]">
+              <span className="text-slate-400">Weak at or below</span>
+              <span className="font-semibold text-rose-300 tnum">{weak.toFixed(2)}%</span>
             </div>
             <input
               type="range"
@@ -81,30 +82,31 @@ export const ThresholdsModal: React.FC<ThresholdsModalProps> = ({
               step="0.01"
               value={weak}
               onChange={(e) => setWeak(parseFloat(e.target.value))}
-              className="w-full accent-rose-500 bg-neutral-800 rounded cursor-pointer"
+              aria-label="Weak threshold"
+              className="w-full cursor-pointer accent-rose-400"
             />
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-3 border-t border-neutral-800/80 text-xs font-mono">
+        <div className="flex items-center justify-between border-t border-white/[0.06] pt-3 text-[0.75rem]">
           <button
             onClick={handleReset}
-            className="flex items-center gap-1 text-neutral-400 hover:text-neutral-200"
+            className="flex min-h-9 items-center gap-1.5 rounded-full px-2 text-slate-400 transition-colors hover:text-teal-200"
           >
-            <RotateCcw className="w-3 h-3" />
-            Reset Defaults (+0.10 / -0.10)
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset to +0.10 / −0.10
           </button>
 
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="px-3 py-1.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-300 hover:bg-neutral-800"
+              className="min-h-9 rounded-full border border-white/[0.07] px-3.5 text-slate-400 transition-colors hover:border-teal-400/30 hover:text-slate-200"
             >
               Cancel
             </button>
             <button
               onClick={handleApply}
-              className="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-neutral-950 font-bold flex items-center gap-1"
+              className="flex min-h-9 items-center gap-1.5 rounded-full bg-teal-400 px-4 font-semibold text-velqo-ink transition-colors hover:bg-teal-300"
             >
               <Check className="w-3.5 h-3.5" />
               Apply

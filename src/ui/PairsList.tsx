@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeftRight, TrendingUp, TrendingDown, Search, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Search, Clock, ArrowUpRight } from 'lucide-react';
 import { PairIntelligence } from '../types';
 
 interface PairsListProps {
@@ -7,10 +7,22 @@ interface PairsListProps {
   onSelectPair: (symbol: string) => void;
 }
 
-export const PairsList: React.FC<PairsListProps> = ({
-  pairIntelligences,
-  onSelectPair
-}) => {
+const WATCH_TONE: Record<string, string> = {
+  PRIMARY_WATCH: '!border-teal-400/30 !bg-teal-400/[0.1] !text-teal-200',
+  SECONDARY_WATCH: '!border-sky-400/25 !bg-sky-400/[0.08] !text-sky-200',
+  MONITOR: '!border-white/[0.08] !bg-white/[0.03] !text-slate-300',
+  WAIT: '!border-amber-400/25 !bg-amber-400/[0.07] !text-amber-200',
+  INSUFFICIENT_DATA: '!border-rose-400/25 !bg-rose-400/[0.07] !text-rose-200'
+};
+
+/**
+ * PAIRS — the watchable universe.
+ *
+ * Each pair leads with its direction and the reasoning behind it. Confluence
+ * and watch state remain visible, and a pair without market evidence says so
+ * rather than showing a zero delta.
+ */
+export const PairsList: React.FC<PairsListProps> = ({ pairIntelligences, onSelectPair }) => {
   const [filter, setFilter] = useState<'ALL' | 'BULLISH' | 'BEARISH' | 'CONVERGENCE'>('ALL');
   const [search, setSearch] = useState('');
 
@@ -34,17 +46,16 @@ export const PairsList: React.FC<PairsListProps> = ({
 
   return (
     <section className="space-y-4">
-      {/* Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-neutral-900/60 border border-neutral-800 rounded-lg p-3">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 font-mono text-xs">
+      <div className="velqo-card flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1">
           {(['ALL', 'BULLISH', 'BEARISH', 'CONVERGENCE'] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => setFilter(mode)}
-              className={`px-3 py-1.5 rounded transition-colors ${
+              className={`min-h-9 shrink-0 rounded-full px-3.5 text-[0.72rem] font-semibold tracking-wide transition-colors ${
                 filter === mode
-                  ? 'bg-neutral-800 text-neutral-100 font-bold border border-neutral-700'
-                  : 'text-neutral-400 hover:text-neutral-200'
+                  ? 'bg-teal-400/[0.12] text-teal-200'
+                  : 'text-slate-500 hover:bg-white/[0.04] hover:text-slate-300'
               }`}
             >
               {mode}
@@ -53,109 +64,91 @@ export const PairsList: React.FC<PairsListProps> = ({
         </div>
 
         <div className="relative">
-          <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
-            placeholder="Search pair or currency..."
+            placeholder="Search a pair or currency"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-neutral-950 border border-neutral-800 rounded text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-neutral-700 w-full sm:w-48 font-mono"
+            aria-label="Search pairs"
+            className="w-full rounded-full border border-white/[0.07] bg-white/[0.03] py-2 pl-8 pr-3 text-[0.75rem] text-slate-200 placeholder-slate-500 focus:border-teal-400/30 focus:outline-none sm:w-56"
           />
         </div>
       </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {filtered.map((item) => {
           const delta = item.relativeStrengthDelta;
           const isBullish = item.orientationDirection === 'BULLISH_BASE';
           const isBearish = item.orientationDirection === 'BEARISH_BASE';
+          const watchState = item.structuredOpportunity?.state;
 
           return (
-            <div
+            <button
               key={item.pair.symbol}
               onClick={() => onSelectPair(item.pair.symbol)}
-              className="p-3.5 bg-neutral-900/40 border border-neutral-800 rounded-lg hover:border-neutral-700 cursor-pointer transition-all hover:bg-neutral-900/70"
+              className="velqo-card velqo-card-interactive flex flex-col px-4 py-4 text-left"
             >
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-base text-neutral-100">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="velqo-display text-lg text-white">
                       {item.pair.symbol}
                     </span>
-                    <span className="text-[10px] font-mono text-neutral-500">
-                      {item.baseCurrency.code}/{item.quoteCurrency.code}
-                    </span>
+                    <ArrowUpRight className="h-3.5 w-3.5 text-slate-600" />
                   </div>
-                  <span className="text-[11px] font-mono text-neutral-400">
-                    {delta === null
-                      ? `Δ unavailable${
-                          item.marketEvidenceState === 'STALE'
-                            ? ' (stale)'
-                            : ''
-                        }`
-                      : `Δ ${delta >= 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2)}%`}
-                  </span>
-                  {item.confluence && (
-                    <span className="text-[10px] font-mono text-emerald-400 ml-2 font-semibold">
-                      · Conf: {item.confluence.confluenceScore}
-                    </span>
-                  )}
-                  {item.structuredOpportunity && (
-                    <span
-                      className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-bold font-mono ${
-                        item.structuredOpportunity.state === 'PRIMARY_WATCH'
-                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                          : item.structuredOpportunity.state === 'SECONDARY_WATCH'
-                          ? 'bg-sky-950 text-sky-300 border border-sky-800'
-                          : item.structuredOpportunity.state === 'WAIT'
-                          ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                          : 'bg-neutral-800 text-neutral-400'
-                      }`}
-                    >
-                      {item.structuredOpportunity.state.replace(/_/g, ' ')}
-                    </span>
-                  )}
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {watchState && (
+                      <span className={`velqo-chip !px-1.5 !py-0 !text-[0.58rem] ${WATCH_TONE[watchState] ?? ''}`}>
+                        {watchState.replace(/_/g, ' ')}
+                      </span>
+                    )}
+                    {watchState === 'SECONDARY_WATCH' && item.structuredOpportunity?.whyThisPair?.includes('MACRO-ONLY') && (
+                      <span className="velqo-chip !border-amber-400/25 !px-1.5 !py-0 !text-[0.58rem] !text-amber-200">
+                        Macro only
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                <div className="text-right font-mono text-[10px]">
-                  {isBullish ? (
-                    <span className="text-emerald-400 font-semibold flex items-center justify-end">
-                      <TrendingUp className="w-3 h-3 mr-0.5" /> BULLISH
-                    </span>
-                  ) : isBearish ? (
-                    <span className="text-rose-400 font-semibold flex items-center justify-end">
-                      <TrendingDown className="w-3 h-3 mr-0.5" /> BEARISH
-                    </span>
-                  ) : (
-                    <span className="text-neutral-400">NEUTRAL</span>
-                  )}
+                <div className="shrink-0 text-right">
                   <span
-                    className={`block mt-0.5 ${
-                      item.convergenceDivergence === 'CONVERGENCE'
-                        ? 'text-emerald-400'
-                        : item.convergenceDivergence === 'DIVERGENCE'
-                        ? 'text-rose-400'
-                        : 'text-amber-400'
+                    className={`inline-flex items-center gap-1 text-[0.75rem] font-semibold ${
+                      isBullish ? 'text-teal-300' : isBearish ? 'text-rose-300' : 'text-slate-400'
                     }`}
                   >
-                    {item.convergenceDivergence}
+                    {isBullish && <TrendingUp className="h-3.5 w-3.5" />}
+                    {isBearish && <TrendingDown className="h-3.5 w-3.5" />}
+                    {isBullish ? 'Bullish' : isBearish ? 'Bearish' : 'Neutral'}
+                  </span>
+                  <span
+                    className={`mt-0.5 block text-[0.7rem] tnum ${
+                      delta === null ? 'text-amber-200/80' : 'text-slate-400'
+                    }`}
+                  >
+                    {delta === null
+                      ? `Δ unavailable${item.marketEvidenceState === 'STALE' ? ' · stale' : ''}`
+                      : `Δ ${delta >= 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2)}%`}
                   </span>
                 </div>
               </div>
 
-              <p className="text-neutral-300 text-xs line-clamp-2 mb-2.5 font-sans leading-relaxed">
+              <p className="mt-3 line-clamp-2 text-[0.75rem] leading-relaxed text-slate-300">
                 {item.orientationExplanation}
               </p>
 
-              <div className="pt-2 border-t border-neutral-800/80 flex items-center justify-between text-[10px] font-mono text-neutral-500">
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-sky-400" />
+              <div className="mt-auto flex items-center justify-between gap-2 border-t border-white/[0.06] pt-3 text-[0.68rem] text-slate-500">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="h-3 w-3 text-sky-300/80" />
                   {item.sessionRelevance.primarySession}
                 </span>
-                <span>{item.watchWindow.watchState}</span>
+                {item.confluence && (
+                  <span className="tnum">
+                    Confluence {item.confluence.confluenceScore} · {item.confluence.dataQuality}
+                  </span>
+                )}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>

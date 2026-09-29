@@ -1,11 +1,11 @@
 import React from 'react';
 import {
-  LayoutDashboard,
+  Activity,
   Coins,
   ArrowLeftRight,
   Clock,
-  Calendar,
-  Database
+  Compass,
+  ShieldCheck
 } from 'lucide-react';
 
 export type NavTab =
@@ -24,19 +24,23 @@ interface BottomNavProps {
   onSelectTab: (tab: NavTab) => void;
 }
 
+/**
+ * Mobile-first navigation. Touch targets are sized for thumbs and the active
+ * destination is indicated by an accent, not by an uppercase technical label.
+ */
 export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onSelectTab }) => {
   const tabs = [
-    { id: 'dashboard' as NavTab, label: 'Terminal', icon: LayoutDashboard },
+    { id: 'dashboard' as NavTab, label: 'Pulse', icon: Activity },
     { id: 'currencies' as NavTab, label: 'Currencies', icon: Coins },
     { id: 'pairs' as NavTab, label: 'Pairs', icon: ArrowLeftRight },
-    { id: 'opportunities' as NavTab, label: 'Opportunities', icon: Calendar },
+    { id: 'opportunities' as NavTab, label: 'Watch', icon: Compass },
     { id: 'sessions' as NavTab, label: 'Sessions', icon: Clock },
-    { id: 'sources' as NavTab, label: 'Sources', icon: Database },
+    { id: 'sources' as NavTab, label: 'Evidence', icon: ShieldCheck }
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-neutral-950/95 backdrop-blur-lg border-t border-neutral-800/80 px-2 py-1.5 md:hidden">
-      <div className="grid grid-cols-6 items-center max-w-md mx-auto">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.07] bg-velqo-ink/92 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
+      <div className="mx-auto grid max-w-md grid-cols-6">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = currentTab === tab.id;
@@ -44,15 +48,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onSelectTab })
             <button
               key={tab.id}
               onClick={() => onSelectTab(tab.id)}
-              className={`flex flex-col items-center justify-center py-1 rounded transition-colors ${
-                isActive ? 'text-neutral-100' : 'text-neutral-500 hover:text-neutral-400'
+              aria-current={isActive ? 'page' : undefined}
+              className={`relative flex min-h-[3.75rem] flex-col items-center justify-center gap-1 rounded-xl transition-colors active:scale-95 ${
+                isActive ? 'text-teal-200' : 'text-slate-500 hover:text-slate-300'
               }`}
             >
-              <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-400' : ''}`} />
-              <span className={`text-[10px] tracking-tight mt-0.5 ${isActive ? 'font-semibold text-neutral-200' : ''}`}>
-                {tab.label}
-              </span>
-              {isActive && <span className="w-1 h-1 bg-emerald-400 rounded-full mt-0.5" />}
+              <Icon className="h-[1.15rem] w-[1.15rem]" strokeWidth={isActive ? 2.2 : 1.8} />
+              <span className="text-[0.6rem] font-medium tracking-tight">{tab.label}</span>
+              {isActive && (
+                <span className="absolute inset-x-4 top-0 h-0.5 rounded-full bg-gradient-to-r from-teal-300 to-cyan-400" />
+              )}
             </button>
           );
         })}

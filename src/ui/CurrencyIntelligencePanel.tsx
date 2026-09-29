@@ -1,187 +1,312 @@
 import React from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, LineChart, Scale, Landmark, Sparkles, AlertTriangle, CircleSlash } from 'lucide-react';
 import { CurrencyFundamentalIntelligence } from '../types';
 
 interface CurrencyIntelligencePanelProps {
   intelligences: CurrencyFundamentalIntelligence[];
 }
 
-function statusClass(value: string): string {
+function statusTone(value: string): string {
   if (value === 'LIVE' || value === 'FRESH' || value === 'AVAILABLE') {
-    return 'text-emerald-300 border-emerald-900/70 bg-emerald-950/40';
+    return '!border-teal-400/25 !bg-teal-400/[0.08] !text-teal-200';
   }
   if (value === 'REFERENCE' || value === 'STATIC' || value === 'BENCHMARK') {
-    return 'text-amber-300 border-amber-900/70 bg-amber-950/30';
+    return '!border-amber-400/25 !bg-amber-400/[0.07] !text-amber-200';
   }
   if (value === 'STALE' || value === 'AGING' || value === 'PARTIAL') {
-    return 'text-orange-300 border-orange-900/70 bg-orange-950/30';
+    return '!border-orange-400/25 !bg-orange-400/[0.07] !text-orange-200';
   }
-  return 'text-neutral-400 border-neutral-700 bg-neutral-900';
+  return '!border-white/[0.08] !bg-white/[0.03] !text-slate-400';
 }
 
 function StatusTag({ value }: { value: string }) {
   return (
-    <span className={`inline-flex rounded-sm border px-1.5 py-0.5 text-[9px] font-mono uppercase ${statusClass(value)}`}>
+    <span
+      className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[0.58rem] font-semibold tracking-wide uppercase ${statusTone(
+        value
+      )}`}
+    >
       {value.replaceAll('_', ' ')}
     </span>
   );
 }
 
+function LayerHeader({
+  icon,
+  label,
+  value,
+  tone,
+  note
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  tone: string;
+  note?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+      <div className="flex items-center gap-1.5 text-slate-500">
+        {icon}
+        <span className="velqo-eyebrow">{label}</span>
+      </div>
+      <p className={`mt-1.5 text-[0.85rem] font-semibold ${tone}`}>{value}</p>
+      {note && <p className="mt-1 text-[0.68rem] leading-relaxed text-slate-500">{note}</p>}
+    </div>
+  );
+}
+
+/**
+ * CURRENCY INTELLIGENCE
+ *
+ * Three clearly separated layers — market, fundamentals, policy — with the
+ * "why" presented before the diagnostics. Availability, provenance and
+ * freshness remain explicit on every layer: reference, static, stale and
+ * unavailable states are never visually flattened into a live read.
+ */
 export const CurrencyIntelligencePanel: React.FC<CurrencyIntelligencePanelProps> = ({
   intelligences
 }) => {
   return (
-    <section className="bg-neutral-900/60 border border-neutral-800 rounded-lg p-4">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-neutral-800/80 pb-3 mb-3">
+    <section className="velqo-card overflow-hidden">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-white/[0.06] px-4 py-4 sm:px-6">
         <div>
-          <h2 className="text-sm font-semibold text-neutral-200 tracking-wide uppercase">
-            Currency Intelligence
+          <p className="velqo-eyebrow mb-1.5">Currency intelligence</p>
+          <h2 className="velqo-display text-lg text-white sm:text-xl">
+            The why behind each currency
           </h2>
-          <p className="text-[11px] text-neutral-500 font-mono mt-0.5">
-            Evidence-led state · source quality · unresolved gaps
+          <p className="mt-1 text-[0.72rem] leading-relaxed text-slate-500">
+            Evidence-led state per currency. Expand a currency for its full record.
           </p>
         </div>
-        <span className="text-[10px] text-neutral-500 font-mono">
-          {intelligences.length} supported currencies
-        </span>
+        <span className="velqo-chip">{intelligences.length} supported</span>
       </div>
 
       {intelligences.length === 0 ? (
-        <p className="py-4 text-xs text-neutral-500">Currency evidence is awaiting the dashboard feed.</p>
+        <p className="px-4 py-8 text-center text-[0.8rem] text-slate-500 sm:px-6">
+          Currency evidence is awaiting the dashboard feed.
+        </p>
       ) : (
-        <div className="grid gap-2 xl:grid-cols-2">
+        <div className="grid gap-2.5 p-3 sm:p-4 xl:grid-cols-2">
           {intelligences.map((intelligence) => {
             const evidence = intelligence.evidenceAssessment;
             if (!evidence) return null;
             const marketValue = evidence.market.strength;
             const fundamentalValue = evidence.fundamentals.score;
 
+            const conditionTone =
+              evidence.condition.state === 'SUPPORTED'
+                ? 'text-teal-200'
+                : evidence.condition.state === 'PARTIAL'
+                ? 'text-orange-200'
+                : 'text-rose-200';
+
             return (
-              <details key={intelligence.currency.code} className="group border border-neutral-800 rounded-md bg-neutral-950/50">
-                <summary className="list-none cursor-pointer px-3 py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                  <div className="flex items-center gap-2.5 min-w-32">
-                    <span className="font-mono font-bold text-sm text-neutral-100">
-                      {intelligence.currency.code}
-                    </span>
-                    <span className="hidden sm:inline text-[11px] text-neutral-500">
-                      {intelligence.currency.name}
-                    </span>
+              <details
+                key={intelligence.currency.code}
+                className="group velqo-card velqo-card-interactive overflow-hidden"
+              >
+                <summary className="flex cursor-pointer flex-col gap-3 px-4 py-3.5 sm:px-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-baseline gap-2">
+                      <span className="velqo-display text-lg text-white">
+                        {intelligence.currency.code}
+                      </span>
+                      <span className="truncate text-[0.72rem] text-slate-500">
+                        {intelligence.currency.name}
+                      </span>
+                    </div>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200 group-open:rotate-180" />
                   </div>
-                  <div className="flex items-center gap-2 text-[10px] font-mono">
-                    <span className="text-neutral-400">MKT</span>
-                    <span className={marketValue === null ? 'text-neutral-600' : marketValue >= 0 ? 'text-emerald-300' : 'text-rose-300'}>
-                      {marketValue === null ? 'UNAVAILABLE' : `${marketValue >= 0 ? '+' : ''}${marketValue.toFixed(2)}%`}
-                    </span>
-                    <span className="text-neutral-700">/</span>
-                    <span className="text-neutral-400">FUND</span>
-                    <span className={fundamentalValue === null ? 'text-neutral-600' : fundamentalValue >= 0 ? 'text-emerald-300' : 'text-rose-300'}>
-                      {fundamentalValue === null ? 'INSUFFICIENT' : `${fundamentalValue >= 0 ? '+' : ''}${fundamentalValue.toFixed(2)}`}
-                    </span>
-                    <ChevronDown className="w-3.5 h-3.5 text-neutral-500 transition-transform group-open:rotate-180" />
+
+                  {/* The why, first */}
+                  <p className="line-clamp-2 text-[0.78rem] leading-relaxed text-slate-300">
+                    {evidence.explanation.summary}
+                  </p>
+
+                  {/* Layer headline numbers */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <LayerHeader
+                      icon={<LineChart className="h-3 w-3" />}
+                      label="Market"
+                      value={
+                        marketValue === null
+                          ? 'Unavailable'
+                          : `${marketValue >= 0 ? '+' : ''}${marketValue.toFixed(2)}%`
+                      }
+                      tone={marketValue === null ? 'text-slate-400' : marketValue >= 0 ? 'text-teal-300' : 'text-rose-300'}
+                    />
+                    <LayerHeader
+                      icon={<Scale className="h-3 w-3" />}
+                      label="Fundamentals"
+                      value={
+                        fundamentalValue === null
+                          ? 'Insufficient'
+                          : `${fundamentalValue >= 0 ? '+' : ''}${fundamentalValue.toFixed(2)}`
+                      }
+                      tone={
+                        fundamentalValue === null
+                          ? 'text-slate-400'
+                          : fundamentalValue >= 0
+                          ? 'text-teal-300'
+                          : 'text-rose-300'
+                      }
+                    />
+                    <LayerHeader
+                      icon={<Landmark className="h-3 w-3" />}
+                      label="Policy"
+                      value={
+                        evidence.policy.currentPolicyRate !== null
+                          ? `${evidence.policy.currentStance} · ${evidence.policy.currentPolicyRate}%`
+                          : evidence.policy.contextualPolicyRate !== null
+                          ? `${evidence.policy.contextualStance} (reference)`
+                          : 'Unavailable'
+                      }
+                      tone={
+                        evidence.policy.currentPolicyRate !== null
+                          ? 'text-teal-300'
+                          : evidence.policy.contextualPolicyRate !== null
+                          ? 'text-amber-200'
+                          : 'text-slate-400'
+                      }
+                    />
                   </div>
-                  <div className="w-full flex flex-wrap gap-1.5">
+
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <StatusTag value={evidence.condition.state} />
                     <StatusTag value={evidence.quality.availability} />
                     <StatusTag value={evidence.quality.freshness} />
-                    <StatusTag value={evidence.market.provenance} />
-                    <StatusTag value={evidence.fundamentals.provenance} />
-                    <StatusTag value={evidence.policy.provenance} />
-                    <span className="ml-auto text-[10px] font-mono text-neutral-500">
-                      {evidence.quality.liveEvidenceCount} live records · {evidence.quality.completeness.available}/{evidence.quality.completeness.required} dimensions
+                    <span className={`ml-auto text-[0.65rem] tnum ${conditionTone}`}>
+                      {evidence.quality.liveEvidenceCount} live record
+                      {evidence.quality.liveEvidenceCount === 1 ? '' : 's'}
                     </span>
                   </div>
                 </summary>
 
-                <div className="border-t border-neutral-800 px-3 py-3 space-y-3 text-[11px]">
+                <div className="space-y-3 border-t border-white/[0.06] px-4 py-4 text-[0.72rem] sm:px-5">
+                  {/* Market detail */}
                   <div className="grid gap-3 md:grid-cols-3">
-                    <div>
-                      <h3 className="text-[10px] font-mono uppercase text-neutral-500 mb-1">Market Evidence</h3>
-                      <p className="text-neutral-300">
+                    <div className="min-w-0">
+                      <p className="velqo-eyebrow mb-1.5">Market evidence</p>
+                      <p className="text-slate-300">
                         {evidence.market.strength !== null
                           ? `${evidence.market.strength >= 0 ? '+' : ''}${evidence.market.strength.toFixed(2)}% · ${evidence.market.classification}`
                           : 'Market strength unavailable'}
                       </p>
-                      <p className="text-neutral-400 mt-1">
-                        Breadth {evidence.market.breadth.available}/{evidence.market.breadth.required} · Directional consistency {evidence.market.directionalConsistency.aligned} aligned, {evidence.market.directionalConsistency.opposing} opposing
+                      <p className="mt-1 text-slate-500">
+                        Breadth {evidence.market.breadth.available}/{evidence.market.breadth.required} ·{' '}
+                        {evidence.market.directionalConsistency.aligned} aligned,{' '}
+                        {evidence.market.directionalConsistency.opposing} opposing
                       </p>
-                      <p className="text-neutral-500">{evidence.market.evidenceCount} pairs · {evidence.market.source || 'No verified source'}</p>
-                      <p className="text-neutral-500 mt-1">
-                        {evidence.market.reason || evidence.market.contributingPairs.map((pair) => pair.pairSymbol).join(', ')}
+                      <p className="mt-0.5 text-slate-500">
+                        {evidence.market.evidenceCount} pairs ·{' '}
+                        {evidence.market.source || 'No verified source'}
                       </p>
-                      {evidence.market.stalePairs.length > 0 && (
-                        <p className="text-orange-300/80 mt-1">
-                          Stale: {evidence.market.stalePairs.map((pair) => pair.pairSymbol).join(', ')}
+                      {evidence.market.reason && (
+                        <p className="mt-1 leading-relaxed text-slate-400">
+                          {evidence.market.reason}
                         </p>
                       )}
-                      {evidence.market.fetchedAt && (
-                        <p className="text-neutral-600 font-mono mt-1">Fetched {evidence.market.fetchedAt}</p>
+                      {evidence.market.stalePairs.length > 0 && (
+                        <p className="mt-1 text-orange-200/90">
+                          Stale: {evidence.market.stalePairs.map((p) => p.pairSymbol).join(', ')}
+                        </p>
                       )}
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        <StatusTag value={evidence.market.provenance} />
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-[10px] font-mono uppercase text-neutral-500 mb-1">Fundamentals</h3>
-                      <p className="text-neutral-300">
-                        {evidence.fundamentals.evidenceCount} valid observations · {evidence.expectations.completeCount} complete surprises
+
+                    <div className="min-w-0">
+                      <p className="velqo-eyebrow mb-1.5">Fundamentals</p>
+                      <p className="text-slate-300">
+                        {evidence.fundamentals.evidenceCount} valid observations ·{' '}
+                        {evidence.expectations.completeCount} complete surprises
                       </p>
-                      <p className="text-neutral-500 mt-1">
+                      <p className="mt-1 text-slate-500">
                         {evidence.fundamentals.reason || 'Required scoring dimensions are available.'}
                       </p>
-                      {evidence.fundamentals.fetchedAt && (
-                        <p className="text-neutral-600 font-mono mt-1">Fetched {evidence.fundamentals.fetchedAt}</p>
-                      )}
                       <div className="mt-2 space-y-1.5">
                         {evidence.fundamentals.categories.map((category) => (
-                          <div key={category.category} className="border-t border-neutral-800/70 pt-1.5">
+                          <div
+                            key={category.category}
+                            className="border-t border-white/[0.06] pt-1.5"
+                          >
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="text-neutral-200">{category.category.replaceAll('_', ' ')}</span>
+                              <span className="text-slate-200">
+                                {category.category.replaceAll('_', ' ')}
+                              </span>
                               <StatusTag value={category.status} />
                               <StatusTag value={category.freshness} />
                               <StatusTag value={category.provenance} />
                             </div>
                             {category.evidenceCount > 0 ? (
-                              <p className="text-neutral-400 mt-0.5">
-                                Actual {category.latestActual ?? 'MISSING'} · Forecast {category.latestForecast ?? 'MISSING'} · Previous {category.latestPrevious ?? 'MISSING'} · Surprise {category.latestSurprise ?? 'INCOMPLETE'}
+                              <p className="mt-0.5 text-slate-400">
+                                Actual {category.latestActual ?? 'missing'} · Forecast{' '}
+                                {category.latestForecast ?? 'missing'} · Previous{' '}
+                                {category.latestPrevious ?? 'missing'} · Surprise{' '}
+                                {category.latestSurprise ?? 'incomplete'}
                                 {category.source ? ` · ${category.source}` : ''}
                               </p>
                             ) : (
-                              <p className="text-neutral-500 mt-0.5">{category.reason}</p>
+                              <p className="mt-0.5 text-slate-500">{category.reason}</p>
                             )}
                           </div>
                         ))}
                       </div>
                     </div>
-                    <div>
-                      <h3 className="text-[10px] font-mono uppercase text-neutral-500 mb-1">Monetary Policy</h3>
-                      <p className="text-neutral-300">
+
+                    <div className="min-w-0">
+                      <p className="velqo-eyebrow mb-1.5">Monetary policy</p>
+                      <p className="text-slate-300">
                         {evidence.policy.currentPolicyRate !== null
                           ? `${evidence.policy.currentStance} · ${evidence.policy.currentPolicyRate}% current rate`
                           : evidence.policy.contextualPolicyRate !== null
-                          ? `${evidence.policy.contextualStance} · ${evidence.policy.contextualPolicyRate}% contextual rate`
+                          ? `${evidence.policy.contextualStance} · ${evidence.policy.contextualPolicyRate}% reference rate`
                           : 'Current policy rate unavailable'}
                       </p>
-                      <p className="text-neutral-500 mt-1">{evidence.policy.reason || evidence.policy.source}</p>
-                      <p className="text-neutral-600 font-mono mt-1">
-                        Availability {evidence.policy.availability} · Freshness {evidence.policy.freshness}
-                        {evidence.policy.effectiveAt ? ` · Decision ${evidence.policy.effectiveAt}` : ''}
-                        {evidence.policy.contextualFetchedAt ? ` · Context fetched ${evidence.policy.contextualFetchedAt}` : ''}
+                      <p className="mt-1 text-slate-500">
+                        {evidence.policy.reason || evidence.policy.source}
                       </p>
+                      <p className="mt-1 text-slate-600">
+                        {evidence.policy.availability} · {evidence.policy.freshness}
+                        {evidence.policy.effectiveAt ? ` · decision ${evidence.policy.effectiveAt}` : ''}
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        <StatusTag value={evidence.policy.provenance} />
+                        <StatusTag value={evidence.policy.availability} />
+                      </div>
                     </div>
                   </div>
 
                   {evidence.explanation.contributingEvidence.length > 0 && (
                     <div>
-                      <h3 className="text-[10px] font-mono uppercase text-emerald-400/80 mb-1">Contributing Factors</h3>
-                      <ul className="space-y-1 text-neutral-300">
-                        {evidence.explanation.contributingEvidence.map((factor) => <li key={factor}>{factor}</li>)}
+                      <p className="velqo-eyebrow mb-1.5 flex items-center gap-1.5 text-teal-300/80">
+                        <Sparkles className="h-3 w-3" />
+                        Contributing
+                      </p>
+                      <ul className="space-y-1 text-slate-300">
+                        {evidence.explanation.contributingEvidence.map((factor) => (
+                          <li key={factor} className="flex gap-2 leading-relaxed">
+                            <span className="mt-[0.45rem] h-1 w-1 shrink-0 rounded-full bg-teal-300" />
+                            <span>{factor}</span>
+                          </li>
+                        ))}
                       </ul>
                     </div>
                   )}
 
                   {evidence.contradictions.length > 0 && (
                     <div>
-                      <h3 className="text-[10px] font-mono uppercase text-orange-300 mb-1">Contradictions</h3>
-                      <ul className="space-y-1 text-neutral-300">
+                      <p className="velqo-eyebrow mb-1.5 flex items-center gap-1.5 text-orange-200/90">
+                        <AlertTriangle className="h-3 w-3" />
+                        Contradictions
+                      </p>
+                      <ul className="space-y-1 text-slate-300">
                         {evidence.contradictions.map((contradiction) => (
-                          <li key={contradiction.id}>{contradiction.conflictDescription}</li>
+                          <li key={contradiction.id} className="leading-relaxed">
+                            {contradiction.conflictDescription}
+                          </li>
                         ))}
                       </ul>
                     </div>
@@ -189,31 +314,42 @@ export const CurrencyIntelligencePanel: React.FC<CurrencyIntelligencePanelProps>
 
                   {evidence.explanation.unavailableEvidence.length > 0 && (
                     <div>
-                      <h3 className="text-[10px] font-mono uppercase text-neutral-500 mb-1">Unavailable Evidence</h3>
-                      <ul className="space-y-1 text-neutral-400">
-                        {evidence.explanation.unavailableEvidence.map((reason) => <li key={reason}>{reason}</li>)}
+                      <p className="velqo-eyebrow mb-1.5 flex items-center gap-1.5 text-slate-400">
+                        <CircleSlash className="h-3 w-3" />
+                        Unavailable evidence
+                      </p>
+                      <ul className="space-y-1 text-slate-400">
+                        {evidence.explanation.unavailableEvidence.map((reason) => (
+                          <li key={reason} className="leading-relaxed">
+                            {reason}
+                          </li>
+                        ))}
                       </ul>
                     </div>
                   )}
 
                   {evidence.explanation.staleEvidence.length > 0 && (
-                    <div className="text-orange-300/90">
+                    <p className="leading-relaxed text-orange-200/90">
                       {evidence.explanation.staleEvidence.join(' ')}
-                    </div>
+                    </p>
                   )}
 
-                  <details className="border-t border-neutral-800 pt-2">
-                    <summary className="cursor-pointer text-[10px] font-mono uppercase text-neutral-400">
-                      Full explanation
+                  <details className="border-t border-white/[0.06] pt-2.5">
+                    <summary className="cursor-pointer text-[0.68rem] font-medium text-slate-500 transition-colors hover:text-teal-200">
+                      Full evidence record
                     </summary>
-                    <div className="mt-2 space-y-1 text-neutral-400">
-                      <p>{evidence.explanation.summary}</p>
+                    <div className="mt-2 space-y-1 text-slate-400">
                       <p>{evidence.condition.state}: {evidence.condition.reason}</p>
-                      {evidence.explanation.agreements.map((item) => <p key={item}>{item}</p>)}
-                      {evidence.explanation.conflicts.map((item, index) => <p key={`${index}-${item}`}>{item}</p>)}
+                      {evidence.explanation.agreements.map((item) => (
+                        <p key={item}>{item}</p>
+                      ))}
+                      {evidence.explanation.conflicts.map((item, index) => (
+                        <p key={`${index}-${item}`}>{item}</p>
+                      ))}
                       {evidence.expectations.items.map((item) => (
                         <p key={item.observationId}>
-                          {item.indicatorName}: {item.statements.fact} {item.statements.expectation} {item.statements.interpretation}
+                          {item.indicatorName}: {item.statements.fact}{' '}
+                          {item.statements.expectation} {item.statements.interpretation}
                         </p>
                       ))}
                     </div>

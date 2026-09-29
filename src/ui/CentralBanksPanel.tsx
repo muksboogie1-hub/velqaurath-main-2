@@ -12,41 +12,39 @@ export const CentralBanksPanel: React.FC<CentralBanksPanelProps> = ({ onSelectCu
   return (
     <div className="space-y-4">
       {/* Overview header */}
-      <div className="p-4 bg-neutral-900/60 border border-neutral-800 rounded-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-neutral-800 mb-3">
-          <div>
-            <h2 className="text-sm font-semibold font-mono text-neutral-100 uppercase tracking-wide flex items-center gap-2">
-              <Landmark className="w-4 h-4 text-emerald-400" />
-              Central Bank Monetary Policy Intelligence
+      <div className="velqo-card px-4 py-4 sm:px-6 sm:py-5">
+        <div className="flex flex-col gap-3 border-b border-white/[0.06] pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="velqo-eyebrow mb-1.5">Monetary policy</p>
+            <h2 className="velqo-display flex items-center gap-2 text-lg text-white sm:text-xl">
+              <Landmark className="h-4 w-4 text-teal-300" />
+              Central banks
             </h2>
-            <p className="text-xs text-neutral-400 font-sans mt-0.5">
-              Authoritative tracking of the 8 canonical monetary authorities. Strict provenance separation distinguishes verified live decision feeds from baseline reference profiles.
+            <p className="mt-1.5 max-w-2xl text-[0.75rem] leading-relaxed text-slate-400">
+              The eight canonical monetary authorities. A verified live decision is always
+              distinguished from a reference profile — reference data never scores as live evidence.
             </p>
           </div>
-          <div className="flex items-center gap-2 font-mono text-[11px]">
-            <span className="px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-800 text-emerald-400 font-bold">
-              8 Authorities
-            </span>
-            <span className="px-2 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-neutral-300">
-              Zero-Fabrication Policy
-            </span>
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            <span className="velqo-chip !border-teal-400/25 !text-teal-200">8 authorities</span>
+            <span className="velqo-chip">Zero fabrication</span>
           </div>
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap items-center gap-3 font-mono text-[10px] text-neutral-400 pt-1">
-          <span className="text-neutral-500 uppercase font-bold">Data Provenance:</span>
-          <span className="inline-flex items-center gap-1 text-emerald-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
-            LIVE: Real-time decision wire
+        <div className="flex flex-wrap items-center gap-3 pt-3 text-[0.68rem] text-slate-500">
+          <span className="velqo-eyebrow">Provenance</span>
+          <span className="inline-flex items-center gap-1.5 text-teal-200/90">
+            <span className="h-2 w-2 rounded-full bg-teal-300" />
+            Live decision
           </span>
-          <span className="inline-flex items-center gap-1 text-sky-400">
-            <span className="w-2 h-2 rounded-full bg-sky-400 inline-block" />
-            REFERENCE: Institutional profile
+          <span className="inline-flex items-center gap-1.5 text-sky-200/80">
+            <span className="h-2 w-2 rounded-full bg-sky-300" />
+            Reference profile
           </span>
-          <span className="inline-flex items-center gap-1 text-amber-400">
-            <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-            STATIC: Verified baseline record
+          <span className="inline-flex items-center gap-1.5 text-amber-200/80">
+            <span className="h-2 w-2 rounded-full bg-amber-300" />
+            Static baseline
           </span>
           <span className="inline-flex items-center gap-1 text-neutral-500">
             <span className="w-2 h-2 rounded-full bg-neutral-600 inline-block" />

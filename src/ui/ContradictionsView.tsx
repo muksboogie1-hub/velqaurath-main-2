@@ -42,75 +42,69 @@ export const ContradictionsView: React.FC<ContradictionsViewProps> = ({
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="p-4 bg-neutral-900/60 border border-neutral-800 rounded-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-neutral-800 mb-3">
-          <div>
-            <h2 className="text-sm font-semibold font-mono text-neutral-100 uppercase tracking-wide flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400" />
-              Structured Contradictions & Divergence Engine
+      <div className="velqo-card px-4 py-4 sm:px-6 sm:py-5">
+        <div className="flex flex-col gap-3 border-b border-white/[0.06] pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="velqo-eyebrow mb-1.5">Cross-currents</p>
+            <h2 className="velqo-display flex items-center gap-2 text-lg text-white sm:text-xl">
+              <AlertTriangle className="h-4 w-4 text-amber-300" />
+              Contradictions
             </h2>
-            <p className="text-xs text-neutral-400 font-sans mt-0.5">
-              Identifies genuine conflicts across market momentum, structural macro fundamentals, central bank guidance, consensus expectations, and event volatility. Contradictions penalize confluence and warn against one-dimensional bias.
+            <p className="mt-1.5 max-w-2xl text-[0.75rem] leading-relaxed text-slate-400">
+              Genuine conflicts between market momentum, macro structure, central bank guidance and
+              realized surprises. Absence of evidence is never counted as a contradiction.
             </p>
           </div>
-          <div className="flex items-center gap-2 font-mono text-[11px]">
-            <span className="px-2 py-0.5 rounded bg-rose-950/70 border border-rose-800 text-rose-300 font-bold">
-              {highCount} High Severity
-            </span>
-            <span className="px-2 py-0.5 rounded bg-amber-950/70 border border-amber-800 text-amber-300 font-bold">
-              {medCount} Medium
-            </span>
-            <span className="px-2 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-neutral-400 font-bold">
-              {lowCount} Low
-            </span>
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            <span className="velqo-chip !border-rose-400/25 !text-rose-200">{highCount} high</span>
+            <span className="velqo-chip !border-amber-400/25 !text-amber-200">{medCount} medium</span>
+            <span className="velqo-chip">{lowCount} low</span>
           </div>
         </div>
 
         {/* Filter controls */}
-        <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
-          <div className="flex items-center gap-1 text-neutral-500 text-[10px] uppercase font-bold mr-1">
-            <Filter className="w-3 h-3" /> Severity:
+        <div className="flex flex-wrap items-center gap-1.5 pt-4">
+          <div className="velqo-eyebrow mr-1 flex items-center gap-1.5">
+            <Filter className="h-3 w-3" /> Severity
           </div>
           {(['ALL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((sev) => (
             <button
               key={sev}
               onClick={() => setSelectedSeverity(sev)}
-              className={`px-2.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
+              className={`min-h-8 rounded-full border px-2.5 text-[0.7rem] font-semibold transition-colors ${
                 selectedSeverity === sev
                   ? sev === 'HIGH'
-                    ? 'bg-rose-900 text-rose-100 border border-rose-700'
+                    ? 'border-rose-400/30 bg-rose-400/[0.1] text-rose-200'
                     : sev === 'MEDIUM'
-                    ? 'bg-amber-900 text-amber-100 border border-amber-700'
-                    : 'bg-neutral-800 text-neutral-100 border border-neutral-600'
-                  : 'bg-neutral-950 text-neutral-400 hover:text-neutral-200 border border-neutral-800'
+                    ? 'border-amber-400/30 bg-amber-400/[0.1] text-amber-200'
+                    : 'border-white/[0.12] bg-white/[0.05] text-slate-200'
+                  : 'border-white/[0.07] bg-white/[0.02] text-slate-500 hover:text-slate-300'
               }`}
             >
               {sev}
             </button>
           ))}
 
-          <div className="hidden sm:block w-px h-4 bg-neutral-800 mx-2" />
+          <div className="mx-1 hidden h-4 w-px bg-white/[0.08] sm:block" />
 
-          <div className="flex items-center gap-1 text-neutral-500 text-[10px] uppercase font-bold mr-1">
-            Type:
-          </div>
+          <div className="velqo-eyebrow mr-1">Type</div>
           {(
             [
-              { id: 'ALL', label: 'All Types' },
-              { id: 'MARKET_VS_FUNDAMENTAL', label: 'Market vs Macro' },
-              { id: 'POLICY_VS_MARKET', label: 'Policy vs Carry' },
-              { id: 'FUNDAMENTAL_VS_EXPECTATION', label: 'Expectation Missing' },
-              { id: 'EVENT_VOLATILITY_RISK', label: 'Event Volatility' },
-              { id: 'DATA_QUALITY', label: 'Data Quality' }
+              { id: 'ALL', label: 'All types' },
+              { id: 'MARKET_VS_FUNDAMENTAL', label: 'Market vs macro' },
+              { id: 'POLICY_VS_MARKET', label: 'Policy vs carry' },
+              { id: 'FUNDAMENTAL_VS_EXPECTATION', label: 'Expectations' },
+              { id: 'EVENT_VOLATILITY_RISK', label: 'Event risk' },
+              { id: 'DATA_QUALITY', label: 'Data quality' }
             ] as const
           ).map((t) => (
             <button
               key={t.id}
               onClick={() => setSelectedCategory(t.id as any)}
-              className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+              className={`min-h-8 rounded-full border px-2.5 text-[0.7rem] transition-colors ${
                 selectedCategory === t.id
-                  ? 'bg-neutral-800 text-neutral-100 border border-neutral-600'
-                  : 'bg-neutral-950 text-neutral-400 hover:text-neutral-200 border border-neutral-800'
+                  ? 'border-white/[0.12] bg-white/[0.05] text-slate-200'
+                  : 'border-white/[0.07] bg-white/[0.02] text-slate-500 hover:text-slate-300'
               }`}
             >
               {t.label}
@@ -122,13 +116,14 @@ export const ContradictionsView: React.FC<ContradictionsViewProps> = ({
       {/* Contradictions List */}
       <div className="space-y-3">
         {filtered.length === 0 ? (
-          <div className="p-8 text-center bg-neutral-900/40 border border-neutral-800 rounded-lg">
-            <CheckCircle2 className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
-            <p className="text-xs font-mono text-neutral-300 font-bold">
-              No contradictions detected for the current filter.
+          <div className="velqo-card px-4 py-10 text-center">
+            <CheckCircle2 className="mx-auto mb-2.5 h-6 w-6 text-teal-300" />
+            <p className="text-[0.85rem] font-semibold text-slate-200">
+              No contradictions for the current filter
             </p>
-            <p className="text-[11px] text-neutral-500 mt-1 font-sans">
-              Signals across price action, fundamentals, and central bank guidance align within acceptable tolerance.
+            <p className="mx-auto mt-1 max-w-sm text-[0.75rem] leading-relaxed text-slate-500">
+              Price action, macro structure and central bank guidance currently align within
+              tolerance. This is an absence of conflict, not an absence of evidence.
             </p>
           </div>
         ) : (
@@ -139,84 +134,71 @@ export const ContradictionsView: React.FC<ContradictionsViewProps> = ({
             return (
               <div
                 key={c.id}
-                className="p-3.5 bg-neutral-900/40 hover:bg-neutral-900/70 border border-neutral-800 hover:border-neutral-700/80 rounded-lg transition-colors space-y-2.5"
+                className="velqo-card velqo-card-interactive space-y-3 px-4 py-4"
               >
                 {/* Header row */}
-                <div className="flex items-start justify-between pb-2 border-b border-neutral-800/80">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold font-mono text-neutral-100">
-                      {pairSymbol}
-                    </span>
-                    <span className="text-xs font-mono text-neutral-500">
-                      [{c.currency}]
-                    </span>
+                <div className="flex flex-wrap items-start justify-between gap-2 border-b border-white/[0.06] pb-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="velqo-display text-base text-white">{pairSymbol}</span>
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                      className={`velqo-chip !py-0.5 !text-[0.62rem] ${
                         isHigh
-                          ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                          ? '!border-rose-400/30 !bg-rose-400/[0.1] !text-rose-200'
                           : isMed
-                          ? 'bg-amber-950 text-amber-300 border border-amber-800'
-                          : 'bg-neutral-900 text-neutral-300 border border-neutral-700'
+                          ? '!border-amber-400/30 !bg-amber-400/[0.1] !text-amber-200'
+                          : ''
                       }`}
                     >
-                      {c.severity} SEVERITY
+                      {String(c.severity).toLowerCase()} severity
                     </span>
-                    <span className="text-[10px] font-mono text-neutral-400 px-1.5 py-0.5 rounded bg-neutral-950 border border-neutral-800">
-                      {c.contradictionType || c.category}
+                    <span className="velqo-chip !py-0.5 !text-[0.62rem]">
+                      {(c.contradictionType || c.category).replace(/_/g, ' ')}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 font-mono text-[11px]">
-                    <span className="text-rose-400 font-bold">
-                      -{c.penaltyPoints} Penalty Points
+                  <div className="flex items-center gap-3">
+                    <span className="text-[0.68rem] text-slate-500 tnum">
+                      −{c.penaltyPoints} confluence
                     </span>
                     {onSelectPair && (
                       <button
                         onClick={() => onSelectPair(pairSymbol)}
-                        className="text-emerald-400 hover:underline text-[10px]"
+                        className="rounded-full px-2 py-1 text-[0.68rem] font-medium text-teal-300 transition-colors hover:bg-teal-400/10"
                       >
-                        Inspect Pair →
+                        Inspect pair →
                       </button>
                     )}
                   </div>
                 </div>
 
                 {/* Description */}
-                <p className="text-xs font-sans text-neutral-200 leading-relaxed">
+                <p className="text-[0.78rem] leading-relaxed text-slate-200">
                   {c.description || c.conflictDescription}
                 </p>
 
                 {/* Statement A vs Statement B Side-by-Side */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
-                  <div className="p-2 bg-neutral-950/70 border border-neutral-800/80 rounded">
-                    <span className="text-[9px] uppercase font-bold text-neutral-500 block mb-0.5">
-                      Source A: {c.sourceA}
-                    </span>
-                    <span className="text-neutral-300 text-[11px] block">{c.statementA}</span>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+                    <span className="velqo-eyebrow mb-1 block">{c.sourceA}</span>
+                    <span className="text-[0.75rem] leading-relaxed text-slate-300">{c.statementA}</span>
                   </div>
 
-                  <div className="p-2 bg-neutral-950/70 border border-neutral-800/80 rounded">
-                    <span className="text-[9px] uppercase font-bold text-neutral-500 block mb-0.5">
-                      Source B: {c.sourceB}
-                    </span>
-                    <span className="text-neutral-300 text-[11px] block">{c.statementB}</span>
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+                    <span className="velqo-eyebrow mb-1 block">{c.sourceB}</span>
+                    <span className="text-[0.75rem] leading-relaxed text-slate-300">{c.statementB}</span>
                   </div>
                 </div>
 
                 {/* Directional Impact & Affected Components */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pt-1.5 border-t border-neutral-800/60 font-mono text-[10px] text-neutral-500">
-                  <span className="text-neutral-400 font-sans">
-                    <span className="font-mono uppercase text-neutral-500 font-bold">Impact: </span>
+                <div className="flex flex-col gap-1.5 border-t border-white/[0.06] pt-2.5 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-[0.7rem] leading-relaxed text-slate-500">
+                    <span className="velqo-eyebrow mr-1.5">Impact</span>
                     {c.directionalImpact}
                   </span>
                   {c.affectedComponents && c.affectedComponents.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      <span>Affected:</span>
+                    <div className="flex flex-wrap items-center gap-1">
                       {c.affectedComponents.map((comp, idx) => (
-                        <span
-                          key={idx}
-                          className="px-1 py-0.2 rounded bg-neutral-800 text-neutral-300 text-[9px]"
-                        >
+                        <span key={idx} className="velqo-chip !px-1.5 !py-0 !text-[0.58rem]">
                           {comp}
                         </span>
                       ))}

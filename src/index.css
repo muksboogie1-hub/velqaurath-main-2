@@ -1,31 +1,269 @@
 @import "tailwindcss";
 
+/*
+ * VELQOARATH — PRODUCT DESIGN SYSTEM
+ *
+ * A premium dark intelligence surface: layered depth, a teal/aqua signature
+ * accent, generous editorial hierarchy and restrained motion. The interface is
+ * an intelligence product, not an execution terminal, so it reads through
+ * typography and whitespace rather than dense monospace panels.
+ */
+
+@theme {
+  --color-velqo-ink: #05080a;
+  --color-velqo-surface: #0a1013;
+  --color-velqo-surface-2: #0e161a;
+  --color-velqo-line: #1b262b;
+  --color-velqo-accent: #2dd4bf;
+  --color-velqo-accent-soft: #5eead4;
+  --color-velqo-accent-deep: #0f766e;
+  --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
 @layer base {
-  body {
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
   }
-  
-  code, kbd, samp, pre, .font-mono {
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  body {
+    font-family: var(--font-display);
+    background-color: var(--color-velqo-ink);
+    color: #e6edf0;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /*
+   * Ambient product surface: a deep base with two soft teal light sources.
+   * Fixed and non-interactive so it never costs a repaint on scroll.
+   */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(70rem 40rem at 12% -8%, rgba(45, 212, 191, 0.10), transparent 62%),
+      radial-gradient(56rem 34rem at 92% 4%, rgba(56, 189, 248, 0.07), transparent 60%),
+      linear-gradient(180deg, #070c0e 0%, #05080a 42%, #050708 100%);
+  }
+
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
+  }
+
+  /* Numbers must align vertically wherever they are compared. */
+  .tnum {
     font-variant-numeric: tabular-nums;
   }
+
+  button,
+  [role='button'],
+  summary {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Comfortable touch targets on every interactive element. */
+  button,
+  summary,
+  a {
+    touch-action: manipulation;
+  }
+
+  ::selection {
+    background: rgba(45, 212, 191, 0.28);
+    color: #ecfeff;
+  }
+
+  /* Restrained scrollbar that stays out of the way of the content. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #16232a;
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #1f333c;
+    background-clip: content-box;
+  }
+
+  /* Native disclosure markers are replaced by the product's own affordances. */
+  summary::-webkit-details-marker {
+    display: none;
+  }
 }
 
-/* Custom scrollbar for technical terminal aesthetic */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+@layer components {
+  /* The signature surface: a single card language used across the product. */
+  .velqo-card {
+    position: relative;
+    border-radius: 1.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.015) 46%, rgba(255, 255, 255, 0.008) 100%);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.045) inset,
+      0 18px 40px -28px rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(12px);
+  }
+
+  .velqo-card-interactive {
+    transition:
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 220ms ease,
+      box-shadow 220ms ease,
+      background-color 220ms ease;
+  }
+
+  .velqo-card-interactive:hover {
+    transform: translateY(-2px);
+    border-color: rgba(45, 212, 191, 0.22);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.06) inset,
+      0 26px 52px -30px rgba(0, 0, 0, 0.95);
+  }
+
+  .velqo-card-interactive:active {
+    transform: translateY(0) scale(0.994);
+  }
+
+  /* Editorial eyebrow: small, tracked, quiet. Never the loudest thing. */
+  .velqo-eyebrow {
+    font-size: 0.6875rem;
+    line-height: 1;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: #7c8f98;
+  }
+
+  .velqo-display {
+    letter-spacing: -0.03em;
+    font-weight: 700;
+    line-height: 1.05;
+  }
+
+  /* Signature accent rule used to anchor a card to the brand. */
+  .velqo-accent-rule {
+    background: linear-gradient(90deg, rgba(45, 212, 191, 0.85), rgba(56, 189, 248, 0.35), transparent);
+  }
+
+  .velqo-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    color: #b6c4ca;
+  }
 }
 
-::-webkit-scrollbar-track {
-  background: #0a0a0a;
+@layer utilities {
+  /* ---- Motion ------------------------------------------------------ */
+  .velqo-rise {
+    animation: velqo-rise 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .velqo-rise-late {
+    animation: velqo-rise 720ms cubic-bezier(0.22, 1, 0.36, 1) 90ms both;
+  }
+
+  .velqo-breathe {
+    animation: velqo-breathe 3.4s ease-in-out infinite;
+  }
+
+  .velqo-pulse-ring {
+    position: relative;
+  }
+
+  .velqo-pulse-ring::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.45);
+    animation: velqo-ring 2.6s ease-out infinite;
+  }
+
+  @keyframes velqo-rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes velqo-breathe {
+    0%,
+    100% {
+      opacity: 0.65;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes velqo-ring {
+    0% {
+      box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.4);
+    }
+    70% {
+      box-shadow: 0 0 0 7px rgba(45, 212, 191, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(45, 212, 191, 0);
+    }
+  }
+
+  @keyframes velqo-sweep {
+    from {
+      transform: translateX(-120%);
+    }
+    to {
+      transform: translateX(220%);
+    }
+  }
 }
 
-::-webkit-scrollbar-thumb {
-  background: #262626;
-  border-radius: 2px;
-}
+/*
+ * Motion is an enhancement, never a requirement. Users who ask for reduced
+ * motion get a still, equally legible product.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #404040;
+  .velqo-card-interactive:hover {
+    transform: none;
+  }
 }
