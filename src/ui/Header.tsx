@@ -2,51 +2,49 @@ import React from 'react';
 import { Settings2 } from 'lucide-react';
 import { FundamentalProviderStatus } from '../fundamentals/providers/IFundamentalDataProvider';
 import { FundamentalDatasetMode } from '../types/fundamentals';
+import { CurrencyFundamentalIntelligence, ProviderStatus } from '../types';
+import { deriveFeedStatus } from './feedStatus';
 
 interface HeaderProps {
   dataStatus: string;
+  marketProviderStatus?: ProviderStatus;
   fundamentalProviderStatus?: FundamentalProviderStatus;
   fundamentalDatasetMode?: FundamentalDatasetMode;
+  currencyIntelligence: CurrencyFundamentalIntelligence[];
   onOpenSources: () => void;
   onOpenThresholds: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   dataStatus,
+  marketProviderStatus,
   fundamentalProviderStatus,
   fundamentalDatasetMode = 'LIVE',
+  currencyIntelligence,
   onOpenSources,
   onOpenThresholds
 }) => {
-  const isConnected = dataStatus === 'CONNECTED';
-  const fundHealth = fundamentalProviderStatus?.health ?? 'DISCONNECTED';
-  const isStale = fundamentalProviderStatus?.isStale ?? false;
-
-  let badgeLabel = 'LIVE FEED';
-  let badgeColor = 'border-emerald-500/30 text-emerald-400';
-  let dotColor = 'bg-emerald-400 animate-pulse';
-
-  if (!isConnected) {
-    badgeLabel = 'DISCONNECTED';
-    badgeColor = 'border-rose-500/40 text-rose-400';
-    dotColor = 'bg-rose-500';
-  } else if (fundamentalDatasetMode === 'BENCHMARK') {
-    badgeLabel = 'BENCHMARK';
-    badgeColor = 'border-purple-500/40 text-purple-400';
-    dotColor = 'bg-purple-400';
-  } else if (fundHealth === 'DEGRADED') {
-    badgeLabel = 'DEGRADED LIVE';
-    badgeColor = 'border-amber-500/40 text-amber-400';
-    dotColor = 'bg-amber-400';
-  } else if (isStale) {
-    badgeLabel = 'STALE LIVE';
-    badgeColor = 'border-amber-500/40 text-amber-400';
-    dotColor = 'bg-amber-400';
-  } else {
-    badgeLabel = 'LIVE FEED';
-    badgeColor = 'border-emerald-500/30 text-emerald-400';
-    dotColor = 'bg-emerald-400 animate-pulse';
-  }
+  const feedStatus = deriveFeedStatus(
+    marketProviderStatus,
+    fundamentalProviderStatus,
+    fundamentalDatasetMode,
+    currencyIntelligence
+  );
+  const badgeLabel = feedStatus.pipeline === 'LIVE'
+    ? 'LIVE EVIDENCE'
+    : feedStatus.pipeline === 'DEGRADED'
+    ? 'DEGRADED'
+    : 'UNAVAILABLE';
+  const badgeColor = feedStatus.pipeline === 'LIVE'
+    ? 'border-emerald-500/30 text-emerald-400'
+    : feedStatus.pipeline === 'DEGRADED'
+    ? 'border-amber-500/40 text-amber-400'
+    : 'border-rose-500/40 text-rose-400';
+  const dotColor = feedStatus.pipeline === 'LIVE'
+    ? 'bg-emerald-400 animate-pulse'
+    : feedStatus.pipeline === 'DEGRADED'
+    ? 'bg-amber-400'
+    : 'bg-rose-500';
 
   return (
     <header className="sticky top-0 z-30 w-full bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800/80 px-4 py-3">
@@ -69,7 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onOpenSources}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-mono transition-colors border bg-neutral-900/90 ${badgeColor} hover:border-neutral-500`}
-            title="Inspect Data Sources, Fundamental Feeds, and Pipeline Status"
+            title={`Evidence status: ${feedStatus.pipeline}. Inspect data sources and freshness.`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
             <span className="text-[11px] tracking-tight">{badgeLabel}</span>

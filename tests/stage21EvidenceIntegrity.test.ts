@@ -31,7 +31,60 @@ import { globalStore } from '../src/data/store';
 import { evaluateStructuredContradictions } from '../src/engines/contradiction/contradictionEngine';
 import { evaluateStructuredThesis } from '../src/engines/thesis/thesisEngine';
 import { evaluatePairOpportunity } from '../src/engines/opportunity/opportunityEngine';
+import { evaluatePairIntelligence } from '../src/engines/pair/pairEngine';
 import { CurrencyPair, CurrencyState } from '../src/types';
+
+/**
+ * A currency state with no market quote evidence at all. Market strength is
+ * null, never 0, and the feed is explicitly flagged stale.
+ */
+function makeStateWithoutMarket(code: string, _policyRelease?: unknown): CurrencyState {
+  return {
+    currency: { code, name: code, symbol: code, flag: '', centralBank: '' },
+    marketStrength: null,
+    marketState: 'NEUTRAL',
+    marketDataFreshness: 'STALE',
+    relativeStrengthBreakdown: {
+      marketStrength: null,
+      classification: 'NEUTRAL',
+      thresholds: { strongThreshold: 0.1, weakThreshold: -0.1 },
+      timeframe: 'Live',
+      explanation: 'No live market quotes available',
+      source: 'Biquote',
+      coverage: { available: 0, required: 6, percent: 0, stalePairs: [], missingPairs: [] }
+    },
+    fundamentalState: {
+      currency: code,
+      fundamentalScore: null,
+      overallCondition: 'DATA_UNAVAILABLE',
+      inflation: { category: 'INFLATION', currentCondition: '', surprise: 'UNKNOWN', implication: '', observations: [] },
+      employment: { category: 'EMPLOYMENT', currentCondition: '', surprise: 'UNKNOWN', implication: '', observations: [] },
+      growth: { category: 'GROWTH', currentCondition: '', surprise: 'UNKNOWN', implication: '', observations: [] },
+      summary: 'No observations',
+      calculatedAt: new Date().toISOString(),
+      sources: []
+    },
+    centralBank: {
+      id: `cb-${code.toLowerCase()}`,
+      institution: `Central Bank of ${code}`,
+      associatedCurrency: code,
+      currentPolicyRate: null,
+      previousPolicyRate: null,
+      latestDecisionDate: null,
+      nextKnownDecisionDate: null,
+      stance: 'UNAVAILABLE',
+      stanceEvidence: [],
+      guidanceSummary: '',
+      majorRisks: [],
+      sourceType: 'UNAVAILABLE',
+      sourceMetadata: { sourceName: '', sourceUrl: '', lastUpdated: '', status: 'NOT_CONNECTED' }
+    },
+    overallState: 'NEUTRAL',
+    confidenceMetadata: { dataStatus: 'STALE', observationCount: 0, completenessPct: 0, lastVerified: '' },
+    supportingEvidence: [],
+    conflictingEvidence: []
+  } as unknown as CurrencyState;
+}
 
 console.log('================================================================');
 console.log('RUNNING VELQOARATH STAGE 2.1: EVIDENCE INTEGRITY & TRUTHFULNESS');
@@ -516,6 +569,138 @@ check('Pair with missing macro observations records dataGaps in structured oppor
   assert(Array.isArray(opp.dataGaps), 'dataGaps is array on StructuredOpportunity');
   assert(opp.dataGaps.length > 0, 'dataGaps accurately records missing elements');
   assert(opp.state !== 'INSUFFICIENT_DATA', 'Opportunity evaluates watch state with valid market quotes');
+});
+
+// -------------------------------------------------------------
+// 10. CAD/JPY MACRO-ONLY PATH: LIVE POLICY EVIDENCE WITHOUT MARKET QUOTES
+// -------------------------------------------------------------
+console.log('\n--- 10. CAD/JPY Macro-Only Verification ---');
+
+const cadPolicyRelease = {
+  id: 'obs-cad-policy',
+  currency: 'CAD',
+  indicatorId: 'ind-cb-policy',
+  indicatorName: 'Bank of Canada Policy Rate',
+  category: 'CENTRAL_BANK',
+  actual: 2.25,
+  forecast: 2.25,
+  previous: 2.25,
+  unit: '%',
+  period: 'Sep 2026',
+  releaseDate: '2026-09-02T13:45:00Z',
+  fetchedAt: '2026-09-29T12:00:00Z',
+  source: 'Bank of Canada',
+  sourceName: 'Bank of Canada',
+  sourceUrl: 'https://www.bankofcanada.ca/2026/09/fad-press-release-2026-09-02/',
+  sourceStatus: 'CONNECTED' as const,
+  dataStatus: 'AVAILABLE' as const,
+  provenance: 'Official central bank release delivered by the live fundamental feed',
+  freshness: 'FRESH' as const
+};
+
+const jpyPolicyRelease = {
+  ...cadPolicyRelease,
+  id: 'obs-jpy-policy',
+  currency: 'JPY',
+  indicatorName: 'Bank of Japan Policy Rate',
+  actual: 1.25,
+  previous: 1.0,
+  releaseDate: '2026-09-18T03:00:00Z',
+  source: 'Bank of Japan',
+  sourceName: 'Bank of Japan',
+  sourceUrl: 'https://www.boj.or.jp/en/mopo/mpmdeci/mpr_2026/k260918a.pdf'
+};
+
+const cadJpyPair: CurrencyPair = {
+  id: 'pair-cadjpy',
+  symbol: 'CAD/JPY',
+  baseCurrency: 'CAD',
+  quoteCurrency: 'JPY',
+  displayName: 'CAD / JPY',
+  pipDecimalPlaces: 2,
+  isMajor: true,
+  category: 'MAJORS'
+} as unknown as CurrencyPair;
+const cadMarketBlank = makeStateWithoutMarket('CAD', cadPolicyRelease);
+const jpyMarketBlank = makeStateWithoutMarket('JPY', jpyPolicyRelease);
+
+check('CAD/JPY with no market quotes and no macro releases earns zero, not fabricated evidence', () => {
+  const confluence = calculatePairConfluence({
+    pair: cadJpyPair,
+    baseState: makeStateWithoutMarket('CAD'),
+    quoteState: makeStateWithoutMarket('JPY'),
+    relativeStrengthDelta: null,
+    orientationDirection: 'NEUTRAL',
+    events: [],
+    isDataFeedConnected: true
+  });
+
+  assert.equal(confluence.components.marketStrength.points, 0, 'Market layer earns 0 without quotes');
+  assert.equal(
+    confluence.components.marketStrength.availability,
+    'UNAVAILABLE',
+    'Market layer is explicitly unavailable'
+  );
+  assert.equal(confluence.components.fundamentals.points, 0, 'No fabricated fundamental points');
+  assert.equal(confluence.components.policy.points, 0, 'Reference policy earns no live points');
+  assert(
+    confluence.confluenceScore < 25,
+    `Confluence stays low without evidence (got ${confluence.confluenceScore})`
+  );
+});
+
+check('CAD/JPY live policy carry is +1.00% and independently usable with market evidence missing', () => {
+  const intelligence = evaluatePairIntelligence(
+    cadJpyPair,
+    cadMarketBlank,
+    jpyMarketBlank,
+    [],
+    new Date(),
+    true,
+    [cadPolicyRelease, jpyPolicyRelease] as any
+  );
+
+  const policy = intelligence.fundamentalDifferential.policyDifferential;
+
+  assert.equal(policy.baseRate, 2.25, 'BoC live policy rate is carried through');
+  assert.equal(policy.quoteRate, 1.25, 'BoJ live policy rate is carried through');
+  assert.equal(policy.livePolicySpread, 1, 'Verified live policy carry is +1.00%');
+  assert.equal(policy.baseProvenance, 'LIVE', 'Base policy provenance is LIVE');
+  assert.equal(policy.quoteProvenance, 'LIVE', 'Quote policy provenance is LIVE');
+
+  assert.equal(
+    intelligence.relativeStrengthDelta,
+    null,
+    'No relative-strength delta is claimed without market quotes'
+  );
+  assert(
+    intelligence.marketEvidenceState !== 'AVAILABLE',
+    'Market evidence is not reported as available'
+  );
+  assert.equal(
+    intelligence.confluence.components.marketStrength.points,
+    0,
+    'Market layer earns 0/25 and is not renormalized'
+  );
+  assert(
+    intelligence.confluence.components.policy.points > 0,
+    'Verified live policy carry earns live policy points'
+  );
+
+  assert.notEqual(
+    intelligence.structuredThesis.status,
+    'INSUFFICIENT_DATA',
+    'Verified live policy evidence keeps the thesis evaluable'
+  );
+  assert.notEqual(
+    intelligence.structuredOpportunity.state,
+    'INSUFFICIENT_DATA',
+    'Macro-only evidence does not make the opportunity insufficient'
+  );
+  assert(
+    intelligence.structuredOpportunity.whyThisPair.includes('MACRO-ONLY'),
+    `Macro-only watch state is explicit (got: ${intelligence.structuredOpportunity.whyThisPair})`
+  );
 });
 
 console.log('\n================================================================');

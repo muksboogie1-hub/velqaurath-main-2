@@ -18,18 +18,35 @@ import {
   CurrencyFundamentalIntelligence
 } from '../../types/fundamentals';
 import { CurrencyPair, EconomicEvent } from '../../types';
+import {
+  LivePolicyEvidence,
+  evaluateLivePolicySpread
+} from './policyEvidence';
 
 export interface PairDifferentialParams {
   pair: CurrencyPair;
   baseIntel: CurrencyFundamentalIntelligence;
   quoteIntel: CurrencyFundamentalIntelligence;
   upcomingEvents?: EconomicEvent[];
+  /**
+   * Verified live policy evidence per leg. Required for a policy differential,
+   * because a reference central-bank benchmark is contextual only.
+   */
+  basePolicyEvidence?: LivePolicyEvidence | null;
+  quotePolicyEvidence?: LivePolicyEvidence | null;
 }
 
 export function evaluateFundamentalDifferential(
   params: PairDifferentialParams
 ): FundamentalDifferential {
-  const { pair, baseIntel, quoteIntel, upcomingEvents = [] } = params;
+  const {
+    pair,
+    baseIntel,
+    quoteIntel,
+    upcomingEvents = [],
+    basePolicyEvidence = null,
+    quotePolicyEvidence = null
+  } = params;
 
   // 1. Market Strength Differential (BASE minus QUOTE)
   const baseMkt = baseIntel.marketStrength;
@@ -57,29 +74,64 @@ export function evaluateFundamentalDifferential(
       : 'Insufficient fundamental release data to calculate comparative fundamental score.';
 
   // 3. Central Bank Policy Differential (BASE minus QUOTE)
-  const baseRate = baseIntel.centralBankProfile.policyRate;
-  const quoteRate = quoteIntel.centralBankProfile.policyRate;
+  /*
+   * Policy rates are LIVE evidence only when verified live policy evidence was
+   * supplied for that leg. Otherwise the static central-bank profile is
+   * reported as REFERENCE_ONLY context: the differential still describes the
+   * profile, but it carries REFERENCE provenance so no downstream engine can
+   * award live policy points or build a policy-derived orientation from it.
+   */
+  const basePolicy =
+    basePolicyEvidence && basePolicyEvidence.availability === 'AVAILABLE'
+      ? basePolicyEvidence
+      : null;
+  const quotePolicy =
+    quotePolicyEvidence && quotePolicyEvidence.availability === 'AVAILABLE'
+      ? quotePolicyEvidence
+      : null;
+
+  const baseRefRate = baseIntel.centralBankProfile?.currentPolicyRate ?? null;
+  const quoteRefRate = quoteIntel.centralBankProfile?.currentPolicyRate ?? null;
+
+  const baseRate = basePolicy?.policyRate ?? baseRefRate;
+  const quoteRate = quotePolicy?.policyRate ?? quoteRefRate;
+
+  const baseProvenance: 'LIVE' | 'REFERENCE' = basePolicy ? 'LIVE' : 'REFERENCE';
+  const quoteProvenance: 'LIVE' | 'REFERENCE' = quotePolicy ? 'LIVE' : 'REFERENCE';
+
+  const livePolicySpread = evaluateLivePolicySpread(basePolicy, quotePolicy);
   const rateSpread =
     baseRate !== null && quoteRate !== null
       ? Math.round((baseRate - quoteRate) * 100) / 100
       : null;
 
-  const baseStance = baseIntel.centralBankStance;
-  const quoteStance = quoteIntel.centralBankStance;
+  const baseStance = basePolicy?.stance ?? baseIntel.centralBankProfile?.stance ?? 'UNAVAILABLE';
+  const quoteStance = quotePolicy?.stance ?? quoteIntel.centralBankProfile?.stance ?? 'UNAVAILABLE';
 
-  let stanceDelta = 'Aligned / Neutral policy balance';
+  const baseInstitution = basePolicy?.institution || baseIntel.centralBankProfile.institution;
+  const quoteInstitution = quotePolicy?.institution || quoteIntel.centralBankProfile.institution;
+
+  let stanceDelta =
+    baseStance === 'UNAVAILABLE' || quoteStance === 'UNAVAILABLE'
+      ? 'Monetary stance direction is not established by current evidence for at least one leg.'
+      : 'Aligned / Neutral policy balance';
   if (baseStance === 'HAWKISH' && quoteStance === 'DOVISH') {
-    stanceDelta = `Maximum policy divergence favoring ${pair.baseCurrency} (${baseIntel.centralBankProfile.institution}: HAWKISH vs ${quoteIntel.centralBankProfile.institution}: DOVISH)`;
+    stanceDelta = `Maximum policy divergence favoring ${pair.baseCurrency} (${baseInstitution}: HAWKISH vs ${quoteInstitution}: DOVISH)`;
   } else if (baseStance === 'DOVISH' && quoteStance === 'HAWKISH') {
-    stanceDelta = `Maximum policy divergence favoring ${pair.quoteCurrency} (${quoteIntel.centralBankProfile.institution}: HAWKISH vs ${baseIntel.centralBankProfile.institution}: DOVISH)`;
+    stanceDelta = `Maximum policy divergence favoring ${pair.quoteCurrency} (${quoteInstitution}: HAWKISH vs ${baseInstitution}: DOVISH)`;
   } else if (baseStance === 'HAWKISH' && quoteStance !== 'HAWKISH') {
-    stanceDelta = `${baseIntel.centralBankProfile.institution} retains hawkish tilt relative to ${quoteIntel.centralBankProfile.institution}`;
+    stanceDelta = `${baseInstitution} retains hawkish tilt relative to ${quoteInstitution}`;
   } else if (quoteStance === 'HAWKISH' && baseStance !== 'HAWKISH') {
-    stanceDelta = `${quoteIntel.centralBankProfile.institution} retains hawkish tilt relative to ${baseIntel.centralBankProfile.institution}`;
+    stanceDelta = `${quoteInstitution} retains hawkish tilt relative to ${baseInstitution}`;
   } else if (baseStance === 'DOVISH' && quoteStance !== 'DOVISH') {
-    stanceDelta = `${baseIntel.centralBankProfile.institution} is actively easing relative to ${quoteIntel.centralBankProfile.institution}`;
+    stanceDelta = `${baseInstitution} is actively easing relative to ${quoteInstitution}`;
   } else if (quoteStance === 'DOVISH' && baseStance !== 'DOVISH') {
-    stanceDelta = `${quoteIntel.centralBankProfile.institution} is actively easing relative to ${baseIntel.centralBankProfile.institution}`;
+    stanceDelta = `${quoteInstitution} is actively easing relative to ${baseInstitution}`;
+  }
+
+  if (baseProvenance !== 'LIVE' || quoteProvenance !== 'LIVE') {
+    stanceDelta +=
+      ' [REFERENCE PROFILE: no verified live policy release was supplied for at least one leg, so this divergence carries no live policy points.]';
   }
 
   // 4. Expectations Differential
@@ -89,13 +141,28 @@ export function evaluateFundamentalDifferential(
   const baseSummary = `${pair.baseCurrency}: ${baseExp.aboveCount} beats, ${baseExp.belowCount} misses, ${baseExp.inLineCount} in-line across ${baseExp.totalObservations} releases.`;
   const quoteSummary = `${pair.quoteCurrency}: ${quoteExp.aboveCount} beats, ${quoteExp.belowCount} misses, ${quoteExp.inLineCount} in-line across ${quoteExp.totalObservations} releases.`;
 
+  const baseNet = baseExp.aboveCount - baseExp.belowCount;
+  const quoteNet = quoteExp.aboveCount - quoteExp.belowCount;
+  const hasRealizedSurprise =
+    baseExp.aboveCount + baseExp.belowCount + quoteExp.aboveCount + quoteExp.belowCount > 0;
+
+  const directionalEdge: 'BASE' | 'QUOTE' | 'BALANCED' | 'UNAVAILABLE' = !hasRealizedSurprise
+    ? 'UNAVAILABLE'
+    : baseNet > quoteNet
+    ? 'BASE'
+    : quoteNet > baseNet
+    ? 'QUOTE'
+    : 'BALANCED';
+
   let expComparison = '';
-  if (baseExp.aboveCount > quoteExp.aboveCount && baseExp.belowCount <= quoteExp.belowCount) {
-    expComparison = `Data surprise momentum skews positive for ${pair.baseCurrency} compared to ${pair.quoteCurrency}.`;
+  if (!hasRealizedSurprise) {
+    expComparison = `No realized consensus surprise is recorded for ${pair.baseCurrency} or ${pair.quoteCurrency}; surprise momentum is unavailable rather than balanced.`;
+  } else if (baseExp.aboveCount > quoteExp.aboveCount && baseExp.belowCount <= quoteExp.belowCount) {
+    expComparison = `Data surprise momentum skews positive for ${pair.baseCurrency} compared to ${pair.quoteCurrency} (net ${baseNet >= 0 ? '+' : ''}${baseNet} vs ${quoteNet >= 0 ? '+' : ''}${quoteNet}).`;
   } else if (quoteExp.aboveCount > baseExp.aboveCount && quoteExp.belowCount <= baseExp.belowCount) {
-    expComparison = `Data surprise momentum skews positive for ${pair.quoteCurrency} compared to ${pair.baseCurrency}.`;
+    expComparison = `Data surprise momentum skews positive for ${pair.quoteCurrency} compared to ${pair.baseCurrency} (net ${baseNet >= 0 ? '+' : ''}${baseNet} vs ${quoteNet >= 0 ? '+' : ''}${quoteNet}).`;
   } else {
-    expComparison = `Data surprise momentum is balanced or cross-cutting between ${pair.baseCurrency} and ${pair.quoteCurrency}.`;
+    expComparison = `Data surprise momentum is balanced or cross-cutting between ${pair.baseCurrency} and ${pair.quoteCurrency} (net ${baseNet >= 0 ? '+' : ''}${baseNet} vs ${quoteNet >= 0 ? '+' : ''}${quoteNet}).`;
   }
 
   // 5. Catalyst Differential
@@ -133,13 +200,18 @@ export function evaluateFundamentalDifferential(
 
   // Policy carry spread evidence
   if (rateSpread !== null) {
+    const carryQualifier =
+      baseProvenance === 'LIVE' && quoteProvenance === 'LIVE'
+        ? ''
+        : ' [REFERENCE PROFILE RATES: not verified live policy evidence.]';
+
     if (rateSpread > 0) {
       supportingEvidence.push(
-        `Nominal policy carry differential is +${rateSpread.toFixed(2)}% in favor of ${pair.baseCurrency} (${baseRate}% vs ${quoteRate}%).`
+        `Nominal policy carry differential is +${rateSpread.toFixed(2)}% in favor of ${pair.baseCurrency} (${baseRate}% vs ${quoteRate}%).${carryQualifier}`
       );
     } else if (rateSpread < 0) {
       supportingEvidence.push(
-        `Nominal policy carry differential is +${Math.abs(rateSpread).toFixed(2)}% in favor of ${pair.quoteCurrency} (${quoteRate}% vs ${baseRate}%).`
+        `Nominal policy carry differential is +${Math.abs(rateSpread).toFixed(2)}% in favor of ${pair.quoteCurrency} (${quoteRate}% vs ${baseRate}%).${carryQualifier}`
       );
     }
   }
@@ -166,12 +238,12 @@ export function evaluateFundamentalDifferential(
   // Stance conflicts
   if (baseStance === 'DOVISH' && rateSpread !== null && rateSpread > 0) {
     contradictoryEvidence.push(
-      `${baseIntel.centralBankProfile.institution} is actively easing despite nominal carry advantage; rate cuts could compress spread.`
+      `${baseInstitution} is actively easing despite nominal carry advantage; rate cuts could compress spread.`
     );
   }
   if (quoteStance === 'HAWKISH' && rateSpread !== null && rateSpread > 0) {
     contradictoryEvidence.push(
-      `${quoteIntel.centralBankProfile.institution} hawkish posture threatens to narrow the carry advantage held by ${pair.baseCurrency}.`
+      `${quoteInstitution} hawkish posture threatens to narrow the carry advantage held by ${pair.baseCurrency}.`
     );
   }
 
@@ -186,12 +258,20 @@ export function evaluateFundamentalDifferential(
   // Data Quality & Provenance
   const baseStatus = baseIntel.fundamentalStatus;
   const quoteStatus = quoteIntel.fundamentalStatus;
+  /*
+   * A layer is "live" when it is AVAILABLE or PARTIAL. Only UNAVAILABLE
+   * means no usable evidence. COMPLETE additionally requires verified live
+   * policy evidence on at least one leg.
+   */
+  const hasLiveMacro =
+    (baseStatus !== 'UNAVAILABLE' && quoteStatus !== 'UNAVAILABLE') &&
+    (baseStatus === 'AVAILABLE' || quoteStatus === 'AVAILABLE' || baseStatus === 'PARTIAL' || quoteStatus === 'PARTIAL');
   const dataQuality =
-    baseStatus === 'AVAILABLE' && quoteStatus === 'AVAILABLE'
+    hasLiveMacro && (basePolicy !== null || quotePolicy !== null)
       ? 'COMPLETE'
-      : baseStatus === 'UNAVAILABLE' || quoteStatus === 'UNAVAILABLE'
-      ? 'UNAVAILABLE'
-      : 'PARTIAL';
+      : hasLiveMacro
+      ? 'PARTIAL'
+      : 'UNAVAILABLE';
 
   return {
     pairSymbol: pair.symbol,
@@ -210,12 +290,28 @@ export function evaluateFundamentalDifferential(
       rateSpread,
       baseStance,
       quoteStance,
-      stanceDelta
+      stanceDelta,
+      baseProvenance,
+      quoteProvenance,
+      livePolicySpread,
+      baseFreshness: basePolicy?.freshness ?? 'UNAVAILABLE',
+      quoteFreshness: quotePolicy?.freshness ?? 'UNAVAILABLE',
+      baseEffectiveAt: basePolicy?.effectiveAt ?? null,
+      quoteEffectiveAt: quotePolicy?.effectiveAt ?? null,
+      baseSource: basePolicy?.source ?? null,
+      quoteSource: quotePolicy?.source ?? null
     },
     expectationsDifferential: {
       baseSummary,
       quoteSummary,
-      comparison: expComparison
+      comparison: expComparison,
+      baseAboveCount: baseExp.aboveCount,
+      baseBelowCount: baseExp.belowCount,
+      baseInLineCount: baseExp.inLineCount,
+      quoteAboveCount: quoteExp.aboveCount,
+      quoteBelowCount: quoteExp.belowCount,
+      quoteInLineCount: quoteExp.inLineCount,
+      directionalEdge
     },
     catalystDifferential: {
       baseCatalysts,

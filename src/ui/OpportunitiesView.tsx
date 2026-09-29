@@ -208,7 +208,7 @@ export const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({
             if (!opp) return null;
 
             const classification = opp.opportunityClassification || 'MONITOR_ONLY';
-            const delta = pairIntel.relativeStrengthDelta ?? 0;
+            const delta = pairIntel.relativeStrengthDelta;
             const isBullish = opp.directionalBias === 'BULLISH_BASE';
             const isBearish = opp.directionalBias === 'BEARISH_BASE';
 
@@ -298,7 +298,18 @@ export const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({
                     </div>
 
                     <div className="flex items-center gap-1">
-                      {isBullish ? (
+                      {delta === null ? (
+                        <span
+                          className="text-amber-400 font-semibold flex items-center"
+                          title={`Live market-strength evidence is ${
+                            pairIntel.marketEvidenceState === 'STALE'
+                              ? 'stale'
+                              : 'unavailable'
+                          }; no relative Δ is claimed.`}
+                        >
+                          <AlertTriangle className="w-3.5 h-3.5 mr-0.5" /> Δ N/A
+                        </span>
+                      ) : isBullish ? (
                         <span className="text-emerald-400 font-bold flex items-center">
                           <TrendingUp className="w-3.5 h-3.5 mr-0.5" /> +{delta.toFixed(2)}%
                         </span>
@@ -308,7 +319,7 @@ export const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({
                         </span>
                       ) : (
                         <span className="text-neutral-400 flex items-center">
-                          <Minus className="w-3.5 h-3.5 mr-0.5" /> 0.00%
+                          <Minus className="w-3.5 h-3.5 mr-0.5" /> {delta.toFixed(2)}%
                         </span>
                       )}
                     </div>

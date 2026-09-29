@@ -312,6 +312,30 @@ export function transformToCatalystEvent(
     windowDescription = `Scheduled today (${Math.round(timeToEventMinutes / 60)}h)`;
   }
 
+  /*
+   * STATUS / LIFECYCLE CONSISTENCY
+   *
+   * The provider status is preserved verbatim, but the exposed `status` is
+   * derived from the lifecycle so a past-dated event can never be presented as
+   * UPCOMING while its lifecycle is STALE or PASSED. `statusConsistent` states
+   * whether the provider label already agreed with the derived lifecycle.
+   */
+  const providerStatus = event.status;
+  const hasActual = event.actual !== null && event.actual !== undefined;
+
+  const derivedStatus: CatalystEvent['status'] =
+    providerStatus === 'CANCELLED'
+      ? 'CANCELLED'
+      : lifecycle === 'STALE'
+      ? 'STALE'
+      : lifecycle === 'PASSED'
+      ? hasActual
+        ? 'RELEASED'
+        : 'PASSED'
+      : hasActual
+      ? 'RELEASED'
+      : 'UPCOMING';
+
   return {
     id: event.id,
     name: event.name,
@@ -319,7 +343,8 @@ export function transformToCatalystEvent(
     category: (event as any).category || 'ECONOMIC_INDICATOR',
     importance: event.importance,
     scheduledTime: event.scheduledTime,
-    publishedAt: event.status === 'RELEASED' ? event.scheduledTime : null,
+    publishedAt:
+      providerStatus === 'RELEASED' || hasActual ? event.scheduledTime : null,
     fetchedAt: new Date().toISOString(),
     previous: event.previous,
     forecast: event.forecast,
@@ -328,7 +353,10 @@ export function transformToCatalystEvent(
     surprisePercentage: directional.surprisePercentage,
     unit: event.unit,
     source: event.source || 'Finance Calendar',
-    status: event.status,
+    status: derivedStatus,
+    providerStatus,
+    statusConsistent: providerStatus === derivedStatus,
+    isPastDated: timeToEventMinutes < 0,
     freshness,
     lifecycle,
     timeToEventMinutes,

@@ -67,7 +67,7 @@ export const PairsList: React.FC<PairsListProps> = ({
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {filtered.map((item) => {
-          const delta = item.relativeStrengthDelta ?? 0;
+          const delta = item.relativeStrengthDelta;
           const isBullish = item.orientationDirection === 'BULLISH_BASE';
           const isBearish = item.orientationDirection === 'BEARISH_BASE';
 
@@ -88,7 +88,13 @@ export const PairsList: React.FC<PairsListProps> = ({
                     </span>
                   </div>
                   <span className="text-[11px] font-mono text-neutral-400">
-                    Δ {delta >= 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2)}%
+                    {delta === null
+                      ? `Δ unavailable${
+                          item.marketEvidenceState === 'STALE'
+                            ? ' (stale)'
+                            : ''
+                        }`
+                      : `Δ ${delta >= 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2)}%`}
                   </span>
                   {item.confluence && (
                     <span className="text-[10px] font-mono text-emerald-400 ml-2 font-semibold">

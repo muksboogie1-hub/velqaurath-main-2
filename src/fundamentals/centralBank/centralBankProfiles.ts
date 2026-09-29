@@ -1,4 +1,4 @@
-/**
+ /**
  * VELQOARATH — CENTRAL BANK INTELLIGENCE (PHASE B)
  *
  * Structured profiles for the 8 major central banks:
@@ -11,8 +11,13 @@
  * - AUD: Reserve Bank of Australia
  * - NZD: Reserve Bank of New Zealand
  *
- * Strict non-fabrication rule: If data is missing or live provider is not configured,
- * dataStatus explicitly returns NOT_CONFIGURED or UNAVAILABLE.
+ * Strict non-fabrication rule:
+ * - REFERENCE data is contextual historical information only.
+ * - REFERENCE data must never receive a runtime fetchedTimestamp.
+ * - STATIC data is contextual/static information only.
+ * - Only explicitly supplied LIVE data may carry a fetchedTimestamp.
+ * - Missing live data remains UNAVAILABLE and is never inferred from
+ *   reference metadata.
  */
 
 import { CentralBankProfile, FundamentalDataStatus } from '../../types/fundamentals';
@@ -76,6 +81,12 @@ export const CENTRAL_BANK_METADATA_MAP: Record<string, {
 
 /**
  * Maps an existing CentralBank record into the strongly-typed CentralBankProfile.
+ *
+ * Evidence-integrity rule:
+ * INITIAL_CENTRAL_BANKS is a reference/context dataset.
+ * Its sourceMetadata.lastUpdated value describes the reference record itself;
+ * it is NOT a runtime fetch timestamp and must never be promoted to
+ * fetchedTimestamp.
  */
 export function buildCentralBankProfile(
   currencyCode: string,
@@ -107,7 +118,7 @@ export function buildCentralBankProfile(
       source: 'Primary Central Bank',
       sourceType: 'UNAVAILABLE',
       sourceUrl: '',
-      fetchedTimestamp: new Date().toISOString(),
+      fetchedTimestamp: null,
       freshness: 'UNAVAILABLE',
       dataSourceMode: 'UNAVAILABLE',
       dataStatus: 'NOT_CONFIGURED',
@@ -143,7 +154,7 @@ export function buildCentralBankProfile(
       source: meta.source,
       sourceType: 'UNAVAILABLE',
       sourceUrl: meta.sourceUrl,
-      fetchedTimestamp: new Date().toISOString(),
+      fetchedTimestamp: null,
       freshness: 'UNAVAILABLE',
       dataSourceMode: 'UNAVAILABLE',
       dataStatus: 'UNAVAILABLE',
@@ -152,10 +163,49 @@ export function buildCentralBankProfile(
     };
   }
 
+  /*
+   * The INITIAL_CENTRAL_BANKS records are reference context.
+   * Their sourceMetadata.status must not be treated as proof that a live
+   * policy feed is connected.
+   *
+   * A live profile can only be established through explicit LIVE overrides.
+   */
+  const sourceType = overrides?.sourceType ?? 'REFERENCE';
+
+  const dataSourceMode =
+    overrides?.dataSourceMode ??
+    (sourceType === 'LIVE'
+      ? 'LIVE'
+      : sourceType === 'STATIC'
+      ? 'STATIC'
+      : 'REFERENCE');
+
+  /*
+   * REFERENCE data is not live, so it is stale from a live-freshness
+   * perspective. REFERENCE is represented by sourceType/dataSourceMode,
+   * while freshness remains compatible with the existing type system.
+   */
+  const freshness =
+    overrides?.freshness ??
+    (sourceType === 'LIVE'
+      ? 'FRESH'
+      : sourceType === 'REFERENCE'
+      ? 'STALE'
+      : sourceType === 'STATIC'
+      ? 'STALE'
+      : 'UNAVAILABLE');
+
   const dataStatus: FundamentalDataStatus =
-    existing.sourceMetadata.status === 'CONNECTED' ? 'AVAILABLE' : 'NOT_CONFIGURED';
+    sourceType === 'LIVE'
+      ? (overrides?.dataStatus ?? 'AVAILABLE')
+      : sourceType === 'REFERENCE'
+      ? 'AVAILABLE'
+      : sourceType === 'STATIC'
+      ? 'AVAILABLE'
+      : 'UNAVAILABLE';
 
   let policyDirection: 'HIKING' | 'CUTTING' | 'HOLDING' | 'UNAVAILABLE' = 'HOLDING';
+
   if (existing.currentPolicyRate !== null && existing.previousPolicyRate !== null) {
     if (existing.currentPolicyRate > existing.previousPolicyRate) {
       policyDirection = 'HIKING';
@@ -168,12 +218,6 @@ export function buildCentralBankProfile(
     policyDirection = 'UNAVAILABLE';
   }
 
-  const sourceType = overrides?.sourceType ?? 'REFERENCE';
-  const dataSourceMode = overrides?.dataSourceMode ?? (sourceType === 'LIVE' ? 'LIVE' : 'REFERENCE');
-  const freshness =
-    overrides?.freshness ??
-    (sourceType === 'LIVE' ? 'FRESH' : sourceType === 'REFERENCE' ? 'STALE' : 'UNAVAILABLE');
-
   const provenance =
     overrides?.provenance ??
     (sourceType === 'LIVE'
@@ -184,33 +228,59 @@ export function buildCentralBankProfile(
       ? `Static historical policy benchmark for ${existing.institution} (STATIC)`
       : `No authenticated policy release record for ${existing.institution} (UNAVAILABLE)`);
 
+  /*
+   * fetchedTimestamp is deliberately separated from reference metadata.
+   *
+   * For REFERENCE and STATIC records there has been no runtime fetch,
+   * therefore fetchedTimestamp MUST remain null.
+   *
+   * For LIVE records, only an explicitly supplied override may establish
+   * the runtime fetch timestamp. We never inherit the reference record's
+   * sourceMetadata.lastUpdated value.
+   */
+  const fetchedTimestamp =
+    sourceType === 'LIVE'
+      ? overrides?.fetchedTimestamp ?? null
+      : null;
+
   return {
     id: existing.id,
     bank: existing.institution,
     institution: existing.institution,
     currency: code,
     associatedCurrency: code,
+
+    /*
+     * These values remain available because they are useful contextual
+     * policy history. They are NOT treated as verified live policy fields
+     * by the downstream projection layer unless live evidence is supplied.
+     */
     policyRate: existing.currentPolicyRate,
     currentPolicyRate: existing.currentPolicyRate,
     previousPolicyRate: existing.previousPolicyRate,
     latestDecisionDate: existing.latestDecisionDate,
     lastKnownPolicyEvent: existing.latestDecisionDate,
     nextKnownDecisionDate: existing.nextKnownDecisionDate,
+
     stance: existing.stance,
     policyStance: existing.stance,
     policyDirection,
+
     stanceEvidence: existing.stanceEvidence,
     guidanceSummary: existing.guidanceSummary,
     latestPolicyStatement: existing.guidanceSummary,
     majorRisks: existing.majorRisks,
+
     source: existing.sourceMetadata.sourceName || meta.source,
     sourceType,
     sourceUrl: existing.sourceMetadata.sourceUrl || meta.sourceUrl,
-    fetchedTimestamp: existing.sourceMetadata.lastUpdated || new Date().toISOString(),
+
+    fetchedTimestamp,
     freshness,
     dataSourceMode,
     dataStatus,
     provenance,
+
     ...overrides
   };
 }
@@ -220,5 +290,6 @@ export function buildCentralBankProfile(
  */
 export function getAllCoreCentralBankProfiles(): CentralBankProfile[] {
   const currencies = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'];
+
   return currencies.map((c) => buildCentralBankProfile(c));
 }

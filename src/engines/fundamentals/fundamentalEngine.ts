@@ -49,23 +49,48 @@ export function evaluateCurrencyFundamentals(
   const prevRate =
     centralBank.previousPolicyRate !== null ? `${centralBank.previousPolicyRate}%` : 'N/A';
 
+  /*
+   * Policy evidence is only LIVE when the central-bank record explicitly
+   * declares verified live provenance. A REFERENCE/STATIC benchmark record is
+   * contextual and must never be scored as current policy evidence.
+   */
+  const policyEvidenceIsLive =
+    centralBank.sourceType === 'LIVE' &&
+    centralBank.dataSourceMode === 'LIVE' &&
+    (centralBank.dataStatus === 'AVAILABLE' || centralBank.dataStatus === 'LIVE') &&
+    centralBank.currentPolicyRate !== null &&
+    Number.isFinite(centralBank.currentPolicyRate) &&
+    (centralBank.freshness === 'FRESH' || centralBank.freshness === 'AGING');
+
   const monetaryPolicy: FundamentalPillar = {
-    currentCondition: `Policy rate at ${cbRate} by ${centralBank.institution}. Stance: ${cbStance}.`,
+    currentCondition: policyEvidenceIsLive
+      ? `Policy rate at ${cbRate} by ${centralBank.institution}. Stance: ${cbStance}.`
+      : `Current policy rate is unavailable. ${centralBank.institution} reference context: ${
+          centralBank.contextualPolicyRate !== null &&
+          centralBank.contextualPolicyRate !== undefined
+            ? `${centralBank.contextualStance ?? 'UNKNOWN'} ${centralBank.contextualPolicyRate}%`
+            : 'no recorded benchmark'
+        }.`,
     recentChange:
-      centralBank.previousPolicyRate !== null && centralBank.currentPolicyRate !== null
+      policyEvidenceIsLive &&
+      centralBank.previousPolicyRate !== null &&
+      centralBank.currentPolicyRate !== null
         ? `Rate moved from ${prevRate} to ${cbRate} on ${
             centralBank.latestDecisionDate || 'recent meeting'
           }.`
-        : 'No recent adjustment recorded.',
-    expectation: centralBank.guidanceSummary || 'Data-dependent meeting-by-meeting approach.',
-    surprise: 'NO_SURPRISE',
-    implication:
-      cbStance === 'HAWKISH'
-        ? 'Restrictive monetary policy provides positive yield support.'
-        : cbStance === 'DOVISH'
-        ? 'Easing cycle compresses nominal yield advantage.'
-        : 'Balanced stance reflects measured equilibrium.',
-    dataAvailable: true,
+        : 'No verified current policy-rate change is available.',
+    expectation: policyEvidenceIsLive
+      ? centralBank.guidanceSummary || 'Data-dependent meeting-by-meeting approach.'
+      : 'Current policy guidance is unavailable.',
+    surprise: policyEvidenceIsLive ? 'NO_SURPRISE' : 'UNAVAILABLE',
+    implication: !policyEvidenceIsLive
+      ? 'Reference policy is context only and is not current live policy evidence.'
+      : cbStance === 'HAWKISH'
+      ? 'Restrictive monetary policy provides positive yield support.'
+      : cbStance === 'DOVISH'
+      ? 'Easing cycle compresses nominal yield advantage.'
+      : 'Balanced stance reflects measured equilibrium.',
+    dataAvailable: policyEvidenceIsLive,
     observations: []
   };
 
@@ -109,7 +134,11 @@ export function evaluateCurrencyFundamentals(
       surprise:
         expAnalysis.surpriseType === 'NO_FORECAST' ? 'NO_SURPRISE' : expAnalysis.surpriseType,
       implication: expAnalysis.monetaryPolicyImplication,
-      dataAvailable: true,
+      /*
+       * A pillar is only "available" when a released value actually exists.
+       * A scheduled-but-unreleased observation stays missing, not neutral.
+       */
+      dataAvailable: latest.actual !== null && Number.isFinite(latest.actual),
       observations: categoryObs
     };
   };
@@ -146,37 +175,65 @@ export function evaluateCurrencyFundamentals(
     observations: []
   };
 
+  /*
+   * Only live policy evidence contributes a central-bank stance weight.
+   * Reference or static stances remain contextual and score zero.
+   */
   let cbWeight = 0;
-  if (cbStance === 'HAWKISH') cbWeight = 0.08;
-  if (cbStance === 'DOVISH') cbWeight = -0.08;
+  if (policyEvidenceIsLive && cbStance === 'HAWKISH') cbWeight = 0.08;
+  if (policyEvidenceIsLive && cbStance === 'DOVISH') cbWeight = -0.08;
 
-  let infWeight = 0;
-  if (inflation.surprise === 'ABOVE') infWeight = 0.04;
-  if (inflation.surprise === 'BELOW') infWeight = -0.04;
+  const surpriseWeight = (pillar: FundamentalPillar): number => {
+    if (!pillar.dataAvailable) return 0;
+    if (pillar.surprise === 'ABOVE' || pillar.surprise === 'ABOVE_EXPECTATION') return 0.04;
+    if (pillar.surprise === 'BELOW' || pillar.surprise === 'BELOW_EXPECTATION') return -0.04;
+    return 0;
+  };
 
-  let empWeight = 0;
-  if (employment.surprise === 'ABOVE') empWeight = 0.04;
-  if (employment.surprise === 'BELOW') empWeight = -0.04;
+  const infWeight = surpriseWeight(inflation);
+  const empWeight = surpriseWeight(employment);
+  const gdpWeight = surpriseWeight(growth);
 
-  let gdpWeight = 0;
-  if (growth.surprise === 'ABOVE') gdpWeight = 0.04;
-  if (growth.surprise === 'BELOW') gdpWeight = -0.04;
+  /*
+   * Evidence accounting. A component contributes a weight ONLY when its own
+   * evidence exists. A component with no evidence contributes nothing and is
+   * reported as a missing input rather than as a neutral 0.
+   */
+  const scoredComponents = [
+    { name: 'Live monetary policy', available: policyEvidenceIsLive, weight: cbWeight },
+    { name: 'Inflation surprise', available: inflation.dataAvailable, weight: infWeight },
+    { name: 'Employment surprise', available: employment.dataAvailable, weight: empWeight },
+    { name: 'Growth surprise', available: growth.dataAvailable, weight: gdpWeight }
+  ];
+  const availableComponents = scoredComponents.filter((c) => c.available);
+  const missingComponents = scoredComponents.filter((c) => !c.available);
+  const evidenceExists = availableComponents.length > 0;
 
-  const totalScore = Math.round((cbWeight + infWeight + empWeight + gdpWeight) * 100) / 100;
-  const scoreFormula = `Explicit Aggregate Formula: CB Stance (${
-    cbWeight >= 0 ? '+' : ''
-  }${cbWeight}) + Inflation Surprise (${
-    infWeight >= 0 ? '+' : ''
-  }${infWeight}) + Employment Surprise (${
-    empWeight >= 0 ? '+' : ''
-  }${empWeight}) + Growth Surprise (${gdpWeight >= 0 ? '+' : ''}${gdpWeight}) = ${
-    totalScore >= 0 ? '+' : ''
-  }${totalScore}`;
+  const totalScore = Math.round(
+    availableComponents.reduce((sum, component) => sum + component.weight, 0) * 100
+  ) / 100;
 
-  let overallCondition: PillarCondition = 'NEUTRAL';
-  if (totalScore >= 0.08) overallCondition = 'EXPANSIONARY';
-  else if (totalScore <= -0.08) overallCondition = 'CONTRACTIONARY';
-  else if (totalScore !== 0) overallCondition = 'MIXED';
+  const scoreFormula =
+    `Explicit Aggregate Formula: ${scoredComponents
+      .map(
+        (component) =>
+          `${component.name} (${component.available ? `${component.weight >= 0 ? '+' : ''}${component.weight}` : 'UNAVAILABLE'})`
+      )
+      .join(' + ')} = ` +
+    (evidenceExists ? `${totalScore >= 0 ? '+' : ''}${totalScore}` : 'UNAVAILABLE (no evidence)');
+
+  let overallCondition: PillarCondition;
+  if (!evidenceExists) {
+    overallCondition = 'DATA_UNAVAILABLE';
+  } else if (totalScore >= 0.08) {
+    overallCondition = 'EXPANSIONARY';
+  } else if (totalScore <= -0.08) {
+    overallCondition = 'CONTRACTIONARY';
+  } else if (totalScore !== 0) {
+    overallCondition = 'MIXED';
+  } else {
+    overallCondition = 'NEUTRAL';
+  }
 
   return {
     monetaryPolicy,
@@ -187,7 +244,16 @@ export function evaluateCurrencyFundamentals(
     tradeExternalBalance,
     commodityExposure,
     overallCondition,
-    fundamentalScore: totalScore,
-    scoreFormula
+    /*
+     * MISSING is represented as null, never as 0. A zero score is only
+     * returned when real evidence exists and genuinely nets out to zero.
+     */
+    fundamentalScore: evidenceExists ? totalScore : null,
+    scoreFormula:
+      evidenceExists || missingComponents.length === scoredComponents.length
+        ? scoreFormula
+        : `${scoreFormula}. Unavailable inputs: ${missingComponents
+            .map((component) => component.name)
+            .join(', ')}.`
   };
 }

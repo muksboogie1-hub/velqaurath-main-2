@@ -463,16 +463,22 @@ export class DataStore {
     let topPairToWatch: PairIntelligence | null = null;
 
     if (allIntelligences.length > 0 && this.state.isDataFeedConnected) {
-      const validPairsWithDelta = allIntelligences.filter(
-        (p) => p.relativeStrengthDelta !== null && p.orientationDirection !== 'DATA_UNAVAILABLE'
+      /*
+       * A pair is eligible to be a top watch only when it has a real
+       * directional orientation. Missing market evidence does not disqualify
+       * a pair that has independently verified macro/policy evidence, and a
+       * missing relative-strength delta is never treated as 0.00.
+       */
+      const validPairs = allIntelligences.filter(
+        (p) => p.orientationDirection !== 'DATA_UNAVAILABLE'
       );
-      if (validPairsWithDelta.length > 0) {
-        const sorted = [...validPairsWithDelta].sort((a, b) => {
+      if (validPairs.length > 0) {
+        const sorted = [...validPairs].sort((a, b) => {
           const confA = a.confluence?.confluenceScore ?? 0;
           const confB = b.confluence?.confluenceScore ?? 0;
           if (confB !== confA) return confB - confA;
-          const deltaA = Math.abs(a.relativeStrengthDelta ?? 0);
-          const deltaB = Math.abs(b.relativeStrengthDelta ?? 0);
+          const deltaA = a.relativeStrengthDelta === null ? -1 : Math.abs(a.relativeStrengthDelta);
+          const deltaB = b.relativeStrengthDelta === null ? -1 : Math.abs(b.relativeStrengthDelta);
           return deltaB - deltaA;
         });
         topPairToWatch = sorted[0];

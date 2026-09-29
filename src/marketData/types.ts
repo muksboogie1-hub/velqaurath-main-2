@@ -97,7 +97,7 @@ export interface PairContribution {
   pairReturnPercent: number;
   role: PairRole;
   signedContribution: number;
-  timestamp: number;
+  timestamp: number | null;
 }
 
 export interface CurrencyCoverageInfo {

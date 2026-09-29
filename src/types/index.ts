@@ -5,6 +5,7 @@ import {
   StrengthClassification
 } from '../marketData/types';
 import {
+  CurrencyFundamentalIntelligence,
   FundamentalDataStatus,
   FundamentalDifferential,
   FundamentalDatasetMode
@@ -84,7 +85,7 @@ export type CurrencyPair = Pair;
 export interface CentralBankSourceMetadata {
   sourceName: string;
   sourceUrl: string;
-  lastUpdated: string;
+  lastUpdated: string | null;
   status: 'CONNECTED' | 'NOT_CONNECTED';
 }
 
@@ -106,12 +107,20 @@ export interface CentralBank {
   sourceMetadata: CentralBankSourceMetadata;
   source?: string;
   sourceUrl?: string;
-  fetchedTimestamp?: string;
+  fetchedTimestamp?: string | null;
+  contextualFetchedAt?: string | null;
   dataStatus?: FundamentalDataStatus;
   provenance?: string;
   sourceType?: 'LIVE' | 'REFERENCE' | 'STATIC' | 'UNAVAILABLE';
   freshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE' | 'REFERENCE';
   dataSourceMode?: 'LIVE' | 'REFERENCE' | 'STATIC' | 'UNAVAILABLE';
+  contextualPolicyRate?: number | null;
+  contextualStance?: CentralBankStance | null;
+  contextualDecisionDate?: string | null;
+  policyAvailability?: 'AVAILABLE' | 'PARTIAL' | 'REFERENCE_ONLY' | 'UNAVAILABLE';
+  policyProvenance?: 'LIVE' | 'REFERENCE' | 'STATIC' | 'BENCHMARK' | 'DERIVED' | 'UNAVAILABLE';
+  policyFreshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE';
+  fundamentalDataFreshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE';
 }
 
 export type CentralBankPolicy = CentralBank;
@@ -255,6 +264,7 @@ export interface CurrencyState {
   marketState: StrengthClassification;
   classification?: StrengthClassification;
   marketDataFreshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE';
+  fundamentalDataFreshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE';
   marketDataSource?: string;
   coverage?: any;
   relativeStrengthBreakdown: RelativeStrengthBreakdown;
@@ -353,6 +363,7 @@ export interface ConfluenceAssessment {
   availableComponents?: string[];
   missingComponents?: string[];
   staleComponents?: string[];
+  agingComponents?: string[];
   referenceOnlyComponents?: string[];
   dataQualityAdjustment: {
     factor: number;
@@ -404,6 +415,14 @@ export interface PairIntelligence {
   watchWindow: WatchWindow;
   dataQuality: string;
   freshness: string;
+  marketEvidenceState?: 'AVAILABLE' | 'STALE' | 'UNAVAILABLE';
+  evidenceFreshness?: {
+    market?: 'AVAILABLE' | 'STALE' | 'UNAVAILABLE';
+    fundamental?: 'AVAILABLE' | 'STALE' | 'UNAVAILABLE';
+    policy?: 'AVAILABLE' | 'STALE' | 'UNAVAILABLE';
+    catalysts?: 'AVAILABLE' | 'STALE' | 'UNAVAILABLE';
+    session?: 'AVAILABLE' | 'STALE' | 'UNAVAILABLE';
+  };
   confidence: DirectionalConfidenceLevel;
   lastUpdated: string;
   sources: { name: string; url: string; classification: ObservationClassification }[];
@@ -476,6 +495,7 @@ export interface DashboardPayload {
   economicCalendar: EconomicEvent[];
   dataSources: DataSource[];
   marketProviderStatus: ProviderStatus;
+  currencyIntelligence?: CurrencyFundamentalIntelligence[];
   fundamentalProviderStatus?: FundamentalProviderStatus;
   fundamentalDatasetMode?: FundamentalDatasetMode;
   marketQuotes?: MarketQuote[];

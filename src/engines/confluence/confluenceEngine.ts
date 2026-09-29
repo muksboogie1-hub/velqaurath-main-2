@@ -26,6 +26,7 @@ import {
 } from '../../types';
 import { getPairSessionRelevance } from '../session/sessionEngine';
 import { getActiveSessionOverview } from '../../data/sessions';
+import { LivePolicyEvidence } from '../../fundamentals/engine/policyEvidence';
 
 export interface ConfluenceEngineParams {
   pair: CurrencyPair;
@@ -39,6 +40,18 @@ export interface ConfluenceEngineParams {
   fundamentalDataTimestamp?: string | null;
   date?: Date;
   isDataFeedConnected?: boolean;
+  /**
+   * Verified live policy evidence per currency leg. Supplied when the live
+   * fundamental feed published a monetary-policy release, because the static
+   * central-bank record alone is contextual and never earns live points.
+   */
+  basePolicyEvidence?: LivePolicyEvidence | null;
+  quotePolicyEvidence?: LivePolicyEvidence | null;
+  /**
+   * Truthful market evidence state resolved by the caller from provider
+   * coverage/snapshot health. Distinguishes STALE from a disconnected feed.
+   */
+  marketEvidenceState?: 'AVAILABLE' | 'STALE' | 'UNAVAILABLE';
 }
 
 export function calculatePairConfluence(params: ConfluenceEngineParams): ConfluenceAssessment {
@@ -53,30 +66,41 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     marketDataTimestamp = null,
     fundamentalDataTimestamp = null,
     date = new Date(),
-    isDataFeedConnected = true
+    isDataFeedConnected = true,
+    basePolicyEvidence = null,
+    quotePolicyEvidence = null,
+    marketEvidenceState
   } = params;
 
   const nowIso = new Date().toISOString();
 
-  // Edge Case: Feeds disconnected or market data unavailable
-  if (
-    !isDataFeedConnected ||
-    baseState.overallState === 'DATA_UNAVAILABLE' ||
-    quoteState.overallState === 'DATA_UNAVAILABLE' ||
-    relativeStrengthDelta === null ||
-    orientationDirection === 'DATA_UNAVAILABLE'
-  ) {
-    const emptyComponent = (name: string, maxPoints: number, weight: number): ConfluenceComponent => ({
+  /*
+   * EVIDENCE LAYER INDEPENDENCE
+   *
+   * Only a fully disconnected data pipeline (every feed off) can invalidate the
+   * whole assessment. A missing or stale MARKET layer no longer discards live
+   * fundamental, policy, expectations, catalyst or session evidence, and the
+   * score is never renormalized to hide the missing market points.
+   */
+  if (!isDataFeedConnected) {
+    const emptyComponent = (
+      name: string,
+      maxPoints: number,
+      weight: number
+    ): ConfluenceComponent => ({
       points: 0,
       maxPoints,
       weightPercent: weight,
-      explanation: `${name} evidence unavailable: awaiting active market and fundamental feeds.`
+      availability: 'UNAVAILABLE',
+      evidenceCount: 0,
+      freshness: 'UNAVAILABLE',
+      explanation: `${name} evidence unavailable: the verified data pipeline is disconnected.`
     });
 
     return {
       confluenceScore: 0,
       directionalConfidence: 'DATA_UNAVAILABLE',
-      direction: 'DATA_UNAVAILABLE',
+      direction: orientationDirection,
       components: {
         marketStrength: emptyComponent('Market Strength', 25, 25),
         fundamentals: emptyComponent('Macro Fundamentals', 20, 20),
@@ -100,7 +124,8 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
         reason: 'Verified data feeds are disconnected or awaiting provider initialization.'
       },
       rawScoreBeforeAdjustments: 0,
-      explanation: 'DATA UNAVAILABLE: Connect verified data providers to calculate transparent confluence.',
+      explanation:
+        'DATA UNAVAILABLE: The verified data pipeline is disconnected, so no evidence layer can be scored. Maximum possible score remains 100; no points are awarded.',
       calculatedAt: nowIso,
       marketDataTimestamp,
       fundamentalDataTimestamp,
@@ -108,47 +133,80 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     };
   }
 
+
   // ----------------------------------------------------
   // COMPONENT 1: MARKET STRENGTH CONTRIBUTION (Weight: 25 pts)
   // Evaluates signed percentage-based divergence between BASE and QUOTE relative movements.
+  // The market layer is evaluated INDEPENDENTLY. When it is unavailable the 25
+  // available points stay unearned; they are never redistributed or reweighted.
   // ----------------------------------------------------
   const baseCoverage = baseState.relativeStrengthBreakdown?.coverage;
   const quoteCoverage = quoteState.relativeStrengthBreakdown?.coverage;
-  const baseMkt = baseState.marketStrength ?? 0;
-  const quoteMkt = quoteState.marketStrength ?? 0;
+  const baseMkt = baseState.marketStrength ?? null;
+  const quoteMkt = quoteState.marketStrength ?? null;
   const delta = relativeStrengthDelta;
-  const absDelta = Math.abs(delta);
+  const marketHasValue = delta !== null && baseMkt !== null && quoteMkt !== null;
+  const absDelta = delta === null ? null : Math.abs(delta);
+  const baseStalePairs = baseCoverage?.stalePairs?.length ?? 0;
+  const quoteStalePairs = quoteCoverage?.stalePairs?.length ?? 0;
+  const baseMissingPairs = baseCoverage?.missingPairs?.length ?? 0;
+  const quoteMissingPairs = quoteCoverage?.missingPairs?.length ?? 0;
 
   let mktPoints = 0;
   let mktExplanation = '';
+  let mktAvailability: ConfluenceComponentAvailability = 'AVAILABLE';
+  let mktFreshness: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE' = 'UNAVAILABLE';
 
   const isBullishBase = orientationDirection === 'BULLISH_BASE';
   const isBearishBase = orientationDirection === 'BEARISH_BASE';
 
-  // Check if delta reinforces the direction
-  const deltaAligns =
-    (isBullishBase && delta > 0) || (isBearishBase && delta < 0);
-
-  if (deltaAligns) {
-    if (absDelta >= 0.30) {
-      mktPoints = 25;
-      mktExplanation = `Strong relative basket divergence (Δ = ${delta >= 0 ? '+' : ''}${delta.toFixed(2)}% ≥ 0.30%): Base ${pair.baseCurrency} (${baseMkt >= 0 ? '+' : ''}${baseMkt.toFixed(2)}%) decisively outpaces Quote ${pair.quoteCurrency} (${quoteMkt >= 0 ? '+' : ''}${quoteMkt.toFixed(2)}%).`;
-    } else if (absDelta >= 0.20) {
-      mktPoints = 22;
-      mktExplanation = `Substantial relative basket divergence (Δ = ${delta >= 0 ? '+' : ''}${delta.toFixed(2)}% ≥ 0.20%): ${pair.baseCurrency} (${baseMkt >= 0 ? '+' : ''}${baseMkt.toFixed(2)}%) vs ${pair.quoteCurrency} (${quoteMkt >= 0 ? '+' : ''}${quoteMkt.toFixed(2)}%).`;
-    } else if (absDelta >= 0.10) {
-      mktPoints = 18;
-      mktExplanation = `Confirmed relative divergence crossing key threshold (Δ = ${delta >= 0 ? '+' : ''}${delta.toFixed(2)}% ≥ 0.10%): ${pair.baseCurrency} (${baseMkt >= 0 ? '+' : ''}${baseMkt.toFixed(2)}%) vs ${pair.quoteCurrency} (${quoteMkt >= 0 ? '+' : ''}${quoteMkt.toFixed(2)}%).`;
-    } else if (absDelta >= 0.05) {
-      mktPoints = 12;
-      mktExplanation = `Moderate relative divergence (Δ = ${delta >= 0 ? '+' : ''}${delta.toFixed(2)}%): ${pair.baseCurrency} (${baseMkt >= 0 ? '+' : ''}${baseMkt.toFixed(2)}%) vs ${pair.quoteCurrency} (${quoteMkt >= 0 ? '+' : ''}${quoteMkt.toFixed(2)}%).`;
-    } else {
-      mktPoints = 6;
-      mktExplanation = `Tight relative divergence (Δ = ${delta >= 0 ? '+' : ''}${delta.toFixed(2)}%): limited directional separation between ${pair.baseCurrency} and ${pair.quoteCurrency}.`;
-    }
-  } else {
+  if (!marketHasValue) {
+    /*
+     * Market strength is genuinely missing. Zero points, maximum stays 25 so the
+     * denominator remains honest, and the explanation states the real reason.
+     */
     mktPoints = 0;
-    mktExplanation = `Neutral market strength differential (Δ = ${delta >= 0 ? '+' : ''}${delta.toFixed(2)}%): price action is balanced across the basket.`;
+    mktAvailability = 'UNAVAILABLE';
+    mktFreshness = 'UNAVAILABLE';
+    mktExplanation =
+      marketEvidenceState === 'STALE'
+        ? 'Market Strength UNAVAILABLE (STALE QUOTES): the provider returned only stale FX quotes, so no current relative-strength differential can be computed. The 25 market points remain unearned and are not redistributed to other layers.'
+        : 'Market Strength UNAVAILABLE: no current FX quote evidence is available for this pair. The 25 market points remain unearned and are not redistributed to other layers.';
+  } else {
+    const hasStaleQuotes = baseStalePairs > 0 || quoteStalePairs > 0;
+    const hasMissingQuotes = baseMissingPairs > 0 || quoteMissingPairs > 0;
+    mktFreshness = hasStaleQuotes ? 'AGING' : 'FRESH';
+    mktAvailability = hasStaleQuotes || hasMissingQuotes ? 'PARTIAL' : 'AVAILABLE';
+
+    // Check if delta reinforces the direction
+    const deltaAligns =
+      (isBullishBase && delta! > 0) || (isBearishBase && delta! < 0);
+
+    if (deltaAligns) {
+      if (absDelta! >= 0.30) {
+        mktPoints = 25;
+        mktExplanation = `Strong relative basket divergence (Δ = ${delta! >= 0 ? '+' : ''}${delta!.toFixed(2)}% ≥ 0.30%): Base ${pair.baseCurrency} (${baseMkt! >= 0 ? '+' : ''}${baseMkt!.toFixed(2)}%) decisively outpaces Quote ${pair.quoteCurrency} (${quoteMkt! >= 0 ? '+' : ''}${quoteMkt!.toFixed(2)}%).`;
+      } else if (absDelta! >= 0.20) {
+        mktPoints = 22;
+        mktExplanation = `Substantial relative basket divergence (Δ = ${delta! >= 0 ? '+' : ''}${delta!.toFixed(2)}% ≥ 0.20%): ${pair.baseCurrency} (${baseMkt! >= 0 ? '+' : ''}${baseMkt!.toFixed(2)}%) vs ${pair.quoteCurrency} (${quoteMkt! >= 0 ? '+' : ''}${quoteMkt!.toFixed(2)}%).`;
+      } else if (absDelta! >= 0.10) {
+        mktPoints = 18;
+        mktExplanation = `Confirmed relative divergence crossing key threshold (Δ = ${delta! >= 0 ? '+' : ''}${delta!.toFixed(2)}% ≥ 0.10%): ${pair.baseCurrency} (${baseMkt! >= 0 ? '+' : ''}${baseMkt!.toFixed(2)}%) vs ${pair.quoteCurrency} (${quoteMkt! >= 0 ? '+' : ''}${quoteMkt!.toFixed(2)}%).`;
+      } else if (absDelta! >= 0.05) {
+        mktPoints = 12;
+        mktExplanation = `Moderate relative divergence (Δ = ${delta! >= 0 ? '+' : ''}${delta!.toFixed(2)}%): ${pair.baseCurrency} (${baseMkt! >= 0 ? '+' : ''}${baseMkt!.toFixed(2)}%) vs ${pair.quoteCurrency} (${quoteMkt! >= 0 ? '+' : ''}${quoteMkt!.toFixed(2)}%).`;
+      } else {
+        mktPoints = 6;
+        mktExplanation = `Tight relative divergence (Δ = ${delta! >= 0 ? '+' : ''}${delta!.toFixed(2)}%): limited directional separation between ${pair.baseCurrency} and ${pair.quoteCurrency}.`;
+      }
+    } else {
+      mktPoints = 0;
+      mktExplanation = `Neutral market strength differential (Δ = ${delta! >= 0 ? '+' : ''}${delta!.toFixed(2)}%): price action is balanced across the basket.`;
+    }
+
+    if (hasStaleQuotes) {
+      mktExplanation += ` WARNING: ${baseStalePairs + quoteStalePairs} contributing quote(s) are stale and were excluded from the basket.`;
+    }
   }
 
   const marketStrengthComponent: ConfluenceComponent = {
@@ -156,19 +214,26 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     maxPoints: 25,
     weightPercent: 25,
     explanation: mktExplanation,
-    availability: baseMkt === null && quoteMkt === null ? 'UNAVAILABLE' : 'AVAILABLE',
-    evidenceCount: (baseCoverage?.available ?? 0) + (quoteCoverage?.available ?? 0),
+    availability: mktAvailability,
+    evidenceCount: marketHasValue
+      ? (baseCoverage?.available ?? 0) + (quoteCoverage?.available ?? 0)
+      : 0,
     source: 'Biquote',
-    freshness: (baseCoverage?.stalePairs?.length ?? 0) > 0 || (quoteCoverage?.stalePairs?.length ?? 0) > 0 ? 'AGING' : 'FRESH',
-    provenance: 'Biquote live market basket relative strength calculation',
+    freshness: mktFreshness,
+    provenance: marketHasValue
+      ? 'Biquote live market basket relative strength calculation'
+      : 'No current timestamped market evidence',
     supportingData: {
       baseCurrency: pair.baseCurrency,
       quoteCurrency: pair.quoteCurrency,
       baseDailyMovementPercent: baseMkt,
       quoteDailyMovementPercent: quoteMkt,
-      relativeStrengthDeltaPercent: delta
+      relativeStrengthDeltaPercent: delta,
+      stalePairCount: baseStalePairs + quoteStalePairs,
+      missingPairCount: baseMissingPairs + quoteMissingPairs
     }
   };
+
 
   // ----------------------------------------------------
   // COMPONENT 2: FUNDAMENTAL DIFFERENTIAL CONTRIBUTION (Weight: 20 pts)
@@ -202,10 +267,23 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     fundFreshness = 'UNAVAILABLE';
     fundExplanation = 'No verified live macro observations available for this comparison.';
   } else {
+    /*
+     * Freshness is taken from the resolved fundamental evidence layer. It is
+     * never assumed from a successful request or a connected provider.
+     */
+    const reportedFreshness =
+      baseState.fundamentalDataFreshness ?? quoteState.fundamentalDataFreshness ?? null;
     fundFreshness =
-      baseState.confidenceMetadata?.dataStatus === 'CONNECTED' || quoteState.confidenceMetadata?.dataStatus === 'CONNECTED'
-        ? 'FRESH'
-        : 'STALE';
+      reportedFreshness === 'FRESH' || reportedFreshness === 'AGING' || reportedFreshness === 'STALE'
+        ? reportedFreshness
+        : totalObsCount > 0
+        ? 'AGING'
+        : 'UNAVAILABLE';
+    if (fundFreshness === 'STALE') {
+      fundAvailability = 'PARTIAL';
+      fundExplanation =
+        'Macro fundamental observations exist but are stale; they remain historical context only.';
+    }
 
     const fundAligns =
       (isBullishBase && fundDelta > 0) || (isBearishBase && fundDelta < 0);
@@ -232,6 +310,11 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
       fundPoints = 0;
       fundExplanation = `Fundamentals contradict the thesis: Macro fundamentals conflict with current directional skew (Fund Δ = ${fundDelta >= 0 ? '+' : ''}${fundDelta.toFixed(2)}).`;
     }
+
+    if (fundFreshness === 'STALE') {
+      fundPoints = Math.min(fundPoints, 12);
+      fundExplanation += ' Observation freshness is degraded, so the awarded points are capped.';
+    }
   }
 
   const fundamentalsComponent: ConfluenceComponent = {
@@ -254,21 +337,47 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
   // ----------------------------------------------------
   // COMPONENT 3: CENTRAL BANK POLICY & CARRY SPREAD (Weight: 20 pts)
   // Nominal policy rate spread (max 12 pts) + Stance divergence (max 8 pts).
+  //
+  // Policy evidence may come from a verified LIVE central-bank record OR from a
+  // verified, source-bound monetary-policy release published by the live
+  // fundamental feed. Reference/static benchmarks never earn live points.
   // ----------------------------------------------------
   const baseCb = baseState.centralBank;
   const quoteCb = quoteState.centralBank;
-  const baseRate = baseCb?.currentPolicyRate ?? null;
-  const quoteRate = quoteCb?.currentPolicyRate ?? null;
-  const baseStance = baseCb?.stance ?? 'UNAVAILABLE';
-  const quoteStance = quoteCb?.stance ?? 'UNAVAILABLE';
+
+  const releasePolicyFor = (
+    evidence: LivePolicyEvidence | null | undefined
+  ): LivePolicyEvidence | null =>
+    evidence && evidence.availability === 'AVAILABLE' && evidence.policyRate !== null
+      ? evidence
+      : null;
+
+  const baseReleasePolicy = releasePolicyFor(basePolicyEvidence);
+  const quoteReleasePolicy = releasePolicyFor(quotePolicyEvidence);
 
   // Determine source type for both central banks
-  const baseSourceType =
-    baseCb?.sourceType ??
-    (baseCb?.sourceMetadata?.status === 'CONNECTED' ? 'LIVE' : 'REFERENCE');
-  const quoteSourceType =
-    quoteCb?.sourceType ??
-    (quoteCb?.sourceMetadata?.status === 'CONNECTED' ? 'LIVE' : 'REFERENCE');
+  const baseSourceType = baseReleasePolicy
+    ? 'LIVE'
+    : baseCb?.sourceType ??
+      (baseCb?.sourceMetadata?.status === 'CONNECTED' ? 'LIVE' : 'REFERENCE');
+  const quoteSourceType = quoteReleasePolicy
+    ? 'LIVE'
+    : quoteCb?.sourceType ??
+      (quoteCb?.sourceMetadata?.status === 'CONNECTED' ? 'LIVE' : 'REFERENCE');
+
+  const baseRate = baseReleasePolicy
+    ? baseReleasePolicy.policyRate
+    : baseCb?.currentPolicyRate ?? null;
+  const quoteRate = quoteReleasePolicy
+    ? quoteReleasePolicy.policyRate
+    : quoteCb?.currentPolicyRate ?? null;
+
+  const baseStance = baseReleasePolicy
+    ? baseReleasePolicy.stance
+    : baseCb?.stance ?? 'UNAVAILABLE';
+  const quoteStance = quoteReleasePolicy
+    ? quoteReleasePolicy.stance
+    : quoteCb?.stance ?? 'UNAVAILABLE';
 
   let policySpread: number | null = null;
   if (baseRate !== null && quoteRate !== null) {
@@ -302,21 +411,30 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     (isBullishBase && (baseStance === 'HAWKISH' || quoteStance === 'DOVISH')) ||
     (isBearishBase && (quoteStance === 'HAWKISH' || baseStance === 'DOVISH'));
 
-  if (stanceAligns) {
-    stancePoints = 8;
-  } else if (stanceModerate) {
-    stancePoints = 5;
-  } else if (baseStance === 'NEUTRAL' && quoteStance === 'NEUTRAL') {
-    stancePoints = 2;
-  } else {
-    stancePoints = 0;
+  /*
+   * Stance points require an actual stance on both legs. An unknown stance is
+   * missing evidence, not a neutral stance, and earns nothing.
+   */
+  const stanceIsKnown =
+    baseStance !== 'UNAVAILABLE' && quoteStance !== 'UNAVAILABLE';
+
+  if (stanceIsKnown) {
+    if (stanceAligns) {
+      stancePoints = 8;
+    } else if (stanceModerate) {
+      stancePoints = 5;
+    } else if (baseStance === 'NEUTRAL' && quoteStance === 'NEUTRAL') {
+      stancePoints = 2;
+    } else {
+      stancePoints = 0;
+    }
   }
 
   const rawPolicyPoints = carryPoints + stancePoints;
 
   let policyPoints = 0;
   let policyAvailability: ConfluenceComponentAvailability = 'AVAILABLE';
-  let policyFreshness: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE' | 'REFERENCE' = 'FRESH';
+  let policyFreshness: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE' | 'REFERENCE' = 'UNAVAILABLE';
   let policySource = 'Official central-bank wire';
   let policyProvenance = 'Live official central bank policy rate announcements';
   let policyExplanation = '';
@@ -325,7 +443,9 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     policySpread !== null
       ? `Policy carry spread: ${policySpread >= 0 ? '+' : ''}${policySpread.toFixed(2)}% (${carryPoints}/12 pts).`
       : 'Policy rate data unavailable.';
-  const stanceText = `Monetary posture: ${baseCb?.institution || pair.baseCurrency} (${baseStance}) vs ${quoteCb?.institution || pair.quoteCurrency} (${quoteStance}) (${stancePoints}/8 pts).`;
+  const stanceText = stanceIsKnown
+    ? `Monetary posture: ${baseReleasePolicy?.institution || baseCb?.institution || pair.baseCurrency} (${baseStance}) vs ${quoteReleasePolicy?.institution || quoteCb?.institution || pair.quoteCurrency} (${quoteStance}) (${stancePoints}/8 pts).`
+    : `Monetary posture: stance direction is not established by current evidence for at least one leg (${stancePoints}/8 pts).`;
 
   if (
     baseSourceType === 'UNAVAILABLE' ||
@@ -354,11 +474,25 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     policyProvenance = 'Official central-bank benchmark archive (REFERENCE)';
     policyExplanation = `${carryText} ${stanceText} [REFERENCE_ONLY: Historical policy benchmarks provide contextual baseline; zero live points awarded].`;
   } else {
-    // Both are LIVE
+    // Both legs carry current, verified policy evidence.
     policyAvailability = 'AVAILABLE';
     policyPoints = rawPolicyPoints;
-    policyFreshness =
-      baseCb?.freshness === 'STALE' || quoteCb?.freshness === 'STALE' ? 'STALE' : 'FRESH';
+    const policyFreshnessValues = [
+      baseReleasePolicy?.freshness ?? baseCb?.freshness ?? null,
+      quoteReleasePolicy?.freshness ?? quoteCb?.freshness ?? null
+    ];
+    policyFreshness = policyFreshnessValues.includes('STALE')
+      ? 'STALE'
+      : policyFreshnessValues.includes('AGING')
+      ? 'AGING'
+      : policyFreshnessValues.includes('FRESH')
+      ? 'FRESH'
+      : 'UNAVAILABLE';
+    if (baseReleasePolicy || quoteReleasePolicy) {
+      policyProvenance =
+        'Verified monetary-policy releases from the live fundamental feed';
+      policySource = baseReleasePolicy?.source || quoteReleasePolicy?.source || 'Finance Calendar';
+    }
     policyExplanation = `${carryText} ${stanceText}`;
   }
 
@@ -386,6 +520,9 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
   // ----------------------------------------------------
   // COMPONENT 4: MACRO EXPECTATIONS & SURPRISES (Weight: 15 pts)
   // Economic indicator consensus surprise momentum.
+  //
+  // Points are derived from REAL, counted surprises. A prose summary that
+  // merely mentions a currency code is never treated as directional evidence.
   // ----------------------------------------------------
   const baseObs = baseObsCount;
   const quoteObs = quoteObsCount;
@@ -394,30 +531,50 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
   let expPoints = 0;
   let expExplanation = '';
   let expAvailability: ConfluenceComponentAvailability = 'AVAILABLE';
-  let expFreshness: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE' = 'FRESH';
+  let expFreshness: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE' = 'UNAVAILABLE';
   let expEvidenceCount = baseObs + quoteObs;
 
-  if (expDiff?.comparison) {
+  const baseAbove = expDiff?.baseAboveCount ?? 0;
+  const baseBelow = expDiff?.baseBelowCount ?? 0;
+  const quoteAbove = expDiff?.quoteAboveCount ?? 0;
+  const quoteBelow = expDiff?.quoteBelowCount ?? 0;
+  const baseNet = baseAbove - baseBelow;
+  const quoteNet = quoteAbove - quoteBelow;
+  const hasRealizedSurprise = baseAbove + baseBelow + quoteAbove + quoteBelow > 0;
+
+  if (hasRealizedSurprise) {
     expAvailability = 'AVAILABLE';
-    expFreshness = 'FRESH';
-    if (
-      (isBullishBase && expDiff.comparison.includes(pair.baseCurrency)) ||
-      (isBearishBase && expDiff.comparison.includes(pair.quoteCurrency))
-    ) {
+    const directionalEdge = baseNet - quoteNet;
+
+    if (isBullishBase && directionalEdge > 0) {
       expPoints = 14;
-      expExplanation = `Economic surprises favor the directional thesis: ${expDiff.comparison}`;
-    } else if (expDiff.comparison.includes('balanced') || expDiff.comparison.includes('cross-cutting')) {
+      expExplanation = `Verified economic surprises favor ${pair.baseCurrency} (${pair.baseCurrency} net ${baseNet >= 0 ? '+' : ''}${baseNet} vs ${pair.quoteCurrency} net ${quoteNet >= 0 ? '+' : ''}${quoteNet}).`;
+    } else if (isBearishBase && directionalEdge < 0) {
+      expPoints = 14;
+      expExplanation = `Verified economic surprises favor ${pair.quoteCurrency} (${pair.baseCurrency} net ${baseNet >= 0 ? '+' : ''}${baseNet} vs ${pair.quoteCurrency} net ${quoteNet >= 0 ? '+' : ''}${quoteNet}).`;
+    } else if (directionalEdge === 0) {
       expPoints = 7;
-      expExplanation = `Economic surprises are neutral or cross-cutting: ${expDiff.comparison}`;
+      expExplanation = `Verified economic surprises are balanced between ${pair.baseCurrency} and ${pair.quoteCurrency} (both net 0).`;
     } else {
       expPoints = 2;
-      expExplanation = `Recent economic surprises lean against current price action: ${expDiff.comparison}`;
+      expExplanation = `Verified economic surprises lean against the current directional skew (${pair.baseCurrency} net ${baseNet >= 0 ? '+' : ''}${baseNet} vs ${pair.quoteCurrency} net ${quoteNet >= 0 ? '+' : ''}${quoteNet}).`;
     }
+
+    expFreshness =
+      baseState.fundamentalDataFreshness === 'STALE' || quoteState.fundamentalDataFreshness === 'STALE'
+        ? 'STALE'
+        : 'FRESH';
   } else if (totalObsCount > 0) {
+    /*
+     * Observations exist but none carry a realized consensus surprise.
+     * That is incomplete evidence, not neutral evidence. Only a limited
+     * verification credit is awarded for confirmed coverage; the layer is
+     * never treated as directional support for the thesis.
+     */
     expAvailability = 'PARTIAL';
     expFreshness = 'AGING';
     expPoints = 5;
-    expExplanation = `Macroeconomic observation coverage verified across ${totalObsCount} releases; no consensus surprise differential available.`;
+    expExplanation = `Macroeconomic observation coverage verified across ${totalObsCount} releases, but no release carries a realized consensus surprise; no directional expectation points are awarded and this layer is not treated as support.`;
   } else {
     // Missing! Zero points awarded!
     expPoints = 0;
@@ -555,6 +712,15 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     }
   };
 
+  const allComponentsForSummary = [
+    { name: 'Market Strength', comp: marketStrengthComponent },
+    { name: 'Fundamentals', comp: fundamentalsComponent },
+    { name: 'Policy', comp: policyComponent },
+    { name: 'Expectations', comp: expectationsComponent },
+    { name: 'Session', comp: sessionComponent },
+    { name: 'Catalysts', comp: catalystsComponent }
+  ];
+
   // ----------------------------------------------------
   // CONTRADICTION PENALTY (Deductions: 0 to -30 pts)
   // Penalizes opposing evidence, market-fundamental divergence, or carry conflicts.
@@ -562,8 +728,12 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
   let contradictionPenalty = 0;
   const contradictionReasons: string[] = [];
 
-  // 1. Price Momentum vs Fundamental Divergence
-  if (fundDelta !== null) {
+  /*
+   * 1. Price Momentum vs Fundamental Divergence
+   * This check requires BOTH sides of the conflict to exist. A macro-derived
+   * orientation is not evidence of price momentum.
+   */
+  if (fundDelta !== null && marketHasValue) {
     if (isBullishBase && fundDelta < -0.04) {
       contradictionPenalty += 15;
       contradictionReasons.push(
@@ -577,16 +747,19 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     }
   }
 
-  // 2. Policy Stance / Carry Conflict
-  if (isBullishBase && baseStance === 'DOVISH') {
+  // 2. Policy Stance / Carry Conflict (requires verified policy evidence)
+  const policyInstitutionFor = (releasePolicy: LivePolicyEvidence | null, cb: typeof baseCb) =>
+    releasePolicy?.institution || cb?.institution || '';
+
+  if (policyAvailability === 'AVAILABLE' && isBullishBase && baseStance === 'DOVISH') {
     contradictionPenalty += 8;
     contradictionReasons.push(
-      `Monetary Policy Conflict: ${baseState.centralBank.institution} is actively pursuing monetary accommodation (DOVISH), conflicting with bullish orientation.`
+      `Monetary Policy Conflict: ${policyInstitutionFor(baseReleasePolicy, baseCb)} is actively pursuing monetary accommodation (DOVISH), conflicting with bullish orientation.`
     );
-  } else if (isBearishBase && quoteStance === 'DOVISH') {
+  } else if (policyAvailability === 'AVAILABLE' && isBearishBase && quoteStance === 'DOVISH') {
     contradictionPenalty += 8;
     contradictionReasons.push(
-      `Monetary Policy Conflict: ${quoteState.centralBank.institution} is actively pursuing monetary accommodation (DOVISH), conflicting with bearish orientation.`
+      `Monetary Policy Conflict: ${policyInstitutionFor(quoteReleasePolicy, quoteCb)} is actively pursuing monetary accommodation (DOVISH), conflicting with bearish orientation.`
     );
   } else if (policySpread !== null) {
     if (isBullishBase && policySpread < -2.0) {
@@ -613,18 +786,45 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
 
   // ----------------------------------------------------
   // DATA QUALITY ADJUSTMENT FACTOR (0.50 to 1.00 multiplier)
+  //
+  // The adjustment reflects real evidence gaps. It NEVER redistributes the
+  // points of an unavailable layer: the denominator stays 100 and an
+  // unavailable layer simply remains unearned.
   // ----------------------------------------------------
   let qualityFactor = 1.0;
   let qualityStatus: 'COMPLETE' | 'PARTIAL' | 'DEGRADED' | 'UNAVAILABLE' = 'COMPLETE';
   let qualityReason = 'Full pair basket quotes and verified macroeconomic datasets active.';
 
+  const anyEvidenceLayerAvailable =
+    marketStrengthComponent.availability === 'AVAILABLE' ||
+    marketStrengthComponent.availability === 'PARTIAL' ||
+    fundamentalsComponent.availability === 'AVAILABLE' ||
+    fundamentalsComponent.availability === 'PARTIAL' ||
+    policyComponent.availability === 'AVAILABLE' ||
+    expectationsComponent.availability === 'AVAILABLE' ||
+    expectationsComponent.availability === 'PARTIAL' ||
+    catalystsComponent.availability === 'AVAILABLE';
+
   const isDegraded =
     baseState.overallState === 'INSUFFICIENT_COVERAGE' ||
     quoteState.overallState === 'INSUFFICIENT_COVERAGE' ||
-    (baseCoverage?.stalePairs?.length ?? 0) > 0 ||
-    (quoteCoverage?.stalePairs?.length ?? 0) > 0;
+    !marketHasValue ||
+    baseStalePairs > 0 ||
+    quoteStalePairs > 0;
 
-  if (isDegraded) {
+  if (!anyEvidenceLayerAvailable) {
+    qualityFactor = 0.0;
+    qualityStatus = 'UNAVAILABLE';
+    qualityReason =
+      'No verified evidence layer is available for this pair; no points can be earned.';
+  } else if (!marketHasValue) {
+    qualityFactor = 0.75;
+    qualityStatus = 'DEGRADED';
+    qualityReason =
+      marketEvidenceState === 'STALE'
+        ? 'Market quotes are stale, so the 25 market-strength points are unearned. Remaining macro and context layers are scored at 0.75×; the denominator stays 100.'
+        : 'Live market strength is unavailable, so the 25 market-strength points are unearned. Remaining macro and context layers are scored at 0.75×; the denominator stays 100.';
+  } else if (isDegraded) {
     qualityFactor = 0.75;
     qualityStatus = 'DEGRADED';
     qualityReason = 'Partial or stale pair quotes in relative basket. Confluence adjusted by 0.75×.';
@@ -638,7 +838,7 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
   }
 
   // ----------------------------------------------------
-  // TOTAL CALCULATION
+  // TOTAL CALCULATION (denominator always 100, never renormalized)
   // ----------------------------------------------------
   const rawSum =
     mktPoints +
@@ -648,12 +848,13 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     sessionPoints +
     catalystPoints;
 
+  const maxAvailablePoints = 100;
   const scoreAfterPenalty = Math.max(0, rawSum - contradictionPenalty);
-  const finalScore = Math.max(0, Math.min(100, Math.round(scoreAfterPenalty * qualityFactor)));
+  const finalScore = Math.max(0, Math.min(maxAvailablePoints, Math.round(scoreAfterPenalty * qualityFactor)));
 
   // Directional Confidence Level Classification
   let confidenceLevel: DirectionalConfidenceLevel = 'NEUTRAL';
-  if (orientationDirection === 'NEUTRAL' || absDelta < 0.05) {
+  if (orientationDirection === 'NEUTRAL' || (absDelta !== null && absDelta < 0.05)) {
     confidenceLevel = 'NEUTRAL';
   } else if (finalScore >= 80) {
     confidenceLevel = 'VERY_HIGH';
@@ -680,7 +881,16 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
       ? ` Contradiction deductions (-${contradictionPenalty} pts) applied due to opposing macro evidence.`
       : ' Evidence alignment across market strength and macro fundamentals.';
 
-  const explanation = `Confluence Score: ${finalScore}/100 [${confidenceLevel} Directional Confidence for ${dirLabel}]. Component breakdown: Market Strength (+${mktPoints}/25), Fundamentals (+${fundPoints}/20), Policy & Carry (+${policyPoints}/20), Expectations (+${expPoints}/15), Session (+${sessionPoints}/10), Catalysts (+${catalystPoints}/10).${contradictionText} Data Quality factor: ${qualityFactor.toFixed(2)}× (${qualityStatus}).`;
+  const missingLayerText = allComponentsForSummary
+    .filter((component) => component.comp.availability === 'UNAVAILABLE')
+    .map((component) => `${component.name} (+0/${component.comp.maxPoints})`)
+    .join(', ');
+
+  const explanation = `Confluence Score: ${finalScore}/100 [${confidenceLevel} Directional Confidence for ${dirLabel}]. Component breakdown: Market Strength (+${mktPoints}/25), Fundamentals (+${fundPoints}/20), Policy & Carry (+${policyPoints}/20), Expectations (+${expPoints}/15), Session (+${sessionPoints}/10), Catalysts (+${catalystPoints}/10).${contradictionText} Data Quality factor: ${qualityFactor.toFixed(2)}× (${qualityStatus}).${
+    missingLayerText
+      ? ` Unavailable layers are NOT redistributed: ${missingLayerText} remain unearned against the fixed 100-point maximum.`
+      : ''
+  }`;
 
   const threeDimensionalModel = {
     directionalEvidence: {
@@ -751,29 +961,29 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     }
   };
 
-  const allComponents = [
-    { name: 'Market Strength', comp: marketStrengthComponent },
-    { name: 'Fundamentals', comp: fundamentalsComponent },
-    { name: 'Policy', comp: policyComponent },
-    { name: 'Expectations', comp: expectationsComponent },
-    { name: 'Session', comp: sessionComponent },
-    { name: 'Catalysts', comp: catalystsComponent }
-  ];
-
-  const availableComponents = allComponents
+  const availableComponents = allComponentsForSummary
     .filter((c) => c.comp.availability === 'AVAILABLE' || c.comp.availability === 'PARTIAL')
     .map((c) => c.name);
 
-  const missingComponents = allComponents
+  const missingComponents = allComponentsForSummary
     .filter((c) => c.comp.availability === 'UNAVAILABLE')
     .map((c) => c.name);
 
-  const referenceOnlyComponents = allComponents
+  const referenceOnlyComponents = allComponentsForSummary
     .filter((c) => c.comp.availability === 'REFERENCE_ONLY' || c.comp.availability === 'STATIC')
     .map((c) => c.name);
 
-  const staleComponents = allComponents
-    .filter((c) => c.comp.freshness === 'STALE' || c.comp.freshness === 'AGING')
+  /*
+   * Layer freshness is tracked separately per component. AGING macro evidence
+   * is aging, not stale, and must not be reported as a stale component; a
+   * truly STALE layer remains listed.
+   */
+  const staleComponents = allComponentsForSummary
+    .filter((c) => c.comp.freshness === 'STALE')
+    .map((c) => c.name);
+
+  const agingComponents = allComponentsForSummary
+    .filter((c) => c.comp.freshness === 'AGING')
     .map((c) => c.name);
 
   return {
@@ -800,6 +1010,7 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     availableComponents,
     missingComponents,
     staleComponents,
+    agingComponents,
     referenceOnlyComponents,
     dataQualityAdjustment: {
       factor: qualityFactor,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, TrendingUp, TrendingDown, Clock, ShieldAlert, ArrowLeftRight, Scale } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, Clock, ShieldAlert, ArrowLeftRight, Scale, AlertTriangle } from 'lucide-react';
 import { PairIntelligence } from '../types';
 
 interface PairDetailModalProps {
@@ -42,7 +42,11 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
     structuredOpportunity
   } = intelligence;
 
-  const delta = relativeStrengthDelta ?? 0;
+  const delta = relativeStrengthDelta;
+  const deltaLabel =
+    delta === null
+      ? 'MARKET Δ UNAVAILABLE'
+      : `Δ ${delta >= 0 ? '+' : ''}${delta.toFixed(2)}%`;
   const isBullish = orientationDirection === 'BULLISH_BASE';
   const isBearish = orientationDirection === 'BEARISH_BASE';
 
@@ -109,16 +113,24 @@ export const PairDetailModal: React.FC<PairDetailModalProps> = ({
                   </span>
                 )}
                 <span className="text-xs font-bold">
-                  {isBullish ? (
+                  {delta === null ? (
+                    <span className="text-amber-400 flex items-center">
+                      <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+                      MACRO-DERIVED BIAS · {deltaLabel}
+                      {intelligence.marketEvidenceState === 'STALE'
+                        ? ' (stale)'
+                        : ''}
+                    </span>
+                  ) : isBullish ? (
                     <span className="text-emerald-400 flex items-center">
-                      <TrendingUp className="w-3.5 h-3.5 mr-1" /> BULLISH BIAS (Δ +{delta.toFixed(2)}%)
+                      <TrendingUp className="w-3.5 h-3.5 mr-1" /> BULLISH BIAS ({deltaLabel})
                     </span>
                   ) : isBearish ? (
                     <span className="text-rose-400 flex items-center">
-                      <TrendingDown className="w-3.5 h-3.5 mr-1" /> BEARISH BIAS (Δ {delta.toFixed(2)}%)
+                      <TrendingDown className="w-3.5 h-3.5 mr-1" /> BEARISH BIAS ({deltaLabel})
                     </span>
                   ) : (
-                    <span className="text-neutral-400">NEUTRAL (Δ {delta.toFixed(2)}%)</span>
+                    <span className="text-neutral-400">NEUTRAL ({deltaLabel})</span>
                   )}
                 </span>
               </div>

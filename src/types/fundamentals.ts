@@ -28,7 +28,13 @@ export type FundamentalCategory =
   | 'BUSINESS_ACTIVITY'
   | 'COMMODITY_EXPOSURE_TERMS_OF_TRADE'
   | 'MAJOR_ECONOMIC_SHOCKS'
-  | 'MARKET_EXPECTATIONS';
+  | 'MARKET_EXPECTATIONS'
+  /*
+   * A release delivered without a category is unclassified evidence. It is kept
+   * explicit rather than being folded into a real category, so that an
+   * unclassified print can never contribute directional evidence to a pillar.
+   */
+  | 'UNKNOWN';
 
 export interface FundamentalCategoryDefinition {
   id: FundamentalCategory;
@@ -338,11 +344,14 @@ export interface CentralBankProfile {
   associatedCurrency: string;
   policyRate: number | null;
   currentPolicyRate: number | null;
+  contextualPolicyRate?: number | null;
   previousPolicyRate: number | null;
   latestDecisionDate: string | null;
+  contextualDecisionDate?: string | null;
   lastKnownPolicyEvent?: string | null;
   nextKnownDecisionDate: string | null;
   stance: 'HAWKISH' | 'DOVISH' | 'NEUTRAL' | 'UNAVAILABLE';
+  contextualStance?: 'HAWKISH' | 'DOVISH' | 'NEUTRAL' | 'UNAVAILABLE' | null;
   policyStance?: 'HAWKISH' | 'DOVISH' | 'NEUTRAL' | 'UNAVAILABLE';
   policyDirection?: 'HIKING' | 'CUTTING' | 'EASING' | 'HOLDING' | 'PAUSING' | 'UNAVAILABLE';
   stanceEvidence: string[];
@@ -353,11 +362,15 @@ export interface CentralBankProfile {
   sourceType?: 'LIVE' | 'REFERENCE' | 'STATIC' | 'UNAVAILABLE';
   sourceUrl: string;
   sourceMetadata?: any;
-  fetchedTimestamp: string;
+  fetchedTimestamp: string | null;
+  contextualFetchedAt?: string | null;
   freshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE';
   dataSourceMode?: 'LIVE' | 'REFERENCE' | 'STATIC' | 'UNAVAILABLE';
   dataStatus: FundamentalDataStatus;
   provenance: string;
+  policyAvailability?: CurrencyEvidenceAvailability;
+  policyProvenance?: CurrencyEvidenceProvenance;
+  policyFreshness?: CurrencyEvidenceFreshness;
 }
 
 /**
@@ -392,6 +405,136 @@ export interface CurrencyExpectationsSummary {
   inLineCount: number;
   unknownCount: number;
   items: ExpectationAnalysisItem[];
+}
+
+export type CurrencyEvidenceAvailability =
+  | 'AVAILABLE'
+  | 'PARTIAL'
+  | 'REFERENCE_ONLY'
+  | 'UNAVAILABLE';
+
+export type CurrencyEvidenceProvenance =
+  | 'LIVE'
+  | 'REFERENCE'
+  | 'STATIC'
+  | 'BENCHMARK'
+  | 'DERIVED'
+  | 'UNAVAILABLE';
+
+export type CurrencyEvidenceFreshness = 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE';
+
+export interface CurrencyEvidenceDimension {
+  availability: CurrencyEvidenceAvailability;
+  freshness: CurrencyEvidenceFreshness;
+  provenance: CurrencyEvidenceProvenance;
+  source: string | null;
+  fetchedAt: string | null;
+  evidenceCount: number;
+  reason: string | null;
+}
+
+export interface CurrencyIntelligenceExpectationItem extends ExpectationAnalysisItem {
+  source: string | null;
+  sourceUrl: string | null;
+  fetchedAt: string | null;
+  freshness: CurrencyEvidenceFreshness;
+  provenance: CurrencyEvidenceProvenance;
+}
+
+export interface CurrencyIntelligenceEvidenceAssessment {
+  market: CurrencyEvidenceDimension & {
+    strength: number | null;
+    classification: import('../marketData/types').StrengthClassification;
+    breadth: { available: number; required: number };
+    directionalConsistency: { aligned: number; opposing: number; neutral: number };
+    contributingPairs: {
+      pairSymbol: string;
+      pairReturnPercent: number;
+      role: string;
+      signedContribution: number;
+      sourceTimestamp: string | null;
+      fetchedAt: string | null;
+    }[];
+    stalePairs: {
+      pairSymbol: string;
+      sourceTimestamp: string;
+      fetchedAt: string | null;
+    }[];
+  };
+  fundamentals: CurrencyEvidenceDimension & {
+    score: number | null;
+    observations: FundamentalObservation[];
+    categories: {
+      category: FundamentalCategory;
+      status: CurrencyEvidenceAvailability;
+      freshness: CurrencyEvidenceFreshness;
+      provenance: CurrencyEvidenceProvenance;
+      source: string | null;
+      fetchedAt: string | null;
+      evidenceCount: number;
+      actualAvailable: number;
+      forecastAvailable: number;
+      latestActual: number | null;
+      latestForecast: number | null;
+      latestPrevious: number | null;
+      latestSurprise: number | null;
+      reason: string | null;
+      observations: FundamentalObservation[];
+    }[];
+    scoreComponents: {
+      name: string;
+      available: boolean;
+      points: number | null;
+      reason: string | null;
+    }[];
+  };
+  policy: CurrencyEvidenceDimension & {
+    currentPolicyRate: number | null;
+    contextualPolicyRate: number | null;
+    contextualFetchedAt: string | null;
+    currentStance: 'HAWKISH' | 'DOVISH' | 'NEUTRAL' | 'UNAVAILABLE';
+    contextualStance: 'HAWKISH' | 'DOVISH' | 'NEUTRAL' | 'UNAVAILABLE' | null;
+    effectiveAt: string | null;
+  };
+  expectations: CurrencyEvidenceDimension & {
+    completeCount: number;
+    incompleteCount: number;
+    items: CurrencyIntelligenceExpectationItem[];
+  };
+  relativeStrength: {
+    availability: CurrencyEvidenceAvailability;
+    value: number | null;
+    formula: string;
+    components: {
+      pairSymbol: string;
+      pairReturnPercent: number;
+      signedContribution: number;
+    }[];
+  };
+  quality: {
+    availability: CurrencyEvidenceAvailability;
+    freshness: CurrencyEvidenceFreshness;
+    provenance: CurrencyEvidenceProvenance[];
+    completeness: { available: number; required: number };
+    evidenceCount: number;
+    liveEvidenceCount: number;
+    reasons: string[];
+  };
+  condition: {
+    state: 'SUPPORTED' | 'PARTIAL' | 'INSUFFICIENT_EVIDENCE' | 'UNAVAILABLE';
+    direction: 'SUPPORTIVE' | 'CONTRACTIONARY' | 'MIXED' | 'UNKNOWN';
+    reason: string;
+  };
+  contradictions: import('./intelligence').StructuredContradiction[];
+  explanation: {
+    summary: string;
+    contributingEvidence: string[];
+    unavailableEvidence: string[];
+    staleEvidence: string[];
+    agreements: string[];
+    conflicts: string[];
+  };
+  calculatedAt: string;
 }
 
 /**
@@ -430,6 +573,7 @@ export interface CurrencyFundamentalIntelligence {
   provenance: string;
   explanation: string;
   lastUpdated: string;
+  evidenceAssessment?: CurrencyIntelligenceEvidenceAssessment;
 }
 
 /**
@@ -453,11 +597,34 @@ export interface FundamentalDifferential {
     baseStance: 'HAWKISH' | 'DOVISH' | 'NEUTRAL' | 'UNAVAILABLE';
     quoteStance: 'HAWKISH' | 'DOVISH' | 'NEUTRAL' | 'UNAVAILABLE';
     stanceDelta: string;
+    /** Provenance of the policy rates used above: LIVE, REFERENCE, or UNAVAILABLE. */
+    baseProvenance?: 'LIVE' | 'REFERENCE' | 'STATIC' | 'UNAVAILABLE';
+    quoteProvenance?: 'LIVE' | 'REFERENCE' | 'STATIC' | 'UNAVAILABLE';
+    baseFreshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE';
+    quoteFreshness?: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE';
+    baseEffectiveAt?: string | null;
+    quoteEffectiveAt?: string | null;
+    baseSource?: string | null;
+    quoteSource?: string | null;
+    /**
+     * Policy spread derived only from verified LIVE policy evidence.
+     * Null whenever at least one leg is REFERENCE/STATIC/UNAVAILABLE, even if
+     * a descriptive reference spread is reported above.
+     */
+    livePolicySpread?: number | null;
   };
   expectationsDifferential: {
     baseSummary: string;
     quoteSummary: string;
     comparison: string;
+    baseAboveCount?: number;
+    baseBelowCount?: number;
+    baseInLineCount?: number;
+    quoteAboveCount?: number;
+    quoteBelowCount?: number;
+    quoteInLineCount?: number;
+    /** Only set when a realized consensus surprise actually exists on both legs. */
+    directionalEdge?: 'BASE' | 'QUOTE' | 'BALANCED' | 'UNAVAILABLE';
   };
   catalystDifferential: {
     baseCatalysts: EconomicEvent[];

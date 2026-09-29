@@ -11,7 +11,7 @@ import {
   Landmark
 } from 'lucide-react';
 import { globalStore } from './data/store';
-import { DashboardPayload, PairIntelligence, StrengthThresholds } from './types';
+import { CurrencyFundamentalIntelligence, DashboardPayload, PairIntelligence, StrengthThresholds } from './types';
 import { Header } from './ui/Header';
 import { BottomNav, NavTab } from './ui/BottomNav';
 import { MarketStateSummary } from './ui/MarketStateSummary';
@@ -29,12 +29,14 @@ import { SessionsView } from './ui/SessionsView';
 import { CentralBanksPanel } from './ui/CentralBanksPanel';
 import { OpportunitiesView } from './ui/OpportunitiesView';
 import { ContradictionsView } from './ui/ContradictionsView';
+import { CurrencyIntelligencePanel } from './ui/CurrencyIntelligencePanel';
 
 export function App() {
   const [dashboard, setDashboard] = useState<DashboardPayload>(() => globalStore.getDashboard());
   const [pairIntelligences, setPairIntelligences] = useState<PairIntelligence[]>(() =>
     globalStore.getAllPairIntelligences()
   );
+  const [currencyIntelligences, setCurrencyIntelligences] = useState<CurrencyFundamentalIntelligence[]>([]);
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
   const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
   const [selectedPair, setSelectedPair] = useState<string | null>(null);
@@ -114,6 +116,7 @@ export function App() {
 
           // Authoritative state update from server payload
           setDashboard(dashData);
+          setCurrencyIntelligences(dashData.currencyIntelligence || []);
         }
 
         if (pairsRes.ok) {
@@ -182,8 +185,10 @@ export function App() {
       {/* Top Header */}
       <Header
         dataStatus={dashboard.dataStatus}
+        marketProviderStatus={dashboard.marketProviderStatus}
         fundamentalProviderStatus={dashboard.fundamentalProviderStatus}
         fundamentalDatasetMode={dashboard.fundamentalDatasetMode}
+        currencyIntelligence={currencyIntelligences}
         onOpenSources={() => setIsSourcesOpen(true)}
         onOpenThresholds={() => setIsThresholdsOpen(true)}
       />
@@ -222,6 +227,7 @@ export function App() {
           marketProviderStatus={dashboard.marketProviderStatus}
           fundamentalProviderStatus={dashboard.fundamentalProviderStatus}
           fundamentalDatasetMode={dashboard.fundamentalDatasetMode}
+          currencyIntelligence={currencyIntelligences}
           onToggleConnection={handleToggleFeed}
           onOpenSources={() => setIsSourcesOpen(true)}
         />
@@ -236,6 +242,7 @@ export function App() {
               weakCurrencies={dashboard.weakCurrencies}
               thresholds={currentThresholds}
               onSelectCurrency={(code) => setSelectedCurrency(code)}
+              marketProviderStatus={dashboard.marketProviderStatus}
             />
 
             <TopPairCard
@@ -247,6 +254,8 @@ export function App() {
               currencies={dashboard.allCurrencies}
               onSelectCurrency={(code) => setSelectedCurrency(code)}
             />
+
+            <CurrencyIntelligencePanel intelligences={currencyIntelligences} />
 
             <SessionIntelligenceCard
               sessions={dashboard.sessions.activeSessions.concat(dashboard.sessions.upcomingSessions)}
@@ -271,11 +280,13 @@ export function App() {
               weakCurrencies={dashboard.weakCurrencies}
               thresholds={currentThresholds}
               onSelectCurrency={(code) => setSelectedCurrency(code)}
+              marketProviderStatus={dashboard.marketProviderStatus}
             />
             <CurrencyMatrix
               currencies={dashboard.allCurrencies}
               onSelectCurrency={(code) => setSelectedCurrency(code)}
             />
+            <CurrencyIntelligencePanel intelligences={currencyIntelligences} />
           </div>
         )}
 

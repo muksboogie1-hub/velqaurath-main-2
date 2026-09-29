@@ -8,8 +8,17 @@ import {
   OrientationDirection,
   ConvergenceDivergenceType
 } from '../../types';
-import { FundamentalObservation } from '../../types/fundamentals';
+import {
+  FundamentalObservation,
+  ExpectationSurpriseType,
+  FundamentalCategory
+} from '../../types/fundamentals';
 import { evaluateFundamentalDifferential } from '../../fundamentals/engine/pairDifferentialEngine';
+import {
+  deriveLivePolicyEvidence,
+  evaluateLivePolicySpread,
+  LivePolicyEvidence
+} from '../../fundamentals/engine/policyEvidence';
 import { evaluateCurrencyFundamentalIntelligence } from '../../fundamentals/engine/currencyIntelligenceEngine';
 import { buildCentralBankProfile } from '../../fundamentals/centralBank/centralBankProfiles';
 import { calculatePairConfluence } from '../confluence/confluenceEngine';
@@ -18,6 +27,94 @@ import { evaluateStructuredContradictions } from '../contradiction/contradiction
 import { evaluateStructuredInvalidation } from '../invalidation/invalidationEngine';
 import { evaluateStructuredThesis } from '../thesis/thesisEngine';
 import { evaluatePairOpportunity } from '../opportunity/opportunityEngine';
+
+function normalizeObservation(
+  o: EconomicObservation | FundamentalObservation
+): FundamentalObservation {
+  const anyObservation = o as any;
+
+  /*
+   * A release with no category is unclassified, not a growth release. Defaulting
+   * it to GROWTH let an unclassified print contribute directional growth evidence.
+   */
+  const rawCategory: string | null = anyObservation.category ?? null;
+
+  /*
+   * A missing surprise classification must never be promoted to IN_LINE. The
+   * classification is derived from the released actual versus the consensus
+   * forecast when both are finite, and is otherwise left explicitly unknown.
+   */
+  const rawActual: number | null = anyObservation.actual ?? null;
+  const rawForecast: number | null = anyObservation.forecast ?? null;
+  const derivedSurpriseType: ExpectationSurpriseType =
+    anyObservation.surpriseType ??
+    (rawActual !== null && rawForecast !== null
+      ? rawActual > rawForecast
+        ? 'ABOVE_EXPECTATION'
+        : rawActual < rawForecast
+          ? 'BELOW_EXPECTATION'
+          : 'IN_LINE'
+      : 'UNKNOWN');
+
+  return {
+    id: anyObservation.id,
+    currency: String(anyObservation.currency).toUpperCase(),
+    indicatorId: anyObservation.indicatorId,
+    indicatorName: anyObservation.indicatorName,
+    category: (rawCategory ?? 'UNKNOWN') as FundamentalCategory,
+    value: anyObservation.actual ?? anyObservation.value ?? null,
+    unit: anyObservation.unit || '%',
+    period: anyObservation.period || 'Current',
+    previous: anyObservation.previous ?? null,
+    forecast: anyObservation.forecast ?? null,
+    actual: anyObservation.actual ?? null,
+    surprise: anyObservation.surprise ?? null,
+    surpriseType: derivedSurpriseType,
+    releaseDate:
+      anyObservation.releaseDate ||
+      new Date().toISOString(),
+    source:
+      anyObservation.sourceName ||
+      anyObservation.source ||
+      'Finance Calendar',
+    sourceName: anyObservation.sourceName || anyObservation.source || null,
+    sourceUrl: anyObservation.sourceUrl || '',
+    /*
+     * VERIFICATION FIELDS
+     *
+     * Live-evidence verification (policyEvidence.isVerifiedLiveRecord) requires
+     * the upstream connection status, provider freshness and publication
+     * timestamp. Dropping them here silently downgraded every genuine live
+     * policy release to unavailable downstream, so they are preserved here.
+     */
+    sourceStatus: anyObservation.sourceStatus,
+    publishedAt: anyObservation.publishedAt ?? null,
+    freshness: anyObservation.freshness,
+    fetchedAt:
+      anyObservation.fetchedAt ||
+      new Date().toISOString(),
+    dataStatus:
+      anyObservation.dataStatus ||
+      'AVAILABLE',
+    provenance:
+      anyObservation.provenance ||
+      'Fundamental live data',
+    classification:
+      anyObservation.classification ||
+      'FACT',
+    statements:
+      anyObservation.statements || {
+        fact:
+          `FACT: ${anyObservation.indicatorName} print.`,
+        expectation:
+          `EXPECTATION: Consensus was ${anyObservation.forecast}.`,
+        interpretation:
+          'INTERPRETATION: Release recorded.',
+        engineAnalysis:
+          'ENGINE_ANALYSIS: Evaluated.'
+      }
+  };
+}
 
 export function evaluatePairIntelligence(
   pair: CurrencyPair,
@@ -28,470 +125,595 @@ export function evaluatePairIntelligence(
   isDataFeedConnected: boolean = true,
   observations: (EconomicObservation | FundamentalObservation)[] = []
 ): PairIntelligence {
-  const normBaseObs: FundamentalObservation[] = observations
-    .filter((o) => o.currency.toUpperCase() === pair.baseCurrency.toUpperCase())
-    .map((o: any) => ({
-      id: o.id,
-      currency: o.currency.toUpperCase(),
-      indicatorId: o.indicatorId,
-      indicatorName: o.indicatorName,
-      category: o.category || 'GROWTH',
-      value: o.actual ?? o.value ?? null,
-      unit: o.unit || '%',
-      period: o.period || 'Current',
-      previous: o.previous ?? null,
-      forecast: o.forecast ?? null,
-      actual: o.actual ?? null,
-      surprise: o.surprise ?? null,
-      surpriseType: o.surpriseType ?? 'IN_LINE',
-      releaseDate: o.releaseDate || new Date().toISOString(),
-      source: o.sourceName || o.source || 'Finance Calendar',
-      sourceUrl: o.sourceUrl || '',
-      fetchedAt: o.fetchedAt || new Date().toISOString(),
-      dataStatus: o.dataStatus || 'AVAILABLE',
-      provenance: o.provenance || 'Fundamental live data',
-      classification: o.classification || 'FACT',
-      statements: o.statements || {
-        fact: `FACT: ${o.indicatorName} print.`,
-        expectation: `EXPECTATION: Consensus was ${o.forecast}.`,
-        interpretation: 'INTERPRETATION: Release recorded.',
-        engineAnalysis: 'ENGINE_ANALYSIS: Evaluated.'
-      }
-    }));
+  // ---------------------------------------------------------------------------
+  // NORMALIZE OBSERVATIONS
+  // ---------------------------------------------------------------------------
 
-  const normQuoteObs: FundamentalObservation[] = observations
-    .filter((o) => o.currency.toUpperCase() === pair.quoteCurrency.toUpperCase())
-    .map((o: any) => ({
-      id: o.id,
-      currency: o.currency.toUpperCase(),
-      indicatorId: o.indicatorId,
-      indicatorName: o.indicatorName,
-      category: o.category || 'GROWTH',
-      value: o.actual ?? o.value ?? null,
-      unit: o.unit || '%',
-      period: o.period || 'Current',
-      previous: o.previous ?? null,
-      forecast: o.forecast ?? null,
-      actual: o.actual ?? null,
-      surprise: o.surprise ?? null,
-      surpriseType: o.surpriseType ?? 'IN_LINE',
-      releaseDate: o.releaseDate || new Date().toISOString(),
-      source: o.sourceName || o.source || 'Finance Calendar',
-      sourceUrl: o.sourceUrl || '',
-      fetchedAt: o.fetchedAt || new Date().toISOString(),
-      dataStatus: o.dataStatus || 'AVAILABLE',
-      provenance: o.provenance || 'Fundamental live data',
-      classification: o.classification || 'FACT',
-      statements: o.statements || {
-        fact: `FACT: ${o.indicatorName} print.`,
-        expectation: `EXPECTATION: Consensus was ${o.forecast}.`,
-        interpretation: 'INTERPRETATION: Release recorded.',
-        engineAnalysis: 'ENGINE_ANALYSIS: Evaluated.'
-      }
-    }));
+  const normalizedObservations =
+    observations.map(normalizeObservation);
+
+  const normBaseObs = normalizedObservations.filter(
+    (o) =>
+      o.currency.toUpperCase() ===
+      pair.baseCurrency.toUpperCase()
+  );
+
+  const normQuoteObs = normalizedObservations.filter(
+    (o) =>
+      o.currency.toUpperCase() ===
+      pair.quoteCurrency.toUpperCase()
+  );
+
+  // ---------------------------------------------------------------------------
+  // MARKET EVIDENCE
+  //
+  // Market data is no longer a hard prerequisite for pair intelligence.
+  // ---------------------------------------------------------------------------
+
+  const baseMarketStrength = baseState.marketStrength;
+  const quoteMarketStrength = quoteState.marketStrength;
+
+  const marketEvidenceAvailable =
+    baseMarketStrength !== null &&
+    quoteMarketStrength !== null;
+
+  const relativeStrengthDelta = marketEvidenceAvailable
+    ? Math.round(
+        (baseMarketStrength! - quoteMarketStrength!) * 100
+      ) / 100
+    : null;
+
+  /*
+   * Stale market quotes and a disconnected market provider are different
+   * states and are reported as such. Neither is silently upgraded to FRESH.
+   *
+   * Staleness here means the market evidence itself rests on stale input: the
+   * currency feed is flagged STALE, or no market strength is available at all.
+   * A basket that is merely narrower because stale contributing quotes were
+   * excluded is reduced-breadth evidence, not stale evidence; that caveat is
+   * reported by the confluence market layer as AGING/PARTIAL with the stale
+   * contributor count, and the pair's own market evidence stays AVAILABLE.
+   */
+  const stalePairCount =
+    (baseState.relativeStrengthBreakdown?.coverage?.stalePairs?.length ?? 0) +
+    (quoteState.relativeStrengthBreakdown?.coverage?.stalePairs?.length ?? 0);
+
+  const marketDataFreshness = [
+    baseState.marketDataFreshness,
+    quoteState.marketDataFreshness
+  ].find((value) => value === 'STALE');
+
+  const marketEvidenceState: 'AVAILABLE' | 'STALE' | 'UNAVAILABLE' =
+    !marketEvidenceAvailable
+      ? marketDataFreshness === 'STALE' || stalePairCount > 0
+        ? 'STALE'
+        : 'UNAVAILABLE'
+      : marketDataFreshness === 'STALE'
+      ? 'STALE'
+      : 'AVAILABLE';
+
+  // ---------------------------------------------------------------------------
+  // LIVE POLICY EVIDENCE (independent of market quotes)
+  //
+  // Policy evidence is resolved from verified live central-bank records and,
+  // when the live fundamental feed published a monetary-policy release, from
+  // that release. Missing policy evidence stays null and is never 0%.
+  // ---------------------------------------------------------------------------
+
+  const basePolicyEvidence: LivePolicyEvidence = deriveLivePolicyEvidence(
+    pair.baseCurrency,
+    normBaseObs,
+    baseState.centralBank,
+    baseState.centralBank?.institution
+  );
+
+  const quotePolicyEvidence: LivePolicyEvidence = deriveLivePolicyEvidence(
+    pair.quoteCurrency,
+    normQuoteObs,
+    quoteState.centralBank,
+    quoteState.centralBank?.institution
+  );
+
+  // ---------------------------------------------------------------------------
+  // CENTRAL BANK PROFILES
+  // ---------------------------------------------------------------------------
+
+  const baseCb = buildCentralBankProfile(
+    pair.baseCurrency,
+    {
+      institution: baseState.centralBank?.institution,
+      policyRate:
+        baseState.centralBank?.currentPolicyRate,
+      previousPolicyRate:
+        baseState.centralBank?.previousPolicyRate,
+      stance:
+        baseState.centralBank?.stance as any,
+      latestDecisionDate:
+        baseState.centralBank?.latestDecisionDate,
+      nextKnownDecisionDate:
+        baseState.centralBank?.nextKnownDecisionDate,
+      guidanceSummary:
+        baseState.centralBank?.guidanceSummary
+    }
+  );
+
+  const quoteCb = buildCentralBankProfile(
+    pair.quoteCurrency,
+    {
+      institution: quoteState.centralBank?.institution,
+      policyRate:
+        quoteState.centralBank?.currentPolicyRate,
+      previousPolicyRate:
+        quoteState.centralBank?.previousPolicyRate,
+      stance:
+        quoteState.centralBank?.stance as any,
+      latestDecisionDate:
+        quoteState.centralBank?.latestDecisionDate,
+      nextKnownDecisionDate:
+        quoteState.centralBank?.nextKnownDecisionDate,
+      guidanceSummary:
+        quoteState.centralBank?.guidanceSummary
+    }
+  );
+
+  // ---------------------------------------------------------------------------
+  // FUNDAMENTAL INTELLIGENCE
+  // ---------------------------------------------------------------------------
+
+  const baseIntel =
+    evaluateCurrencyFundamentalIntelligence({
+      currency: baseState.currency,
+      observations: normBaseObs,
+      centralBank: baseCb,
+      marketStrength: baseMarketStrength,
+      upcomingEvents: events,
+      isDataFeedConnected
+    });
 
   if (
-    !isDataFeedConnected ||
-    baseState.overallState === 'DATA_UNAVAILABLE' ||
-    quoteState.overallState === 'DATA_UNAVAILABLE' ||
-    baseState.marketStrength === null ||
-    quoteState.marketStrength === null
+    normBaseObs.length === 0 &&
+    baseState.fundamentalState?.fundamentalScore != null
   ) {
-    const watchWindow = calculateWatchWindow(pair, events, date, false);
-    const sessionRel = getPairSessionRelevance(pair.symbol);
-    const isMarketMissing =
-      baseState.marketStrength === null || quoteState.marketStrength === null;
-    const orientationExplanation = isMarketMissing
-      ? `MARKET DATA UNAVAILABLE: Live market strength feed is missing for ${
-          baseState.marketStrength === null ? pair.baseCurrency : ''
-        }${
-          baseState.marketStrength === null && quoteState.marketStrength === null ? ' and ' : ''
-        }${
-          quoteState.marketStrength === null ? pair.quoteCurrency : ''
-        }. Connect market data feed to calculate relative orientation.`
-      : 'DATA SOURCE NOT CONNECTED: Pair relative orientation cannot be calculated without authenticated inputs.';
+    baseIntel.fundamentalScore =
+      baseState.fundamentalState.fundamentalScore;
 
-    const fallbackIntel = {
-      pair,
-      symbol: pair.symbol,
-      baseCurrency: baseState.currency,
-      quoteCurrency: quoteState.currency,
-      baseState,
-      quoteState,
-      baseMarketStrength: baseState.marketStrength,
-      quoteMarketStrength: quoteState.marketStrength,
-      marketStrengthDifferential: null,
-      baseFundamentalEvidence: baseState.supportingEvidence || [],
-      quoteFundamentalEvidence: quoteState.supportingEvidence || [],
-      baseCentralBank: baseState.centralBank,
-      quoteCentralBank: quoteState.centralBank,
-      policyDifferential: null,
-      expectationDifferential: null,
-      sessionContext: sessionRel,
-      relativeStrengthDelta: null,
-      orientationDirection: 'DATA_UNAVAILABLE' as const,
-      orientation: 'DATA_INSUFFICIENT' as const,
-      orientationExplanation,
-      convergenceDivergence: 'DATA_UNAVAILABLE' as const,
-      convergenceExplanation:
-        'Convergence analysis suspended until real market and fundamental feeds are connected.',
-      supportingEvidence: [],
-      counterEvidence: [],
-      opposingEvidence: [],
-      catalysts: [],
-      contradictions: [],
-      risks: ['Market data feed not configured or offline; pair monitoring inactive.'],
-      thesis: 'DATA UNAVAILABLE: Connect verified market provider to generate actionable pair thesis.',
-      invalidationConditions: ['Awaiting data feed initialization.'],
-      confidence: 'DATA_UNAVAILABLE' as const,
-      dataQuality: 'UNAVAILABLE' as const,
-      freshness: 'UNAVAILABLE' as const,
-      sessionRelevance: {
-        primarySession: sessionRel.primarySession,
-        relevantSessions: sessionRel.relevantSessions,
-        structuralRationale: sessionRel.structuralRationale
-      },
-      watchWindow,
-      lastUpdated: new Date().toISOString(),
-      sources: [],
-      fundamentalDifferential: evaluateFundamentalDifferential({
-        pair,
-        baseIntel: evaluateCurrencyFundamentalIntelligence({
-          currency: baseState.currency,
-          observations: normBaseObs,
-          centralBank: buildCentralBankProfile(pair.baseCurrency),
-          marketStrength: baseState.marketStrength,
-          upcomingEvents: events,
-          isDataFeedConnected
-        }),
-        quoteIntel: evaluateCurrencyFundamentalIntelligence({
-          currency: quoteState.currency,
-          observations: normQuoteObs,
-          centralBank: buildCentralBankProfile(pair.quoteCurrency),
-          marketStrength: quoteState.marketStrength,
-          upcomingEvents: events,
-          isDataFeedConnected
-        }),
-        upcomingEvents: events
-      })
-    };
-
-    const fallbackPairEvents = events.filter(
-      (e: EconomicEvent) => e.currency === pair.baseCurrency || e.currency === pair.quoteCurrency
-    );
-    const fallbackCatalysts = fallbackPairEvents.map((e) => transformToCatalystEvent(e, date));
-
-    const initialFallback: PairIntelligence = {
-      ...fallbackIntel,
-      catalysts: fallbackPairEvents,
-      catalystIntelligence: fallbackCatalysts,
-      confluence: calculatePairConfluence({
-        pair,
-        baseState,
-        quoteState,
-        relativeStrengthDelta: null,
-        orientationDirection: 'DATA_UNAVAILABLE',
-        events,
-        fundamentalDiff: fallbackIntel.fundamentalDifferential,
-        isDataFeedConnected: false
-      })
-    };
-
-    const structuredInv = evaluateStructuredInvalidation({
-      pair,
-      baseState,
-      quoteState,
-      relativeStrengthDelta: null,
-      orientationDirection: 'DATA_UNAVAILABLE',
-      fundamentalDiff: fallbackIntel.fundamentalDifferential,
-      isDataFeedConnected: false,
-      now: date
-    });
-
-    const structuredTh = evaluateStructuredThesis({
-      pair,
-      baseState,
-      quoteState,
-      relativeStrengthDelta: null,
-      orientationDirection: 'DATA_UNAVAILABLE',
-      supportingEvidence: [],
-      counterEvidence: fallbackIntel.counterEvidence,
-      catalysts: fallbackCatalysts,
-      contradictions: [],
-      invalidationConditions: structuredInv.conditions,
-      fundamentalDiff: fallbackIntel.fundamentalDifferential,
-      isDataFeedConnected: false,
-      now: date
-    });
-
-    const fullFallback: PairIntelligence = {
-      ...initialFallback,
-      structuredInvalidation: structuredInv.conditions,
-      structuredContradictions: [],
-      structuredThesis: structuredTh
-    };
-
-    fullFallback.structuredOpportunity = evaluatePairOpportunity(fullFallback);
-
-    return fullFallback;
+    baseIntel.overallCondition =
+      baseState.fundamentalState.overallCondition;
   }
 
-  const baseStrength = baseState.marketStrength ?? 0;
-  const quoteStrength = quoteState.marketStrength ?? 0;
-  const relativeStrengthDelta = Math.round((baseStrength - quoteStrength) * 100) / 100;
+  const quoteIntel =
+    evaluateCurrencyFundamentalIntelligence({
+      currency: quoteState.currency,
+      observations: normQuoteObs,
+      centralBank: quoteCb,
+      marketStrength: quoteMarketStrength,
+      upcomingEvents: events,
+      isDataFeedConnected
+    });
+
+  if (
+    normQuoteObs.length === 0 &&
+    quoteState.fundamentalState?.fundamentalScore != null
+  ) {
+    quoteIntel.fundamentalScore =
+      quoteState.fundamentalState.fundamentalScore;
+
+    quoteIntel.overallCondition =
+      quoteState.fundamentalState.overallCondition;
+  }
+
+  const fundamentalDifferential =
+    evaluateFundamentalDifferential({
+      pair,
+      baseIntel,
+      quoteIntel,
+      upcomingEvents: events,
+      basePolicyEvidence: basePolicyEvidence,
+      quotePolicyEvidence: quotePolicyEvidence
+    });
+
+  // ---------------------------------------------------------------------------
+  // FUNDAMENTAL DIFFERENTIAL
+  // NEVER use missing score ?? 0.
+  // ---------------------------------------------------------------------------
+
+  const baseFundScore =
+    baseState.fundamentalState?.fundamentalScore ??
+    baseIntel.fundamentalScore ??
+    null;
+
+  const quoteFundScore =
+    quoteState.fundamentalState?.fundamentalScore ??
+    quoteIntel.fundamentalScore ??
+    null;
+
+  const fundDelta =
+    baseFundScore !== null &&
+    quoteFundScore !== null
+      ? Math.round(
+          (baseFundScore - quoteFundScore) * 100
+        ) / 100
+      : fundamentalDifferential?.fundamentalDifferential
+          ?.delta ?? null;
+
+  // ---------------------------------------------------------------------------
+  // POLICY
+  // NEVER convert unavailable policy rates into 0%.
+  // Only verified LIVE policy evidence may drive a directional spread.
+  // ---------------------------------------------------------------------------
+
+  const baseRate = basePolicyEvidence.policyRate;
+  const quoteRate = quotePolicyEvidence.policyRate;
+
+  const policyRateSpread = evaluateLivePolicySpread(
+    basePolicyEvidence,
+    quotePolicyEvidence
+  );
+
+  const baseStanceIsKnown = basePolicyEvidence.stance !== 'UNAVAILABLE';
+  const quoteStanceIsKnown = quotePolicyEvidence.stance !== 'UNAVAILABLE';
+
+  // ---------------------------------------------------------------------------
+  // ORIENTATION
+  //
+  // Priority:
+  // 1. Market strength when available.
+  // 2. Meaningful live fundamental differential when market is unavailable.
+  // 3. Meaningful live policy/carry differential when fundamentals are
+  //    inconclusive.
+  // 4. NEUTRAL when real evidence exists but is balanced.
+  // 5. DATA_UNAVAILABLE only when there is genuinely no directional evidence.
+  //
+  // Session and catalyst layers never manufacture a directional bias.
+  // This preserves BASE vs QUOTE orientation without pretending market
+  // confirmation exists.
+  // ---------------------------------------------------------------------------
+
+  const hasLiveMacroEvidence =
+    fundDelta !== null ||
+    policyRateSpread !== null ||
+    (basePolicyEvidence.availability === 'AVAILABLE' &&
+      quotePolicyEvidence.availability === 'AVAILABLE');
 
   let orientationDirection: OrientationDirection = 'NEUTRAL';
+
   let orientationExplanation = '';
 
-  if (relativeStrengthDelta >= 0.08) {
-    orientationDirection = 'BULLISH_BASE';
-    orientationExplanation = `Base currency (${pair.baseCurrency}: ${
-      baseStrength >= 0 ? '+' : ''
-    }${baseStrength.toFixed(2)}) is structurally stronger than Quote currency (${
-      pair.quoteCurrency
-    }: ${quoteStrength >= 0 ? '+' : ''}${quoteStrength.toFixed(
-      2
-    )}), creating an upward directional skew for ${pair.symbol} (Δ = +${relativeStrengthDelta.toFixed(
-      2
-    )}).`;
-  } else if (relativeStrengthDelta <= -0.08) {
-    orientationDirection = 'BEARISH_BASE';
-    orientationExplanation = `Base currency (${pair.baseCurrency}: ${
-      baseStrength >= 0 ? '+' : ''
-    }${baseStrength.toFixed(2)}) is structurally weaker than Quote currency (${
-      pair.quoteCurrency
-    }: ${quoteStrength >= 0 ? '+' : ''}${quoteStrength.toFixed(
-      2
-    )}), creating a downward directional skew for ${pair.symbol} (Δ = ${relativeStrengthDelta.toFixed(
-      2
-    )}).`;
+  if (!isDataFeedConnected) {
+    /*
+     * A globally disconnected feed set is a genuine total data outage, not a
+     * missing single layer. This is the only case that forces
+     * DATA_UNAVAILABLE for the whole pair.
+     */
+    orientationDirection = 'DATA_UNAVAILABLE';
+
+    orientationExplanation =
+      `DATA UNAVAILABLE: upstream data feeds are disconnected for ${pair.symbol}. ` +
+      'No evidence layer can be verified until the feeds reconnect.';
+  } else if (relativeStrengthDelta !== null) {
+    if (relativeStrengthDelta >= 0.08) {
+      orientationDirection = 'BULLISH_BASE';
+
+      orientationExplanation =
+        `Market-confirmed orientation: base currency ` +
+        `(${pair.baseCurrency}: ${baseMarketStrength! >= 0 ? '+' : ''}${baseMarketStrength!.toFixed(2)}) ` +
+        `is stronger than quote currency ` +
+        `(${pair.quoteCurrency}: ${quoteMarketStrength! >= 0 ? '+' : ''}${quoteMarketStrength!.toFixed(2)}), ` +
+        `producing Δ = +${relativeStrengthDelta.toFixed(2)}.`;
+    } else if (relativeStrengthDelta <= -0.08) {
+      orientationDirection = 'BEARISH_BASE';
+
+      orientationExplanation =
+        `Market-confirmed orientation: base currency ` +
+        `(${pair.baseCurrency}: ${baseMarketStrength! >= 0 ? '+' : ''}${baseMarketStrength!.toFixed(2)}) ` +
+        `is weaker than quote currency ` +
+        `(${pair.quoteCurrency}: ${quoteMarketStrength! >= 0 ? '+' : ''}${quoteMarketStrength!.toFixed(2)}), ` +
+        `producing Δ = ${relativeStrengthDelta.toFixed(2)}.`;
+    } else {
+      orientationDirection = 'NEUTRAL';
+
+      orientationExplanation =
+        `Market strength is relatively balanced: ` +
+        `${pair.baseCurrency} vs ${pair.quoteCurrency} has Δ = ` +
+        `${relativeStrengthDelta >= 0 ? '+' : ''}${relativeStrengthDelta.toFixed(2)}.`;
+    }
+  } else if (
+    fundDelta !== null &&
+    Math.abs(fundDelta) >= 0.06
+  ) {
+    orientationDirection =
+      fundDelta > 0
+        ? 'BULLISH_BASE'
+        : 'BEARISH_BASE';
+
+    orientationExplanation =
+      `MARKET CONFIRMATION ${marketEvidenceState === 'STALE' ? 'STALE' : 'UNAVAILABLE'}: ` +
+      `directional orientation is derived from the verified fundamental ` +
+      `differential instead. ` +
+      `${pair.baseCurrency}/${pair.quoteCurrency} Fund Δ = ` +
+      `${fundDelta >= 0 ? '+' : ''}${fundDelta.toFixed(2)}. ` +
+      `This is a macro-derived bias, not live market-strength confirmation.`;
+  } else if (
+    policyRateSpread !== null &&
+    Math.abs(policyRateSpread) >= 0.5
+  ) {
+    orientationDirection =
+      policyRateSpread > 0
+        ? 'BULLISH_BASE'
+        : 'BEARISH_BASE';
+
+    orientationExplanation =
+      `MARKET CONFIRMATION ${marketEvidenceState === 'STALE' ? 'STALE' : 'UNAVAILABLE'}: ` +
+      `directional orientation is derived from the verified live policy-rate ` +
+      `differential. ` +
+      `${pair.baseCurrency} ${basePolicyEvidence.institution} at ` +
+      `${baseRate?.toFixed(2)}% vs ${pair.quoteCurrency} ` +
+      `${quotePolicyEvidence.institution} at ${quoteRate?.toFixed(2)}%, ` +
+      `policy spread = ${policyRateSpread >= 0 ? '+' : ''}${policyRateSpread.toFixed(2)}%. ` +
+      `This is a policy-derived carry bias, not live market-strength confirmation.`;
+  } else if (!hasLiveMacroEvidence) {
+    orientationDirection = 'DATA_UNAVAILABLE';
+
+    orientationExplanation =
+      `No verified directional evidence is available for ${pair.symbol}. ` +
+      `Live market strength is ${marketEvidenceState === 'STALE' ? 'stale' : 'unavailable'}, ` +
+      'and no live fundamental or policy differential could be verified. ' +
+      'Session and catalyst evidence is intentionally excluded from directional bias.';
   } else {
     orientationDirection = 'NEUTRAL';
-    orientationExplanation = `Relative strength differential between ${pair.baseCurrency} (${
-      baseStrength >= 0 ? '+' : ''
-    }${baseStrength.toFixed(2)}) and ${pair.quoteCurrency} (${
-      quoteStrength >= 0 ? '+' : ''
-    }${quoteStrength.toFixed(2)}) is tight (Δ = ${
-      relativeStrengthDelta >= 0 ? '+' : ''
-    }${relativeStrengthDelta.toFixed(2)}), reflecting a balanced, range-bound backdrop.`;
+
+    orientationExplanation =
+      `Live market strength is ${marketEvidenceState === 'STALE' ? 'stale' : 'unavailable'} ` +
+      `and the available verified fundamental and policy evidence between ` +
+      `${pair.baseCurrency} and ${pair.quoteCurrency} is balanced rather than decisive.`;
   }
 
-  const baseFundScore = baseState.fundamentalState.fundamentalScore ?? 0;
-  const quoteFundScore = quoteState.fundamentalState.fundamentalScore ?? 0;
-  const fundDelta = Math.round((baseFundScore - quoteFundScore) * 100) / 100;
+  // ---------------------------------------------------------------------------
+  // CONVERGENCE / DIVERGENCE
+  // ---------------------------------------------------------------------------
 
-  const baseRate = baseState.centralBank.currentPolicyRate ?? 0;
-  const quoteRate = quoteState.centralBank.currentPolicyRate ?? 0;
-  const policyRateSpread = Math.round((baseRate - quoteRate) * 100) / 100;
+  let convergenceDivergence:
+    ConvergenceDivergenceType = 'MIXED';
 
-  let convergenceDivergence: ConvergenceDivergenceType = 'MIXED';
   let convergenceExplanation = '';
 
   if (
-    (relativeStrengthDelta > 0.05 && fundDelta > 0.02) ||
-    (relativeStrengthDelta < -0.05 && fundDelta < -0.02)
+    relativeStrengthDelta !== null &&
+    fundDelta !== null
   ) {
-    convergenceDivergence = 'CONVERGENCE';
-    convergenceExplanation = `Market strength (Δ = ${
-      relativeStrengthDelta >= 0 ? '+' : ''
-    }${relativeStrengthDelta.toFixed(2)}) and fundamental impulses (Fund Δ = ${
-      fundDelta >= 0 ? '+' : ''
-    }${fundDelta.toFixed(
-      2
-    )}) point in the same directional vector. Monetary policy expectations reinforce current price action.`;
-  } else if (
-    (relativeStrengthDelta > 0.05 && fundDelta < -0.02) ||
-    (relativeStrengthDelta < -0.05 && fundDelta > 0.02)
-  ) {
-    convergenceDivergence = 'DIVERGENCE';
-    convergenceExplanation = `DIVERGENCE DETECTED: Market price momentum (Δ = ${
-      relativeStrengthDelta >= 0 ? '+' : ''
-    }${relativeStrengthDelta.toFixed(2)}) conflicts with underlying fundamental trajectory (Fund Δ = ${
-      fundDelta >= 0 ? '+' : ''
-    }${fundDelta.toFixed(
-      2
-    )}). Caution warranted as market behavior resists macroeconomic fundamentals.`;
-  } else {
+    if (
+      (relativeStrengthDelta > 0.05 &&
+        fundDelta > 0.02) ||
+      (relativeStrengthDelta < -0.05 &&
+        fundDelta < -0.02)
+    ) {
+      convergenceDivergence = 'CONVERGENCE';
+
+      convergenceExplanation =
+        `Market strength (Δ = ${relativeStrengthDelta >= 0 ? '+' : ''}${relativeStrengthDelta.toFixed(2)}) ` +
+        `and fundamentals (Fund Δ = ${fundDelta >= 0 ? '+' : ''}${fundDelta.toFixed(2)}) ` +
+        'point in the same directional vector.';
+    } else if (
+      (relativeStrengthDelta > 0.05 &&
+        fundDelta < -0.02) ||
+      (relativeStrengthDelta < -0.05 &&
+        fundDelta > 0.02)
+    ) {
+      convergenceDivergence = 'DIVERGENCE';
+
+      convergenceExplanation =
+        `Market strength (Δ = ${relativeStrengthDelta >= 0 ? '+' : ''}${relativeStrengthDelta.toFixed(2)}) ` +
+        `conflicts with fundamentals (Fund Δ = ${fundDelta >= 0 ? '+' : ''}${fundDelta.toFixed(2)}).`;
+    } else {
+      convergenceDivergence = 'MIXED';
+
+      convergenceExplanation =
+        'Market and fundamental evidence are not sufficiently aligned for a clear convergence classification.';
+    }
+  } else if (fundDelta !== null) {
     convergenceDivergence = 'MIXED';
+
     convergenceExplanation =
-      'Mixed evidence profile: Cross-currents in inflation differentials and central bank guidance prevent full alignment between market strength and macro fundamentals.';
+      `Market strength confirmation is unavailable. ` +
+      `Fundamental differential remains ${fundDelta >= 0 ? '+' : ''}${fundDelta.toFixed(2)}, ` +
+      'so macro evidence can be evaluated independently.';
+  } else {
+    convergenceDivergence = 'DATA_UNAVAILABLE';
+
+    convergenceExplanation =
+      'Insufficient independent market/fundamental differential evidence for convergence analysis.';
   }
+
+  // ---------------------------------------------------------------------------
+  // SUPPORTING / COUNTER EVIDENCE
+  // ---------------------------------------------------------------------------
 
   const supporting: string[] = [];
   const counter: string[] = [];
 
-  if (orientationDirection === 'BULLISH_BASE') {
-    supporting.push(
-      `${pair.baseCurrency} displays superior relative strength score (${
-        baseStrength >= 0 ? '+' : ''
-      }${baseStrength.toFixed(2)}) compared to ${pair.quoteCurrency} (${
-        quoteStrength >= 0 ? '+' : ''
-      }${quoteStrength.toFixed(2)}).`
+  const marketConfirmationNote =
+    marketEvidenceState === 'STALE'
+      ? 'live market quotes are stale, so price confirmation is unavailable.'
+      : marketEvidenceAvailable
+      ? ''
+      : 'live market strength is currently unavailable.';
+
+  if (orientationDirection === 'DATA_UNAVAILABLE') {
+    counter.push(
+      `No verified directional evidence is available for ${pair.symbol}: ` +
+      `market strength is ${marketEvidenceState === 'STALE' ? 'stale' : 'unavailable'} and ` +
+      'no live fundamental or policy differential could be verified.'
     );
-    if (baseState.centralBank.stance === 'HAWKISH' || quoteState.centralBank.stance === 'DOVISH') {
+  } else if (orientationDirection === 'BULLISH_BASE') {
+    if (relativeStrengthDelta !== null) {
       supporting.push(
-        `Central bank policy divergence favors ${pair.baseCurrency} (${baseState.centralBank.institution}: ${baseState.centralBank.stance} vs ${quoteState.centralBank.institution}: ${quoteState.centralBank.stance}).`
+        `${pair.baseCurrency} has superior live relative strength ` +
+        `versus ${pair.quoteCurrency} (Δ = ${relativeStrengthDelta >= 0 ? '+' : ''}${relativeStrengthDelta.toFixed(2)}%).`
+      );
+    } else if (fundDelta !== null && Math.abs(fundDelta) >= 0.06) {
+      supporting.push(
+        `Verified fundamental differential favors ${pair.baseCurrency} ` +
+        `(Fund Δ = ${fundDelta >= 0 ? '+' : ''}${fundDelta.toFixed(2)}); ` +
+        `${marketConfirmationNote}`
+      );
+    } else if (policyRateSpread !== null) {
+      supporting.push(
+        `Verified live policy carry favors ${pair.baseCurrency} ` +
+        `(${basePolicyEvidence.institution} ${baseRate?.toFixed(2)}% vs ` +
+        `${quotePolicyEvidence.institution} ${quoteRate?.toFixed(2)}%, ` +
+        `spread +${policyRateSpread.toFixed(2)}%); ${marketConfirmationNote}`
       );
     }
-    if (policyRateSpread > 0) {
+
+    if (
+      (baseStanceIsKnown && basePolicyEvidence.stance === 'HAWKISH') ||
+      (quoteStanceIsKnown && quotePolicyEvidence.stance === 'DOVISH')
+    ) {
       supporting.push(
-        `Positive nominal policy rate carry differential of +${policyRateSpread.toFixed(
-          2
-        )}% favors ${pair.baseCurrency}.`
+        `Verified monetary-policy divergence favors ${pair.baseCurrency} ` +
+        `(${basePolicyEvidence.institution}: ${basePolicyEvidence.stance} ` +
+        `vs ${quotePolicyEvidence.institution}: ${quotePolicyEvidence.stance}).`
       );
-    } else {
+    }
+
+    if (
+      quoteStanceIsKnown &&
+      quotePolicyEvidence.stance === 'HAWKISH'
+    ) {
       counter.push(
-        `Negative carry differential of ${policyRateSpread.toFixed(2)}% works against holding long ${
-          pair.baseCurrency
-        }.`
+        `${quotePolicyEvidence.institution} is tightening (${quotePolicyEvidence.stance} ` +
+        `from the ${quotePolicyEvidence.effectiveAt ?? 'latest'} decision), which works ` +
+        `against the ${pair.baseCurrency} carry advantage.`
       );
+    }
+
+    if (policyRateSpread !== null) {
+      if (policyRateSpread > 0) {
+        supporting.push(
+          `Positive nominal policy-rate differential of +${policyRateSpread.toFixed(
+            2
+          )}% favors ${pair.baseCurrency}.`
+        );
+      } else {
+        counter.push(
+          `Negative policy-rate differential of ${policyRateSpread.toFixed(
+            2
+          )}% works against ${pair.baseCurrency}.`
+        );
+      }
     }
   } else if (orientationDirection === 'BEARISH_BASE') {
-    supporting.push(
-      `${pair.quoteCurrency} demonstrates superior relative strength score (${
-        quoteStrength >= 0 ? '+' : ''
-      }${quoteStrength.toFixed(2)}) over ${pair.baseCurrency} (${
-        baseStrength >= 0 ? '+' : ''
-      }${baseStrength.toFixed(2)}).`
-    );
-    if (quoteState.centralBank.stance === 'HAWKISH' || baseState.centralBank.stance === 'DOVISH') {
+    if (relativeStrengthDelta !== null) {
       supporting.push(
-        `Monetary policy divergence favors ${pair.quoteCurrency} (${quoteState.centralBank.institution}: ${quoteState.centralBank.stance} vs ${baseState.centralBank.institution}: ${baseState.centralBank.stance}).`
+        `${pair.quoteCurrency} has superior live relative strength ` +
+        `versus ${pair.baseCurrency} (Δ = ${relativeStrengthDelta >= 0 ? '+' : ''}${relativeStrengthDelta.toFixed(2)}%).`
+      );
+    } else if (fundDelta !== null && Math.abs(fundDelta) >= 0.06) {
+      supporting.push(
+        `Verified fundamental differential favors ${pair.quoteCurrency} ` +
+        `(Fund Δ = ${fundDelta >= 0 ? '+' : ''}${fundDelta.toFixed(2)}); ` +
+        `${marketConfirmationNote}`
+      );
+    } else if (policyRateSpread !== null) {
+      supporting.push(
+        `Verified live policy carry favors ${pair.quoteCurrency} ` +
+        `(${quotePolicyEvidence.institution} ${quoteRate?.toFixed(2)}% vs ` +
+        `${basePolicyEvidence.institution} ${baseRate?.toFixed(2)}%, ` +
+        `spread ${policyRateSpread.toFixed(2)}%); ${marketConfirmationNote}`
       );
     }
-    if (policyRateSpread < 0) {
+
+    if (
+      (quoteStanceIsKnown && quotePolicyEvidence.stance === 'HAWKISH') ||
+      (baseStanceIsKnown && basePolicyEvidence.stance === 'DOVISH')
+    ) {
       supporting.push(
-        `Policy rate spread favors ${pair.quoteCurrency} by +${Math.abs(policyRateSpread).toFixed(
-          2
-        )}%.`
+        `Verified monetary-policy divergence favors ${pair.quoteCurrency} ` +
+        `(${quotePolicyEvidence.institution}: ${quotePolicyEvidence.stance} ` +
+        `vs ${basePolicyEvidence.institution}: ${basePolicyEvidence.stance}).`
       );
-    } else {
-      counter.push(
-        `Carry differential of +${policyRateSpread.toFixed(2)}% favors ${
-          pair.baseCurrency
-        }, posing carry cost to short ${pair.baseCurrency}.`
-      );
+    }
+
+    if (policyRateSpread !== null) {
+      if (policyRateSpread < 0) {
+        supporting.push(
+          `Policy-rate spread favors ${pair.quoteCurrency} by +${Math.abs(
+            policyRateSpread
+          ).toFixed(2)}%.`
+        );
+      } else {
+        counter.push(
+          `Policy-rate differential of +${policyRateSpread.toFixed(
+            2
+          )}% favors ${pair.baseCurrency}.`
+        );
+      }
     }
   } else {
-    supporting.push(`Symmetric market evidence keeps ${pair.symbol} range-bound.`);
-    counter.push(`Lack of decisive fundamental divergence limits directional follow-through.`);
+    if (relativeStrengthDelta !== null) {
+      supporting.push(
+        `Live market evidence is relatively balanced for ${pair.symbol}.`
+      );
+    }
+
+    if (fundDelta !== null || policyRateSpread !== null) {
+      supporting.push(
+        `Verified macro evidence is present but balanced between ` +
+        `${pair.baseCurrency} and ${pair.quoteCurrency} ` +
+        `(Fund Δ = ${fundDelta === null ? 'unavailable' : `${fundDelta >= 0 ? '+' : ''}${fundDelta.toFixed(2)}`}, ` +
+        `policy spread = ${policyRateSpread === null ? 'unavailable' : `${policyRateSpread >= 0 ? '+' : ''}${policyRateSpread.toFixed(2)}%`}).`
+      );
+    }
+
+    if (!marketEvidenceAvailable) {
+      counter.push(
+        `Live market confirmation is ${
+          marketEvidenceState === 'STALE' ? 'stale' : 'unavailable'
+        } for ${pair.symbol}; the balance above is macro-derived.`
+      );
+    }
   }
 
-  if (baseState.conflictingEvidence.length > 0) {
-    counter.push(`${pair.baseCurrency}: ${baseState.conflictingEvidence[0]}`);
+  if (
+    baseState.conflictingEvidence?.length > 0
+  ) {
+    counter.push(
+      `${pair.baseCurrency}: ${baseState.conflictingEvidence[0]}`
+    );
   }
-  if (quoteState.conflictingEvidence.length > 0) {
-    counter.push(`${pair.quoteCurrency}: ${quoteState.conflictingEvidence[0]}`);
+
+  if (
+    quoteState.conflictingEvidence?.length > 0
+  ) {
+    counter.push(
+      `${pair.quoteCurrency}: ${quoteState.conflictingEvidence[0]}`
+    );
   }
+
+  // ---------------------------------------------------------------------------
+  // CATALYSTS
+  // ---------------------------------------------------------------------------
 
   const pairEvents = events.filter(
-    (e: EconomicEvent) => e.currency === pair.baseCurrency || e.currency === pair.quoteCurrency
+    (e: EconomicEvent) =>
+      e.currency === pair.baseCurrency ||
+      e.currency === pair.quoteCurrency
   );
 
-  let thesis = '';
-  if (orientationDirection === 'BULLISH_BASE') {
-    thesis = `Macro stance favors ${pair.baseCurrency} against ${
-      pair.quoteCurrency
-    }. The pair exhibits a +${relativeStrengthDelta.toFixed(
-      2
-    )} relative advantage supported by ${convergenceDivergence.toLowerCase()} between monetary trajectories and economic prints.`;
-  } else if (orientationDirection === 'BEARISH_BASE') {
-    thesis = `Macro stance favors ${pair.quoteCurrency} over ${
-      pair.baseCurrency
-    }. The pair faces a ${relativeStrengthDelta.toFixed(
-      2
-    )} drag driven by ${pair.quoteCurrency} outperformance and central bank divergence.`;
-  } else {
-    thesis = `Neutral thesis: ${pair.symbol} exhibits balanced fundamentals with no decisive policy tilt between ${pair.baseCurrency} and ${pair.quoteCurrency}.`;
-  }
+  const { catalysts: catalystIntelligence } =
+    evaluateCatalystIntelligence(
+      pairEvents,
+      undefined,
+      date
+    );
 
-  const invalidationConditions = [
-    `Shift in ${pair.baseCurrency} central bank stance from ${baseState.centralBank.stance} during upcoming scheduled decision.`,
-    `Significant surprise on upcoming ${pair.quoteCurrency} inflation or employment release altering terminal rate path.`,
-    `Relative strength differential reverting into neutral bounds (|Δ| < 0.05).`
-  ];
+  // ---------------------------------------------------------------------------
+  // STRUCTURED CONTRADICTIONS
+  // ---------------------------------------------------------------------------
 
-  const risks = [
-    `Unscheduled central bank official interventions or emergency communication.`,
-    `Abrupt global risk-sentiment pivot affecting funding currencies.`,
-    `Carry unwinds in high-yielding cross allocations.`
-  ];
-
-  const sessionRel = getPairSessionRelevance(pair.symbol);
-  const watchWindow = calculateWatchWindow(pair, events, date, true);
-
-  const sources = [
-    {
-      name: baseState.centralBank.sourceMetadata.sourceName,
-      url: baseState.centralBank.sourceMetadata.sourceUrl,
-      classification: 'FACT' as const
-    },
-    {
-      name: quoteState.centralBank.sourceMetadata.sourceName,
-      url: quoteState.centralBank.sourceMetadata.sourceUrl,
-      classification: 'FACT' as const
-    }
-  ];
-
-  const baseCb = baseState.centralBank
-    ? buildCentralBankProfile(pair.baseCurrency, {
-        institution: baseState.centralBank.institution,
-        policyRate: baseState.centralBank.currentPolicyRate,
-        previousPolicyRate: baseState.centralBank.previousPolicyRate,
-        stance: baseState.centralBank.stance as any,
-        latestDecisionDate: baseState.centralBank.latestDecisionDate,
-        nextKnownDecisionDate: baseState.centralBank.nextKnownDecisionDate,
-        guidanceSummary: baseState.centralBank.guidanceSummary
-      })
-    : buildCentralBankProfile(pair.baseCurrency);
-
-  const quoteCb = quoteState.centralBank
-    ? buildCentralBankProfile(pair.quoteCurrency, {
-        institution: quoteState.centralBank.institution,
-        policyRate: quoteState.centralBank.currentPolicyRate,
-        previousPolicyRate: quoteState.centralBank.previousPolicyRate,
-        stance: quoteState.centralBank.stance as any,
-        latestDecisionDate: quoteState.centralBank.latestDecisionDate,
-        nextKnownDecisionDate: quoteState.centralBank.nextKnownDecisionDate,
-        guidanceSummary: quoteState.centralBank.guidanceSummary
-      })
-    : buildCentralBankProfile(pair.quoteCurrency);
-
-  const baseIntel = evaluateCurrencyFundamentalIntelligence({
-    currency: baseState.currency,
-    observations: normBaseObs,
-    centralBank: baseCb,
-    marketStrength: baseState.marketStrength,
-    upcomingEvents: events,
-    isDataFeedConnected: true
-  });
-  if (normBaseObs.length === 0 && baseState.fundamentalState?.fundamentalScore != null) {
-    baseIntel.fundamentalScore = baseState.fundamentalState.fundamentalScore;
-    baseIntel.overallCondition = baseState.fundamentalState.overallCondition;
-  }
-
-  const quoteIntel = evaluateCurrencyFundamentalIntelligence({
-    currency: quoteState.currency,
-    observations: normQuoteObs,
-    centralBank: quoteCb,
-    marketStrength: quoteState.marketStrength,
-    upcomingEvents: events,
-    isDataFeedConnected: true
-  });
-  if (normQuoteObs.length === 0 && quoteState.fundamentalState?.fundamentalScore != null) {
-    quoteIntel.fundamentalScore = quoteState.fundamentalState.fundamentalScore;
-    quoteIntel.overallCondition = quoteState.fundamentalState.overallCondition;
-  }
-  const fundamentalDifferential = evaluateFundamentalDifferential({
-    pair,
-    baseIntel,
-    quoteIntel,
-    upcomingEvents: events
-  });
-
-  const { catalysts: catalystIntelligence } = evaluateCatalystIntelligence(pairEvents, undefined, date);
-
-  const { contradictions: structuredContradictions } = evaluateStructuredContradictions({
+  const {
+    contradictions: structuredContradictions
+  } = evaluateStructuredContradictions({
     pair,
     baseState,
     quoteState,
@@ -501,46 +723,71 @@ export function evaluatePairIntelligence(
     now: date
   });
 
-  const { conditions: structuredInvalidation } = evaluateStructuredInvalidation({
+  // ---------------------------------------------------------------------------
+  // INVALIDATION
+  // ---------------------------------------------------------------------------
+
+  const {
+    conditions: structuredInvalidation
+  } = evaluateStructuredInvalidation({
     pair,
     baseState,
     quoteState,
     relativeStrengthDelta,
     orientationDirection,
     fundamentalDiff: fundamentalDifferential,
-    isDataFeedConnected: true,
+    isDataFeedConnected,
     now: date
   });
 
-  const structuredThesis = evaluateStructuredThesis({
-    pair,
-    baseState,
-    quoteState,
-    relativeStrengthDelta,
-    orientationDirection,
-    supportingEvidence: supporting,
-    counterEvidence: counter,
-    catalysts: catalystIntelligence,
-    contradictions: structuredContradictions,
-    invalidationConditions: structuredInvalidation,
-    fundamentalDiff: fundamentalDifferential,
-    isDataFeedConnected: true,
-    now: date
-  });
+  // ---------------------------------------------------------------------------
+  // THESIS
+  // ---------------------------------------------------------------------------
 
-  const confluence = calculatePairConfluence({
-    pair,
-    baseState,
-    quoteState,
-    relativeStrengthDelta,
-    orientationDirection,
-    events,
-    fundamentalDiff: fundamentalDifferential,
-    date,
-    isDataFeedConnected: true
-  });
+  const structuredThesis =
+    evaluateStructuredThesis({
+      pair,
+      baseState,
+      quoteState,
+      relativeStrengthDelta,
+      orientationDirection,
+      supportingEvidence: supporting,
+      counterEvidence: counter,
+      catalysts: catalystIntelligence,
+      contradictions: structuredContradictions,
+      invalidationConditions: structuredInvalidation,
+      fundamentalDiff: fundamentalDifferential,
+      isDataFeedConnected,
+      now: date
+    });
 
-  // Detailed Pair Orientation Classification
+  // ---------------------------------------------------------------------------
+  // CONFLUENCE
+  // ---------------------------------------------------------------------------
+
+  const confluence =
+    calculatePairConfluence({
+      pair,
+      baseState,
+      quoteState,
+      relativeStrengthDelta,
+      orientationDirection,
+      events,
+      fundamentalDiff: fundamentalDifferential,
+      marketDataTimestamp: null,
+      fundamentalDataTimestamp:
+        basePolicyEvidence.fetchedAt ?? quotePolicyEvidence.fetchedAt,
+      date,
+      isDataFeedConnected,
+      basePolicyEvidence,
+      quotePolicyEvidence,
+      marketEvidenceState
+    });
+
+  // ---------------------------------------------------------------------------
+  // DETAILED ORIENTATION
+  // ---------------------------------------------------------------------------
+
   let detailedOrientation:
     | 'DIRECTIONAL_STRENGTH_ALIGNMENT'
     | 'DIRECTIONAL_FUNDAMENTAL_ALIGNMENT'
@@ -549,83 +796,333 @@ export function evaluatePairIntelligence(
     | 'CONTRADICTORY'
     | 'UNRESOLVED'
     | 'DATA_INSUFFICIENT';
-  const macroDifferentialScore = fundamentalDifferential?.fundamentalDifferential?.delta ?? fundDelta ?? null;
 
-  if (relativeStrengthDelta === null || (orientationDirection as string) === 'DATA_UNAVAILABLE') {
-    detailedOrientation = 'DATA_INSUFFICIENT';
-  } else if (structuredContradictions.some((c) => c.severity === 'HIGH')) {
-    detailedOrientation = 'CONTRADICTORY';
+  const macroDifferentialScore =
+    fundamentalDifferential
+      ?.fundamentalDifferential?.delta ??
+    fundDelta ??
+    null;
+
+  if (
+    orientationDirection === 'NEUTRAL' &&
+    relativeStrengthDelta === null &&
+    (
+      macroDifferentialScore === null ||
+      Math.abs(macroDifferentialScore) < 0.06
+    )
+  ) {
+    detailedOrientation =
+      'DATA_INSUFFICIENT';
   } else if (
+    structuredContradictions.some(
+      (c) => c.severity === 'HIGH'
+    )
+  ) {
+    detailedOrientation =
+      'CONTRADICTORY';
+  } else if (
+    relativeStrengthDelta !== null &&
     macroDifferentialScore !== null &&
-    ((relativeStrengthDelta >= 0.10 && macroDifferentialScore < -0.04) ||
-      (relativeStrengthDelta <= -0.10 && macroDifferentialScore > 0.04))
+    (
+      (relativeStrengthDelta >= 0.10 &&
+        macroDifferentialScore < -0.04) ||
+      (relativeStrengthDelta <= -0.10 &&
+        macroDifferentialScore > 0.04)
+    )
   ) {
     detailedOrientation = 'DIVERGENT';
   } else if (
+    relativeStrengthDelta !== null &&
     macroDifferentialScore !== null &&
-    ((relativeStrengthDelta >= 0.10 && macroDifferentialScore >= 0.04) ||
-      (relativeStrengthDelta <= -0.10 && macroDifferentialScore <= -0.04))
+    (
+      (relativeStrengthDelta >= 0.10 &&
+        macroDifferentialScore >= 0.04) ||
+      (relativeStrengthDelta <= -0.10 &&
+        macroDifferentialScore <= -0.04)
+    )
   ) {
-    detailedOrientation = 'COMPLETE_CONFLUENCE';
-  } else if (Math.abs(relativeStrengthDelta) >= 0.10) {
-    detailedOrientation = 'DIRECTIONAL_STRENGTH_ALIGNMENT';
-  } else if (macroDifferentialScore !== null && Math.abs(macroDifferentialScore) >= 0.06) {
-    detailedOrientation = 'DIRECTIONAL_FUNDAMENTAL_ALIGNMENT';
+    detailedOrientation =
+      'COMPLETE_CONFLUENCE';
+  } else if (
+    relativeStrengthDelta !== null &&
+    Math.abs(relativeStrengthDelta) >= 0.10
+  ) {
+    detailedOrientation =
+      'DIRECTIONAL_STRENGTH_ALIGNMENT';
+  } else if (
+    macroDifferentialScore !== null &&
+    Math.abs(macroDifferentialScore) >= 0.06
+  ) {
+    detailedOrientation =
+      'DIRECTIONAL_FUNDAMENTAL_ALIGNMENT';
   } else {
-    detailedOrientation = 'UNRESOLVED';
+    detailedOrientation =
+      'UNRESOLVED';
   }
+
+  // ---------------------------------------------------------------------------
+  // THESIS TEXT
+  // ---------------------------------------------------------------------------
+
+  let thesis = '';
+
+  if (
+    orientationDirection === 'BULLISH_BASE'
+  ) {
+    thesis =
+      relativeStrengthDelta !== null
+        ? `Macro and market evidence currently favor ${pair.baseCurrency} against ${pair.quoteCurrency}. ` +
+          `Live relative strength differential is +${relativeStrengthDelta.toFixed(
+            2
+          )}.`
+        : `Available macro and policy evidence favor ${pair.baseCurrency} against ${pair.quoteCurrency}. ` +
+          `Live market-strength confirmation is ${
+            marketEvidenceState === 'STALE' ? 'stale' : 'unavailable'
+          }.`;
+  } else if (
+    orientationDirection === 'BEARISH_BASE'
+  ) {
+    thesis =
+      relativeStrengthDelta !== null
+        ? `Macro and market evidence currently favor ${pair.quoteCurrency} over ${pair.baseCurrency}. ` +
+          `Live relative strength differential is ${relativeStrengthDelta.toFixed(
+            2
+          )}.`
+        : `Available macro and policy evidence favor ${pair.quoteCurrency} over ${pair.baseCurrency}. ` +
+          `Live market-strength confirmation is ${
+            marketEvidenceState === 'STALE' ? 'stale' : 'unavailable'
+          }.`;
+  } else if (orientationDirection === 'DATA_UNAVAILABLE') {
+    thesis =
+      `No verified directional evidence is available for ${pair.symbol}. ` +
+      `Live market strength is ${
+        marketEvidenceState === 'STALE' ? 'stale' : 'unavailable'
+      } and no live fundamental or policy differential could be verified.`;
+  } else {
+    thesis =
+      `No decisive directional differential is currently established for ${pair.symbol}. ` +
+      'Available evidence remains balanced or incomplete.';
+  }
+
+  // ---------------------------------------------------------------------------
+  // RISKS / INVALIDATION
+  // ---------------------------------------------------------------------------
+
+  const invalidationConditions = [
+    `Shift in ${pair.baseCurrency} central-bank stance during the next scheduled decision.`,
+    `Significant surprise on upcoming ${pair.quoteCurrency} inflation or employment data altering the expected policy path.`,
+    ...(relativeStrengthDelta !== null
+      ? [
+          `Relative strength differential reverting toward neutral bounds (|Δ| < 0.05).`
+        ]
+      : [
+          'Restoration of live market data should be used to confirm or challenge the macro-derived directional bias.'
+        ])
+  ];
+
+  const risks = [
+    'Unscheduled central-bank intervention or emergency communication.',
+    'Abrupt global risk-sentiment pivot affecting funding currencies.',
+    'Carry unwinds in high-yielding cross allocations.',
+    ...(relativeStrengthDelta === null
+      ? [
+          `Live market-strength confirmation is ${
+            marketEvidenceState === 'STALE' ? 'stale' : 'unavailable'
+          }; price confirmation may differ from the macro-derived bias.`
+        ]
+      : [])
+  ];
+
+  // ---------------------------------------------------------------------------
+  // SESSION / WATCH WINDOW
+  // ---------------------------------------------------------------------------
+
+  const sessionRel =
+    getPairSessionRelevance(pair.symbol);
+
+  const watchWindow =
+    calculateWatchWindow(
+      pair,
+      events,
+      date,
+      marketEvidenceAvailable
+    );
+
+  // ---------------------------------------------------------------------------
+  // SOURCES
+  // ---------------------------------------------------------------------------
+
+  const sources = [
+    {
+      name:
+        baseState.centralBank?.sourceMetadata
+          ?.sourceName || 'Central Bank',
+      url:
+        baseState.centralBank?.sourceMetadata
+          ?.sourceUrl || '',
+      classification: 'FACT' as const
+    },
+    {
+      name:
+        quoteState.centralBank?.sourceMetadata
+          ?.sourceName || 'Central Bank',
+      url:
+        quoteState.centralBank?.sourceMetadata
+          ?.sourceUrl || '',
+      classification: 'FACT' as const
+    }
+  ];
+
+  // ---------------------------------------------------------------------------
+  // PAIR INTELLIGENCE
+  // ---------------------------------------------------------------------------
 
   const pairIntel: PairIntelligence = {
     pair,
     symbol: pair.symbol,
+
     baseCurrency: baseState.currency,
     quoteCurrency: quoteState.currency,
+
     baseState,
     quoteState,
-    baseMarketStrength: baseState.marketStrength,
-    quoteMarketStrength: quoteState.marketStrength,
-    marketStrengthDifferential: relativeStrengthDelta,
-    baseFundamentalEvidence: baseState.supportingEvidence,
-    quoteFundamentalEvidence: quoteState.supportingEvidence,
+
+    baseMarketStrength,
+    quoteMarketStrength,
+
+    marketStrengthDifferential:
+      relativeStrengthDelta,
+
+    baseFundamentalEvidence:
+      baseState.supportingEvidence || [],
+
+    quoteFundamentalEvidence:
+      quoteState.supportingEvidence || [],
+
     fundamentalDifferential,
-    baseCentralBank: baseState.centralBank,
-    quoteCentralBank: quoteState.centralBank,
-    policyDifferential: fundamentalDifferential?.policyDifferential,
-    expectationDifferential: fundamentalDifferential?.expectationsDifferential,
+
+    baseCentralBank:
+      baseState.centralBank,
+
+    quoteCentralBank:
+      quoteState.centralBank,
+
+    policyDifferential:
+      fundamentalDifferential?.policyDifferential,
+
+    expectationDifferential:
+      fundamentalDifferential?.expectationsDifferential,
+
     sessionContext: sessionRel,
+
     relativeStrengthDelta,
+
     orientationDirection,
-    orientation: detailedOrientation,
+
+    orientation:
+      detailedOrientation,
+
     orientationExplanation,
+
     convergenceDivergence,
+
     convergenceExplanation,
+
     supportingEvidence: supporting,
+
     opposingEvidence: counter,
+
     counterEvidence: counter,
+
     catalysts: pairEvents,
+
     catalystIntelligence,
-    contradictions: structuredContradictions,
+
+    contradictions:
+      structuredContradictions,
+
     risks,
+
     thesis,
+
     structuredThesis,
+
     invalidationConditions,
+
     structuredInvalidation,
+
     structuredContradictions,
+
     sessionRelevance: {
-      primarySession: sessionRel.primarySession,
-      relevantSessions: sessionRel.relevantSessions,
-      structuralRationale: sessionRel.structuralRationale
+      primarySession:
+        sessionRel.primarySession,
+      relevantSessions:
+        sessionRel.relevantSessions,
+      structuralRationale:
+        sessionRel.structuralRationale
     },
+
     watchWindow,
-    lastUpdated: new Date().toISOString(),
+
+    lastUpdated:
+      new Date().toISOString(),
+
     sources,
+
     confluence,
-    confidence: confluence?.directionalConfidence || 'LOW',
-    dataQuality: (confluence?.dataQuality as any) || 'COMPLETE',
-    freshness: 'FRESH'
+
+    confidence:
+      confluence?.directionalConfidence ||
+      'LOW',
+
+    dataQuality:
+      (confluence?.dataQuality as any) ||
+      'UNAVAILABLE',
+
+    /*
+     * Pair freshness reflects the pair/market evidence state. Macro or policy
+     * component aging stays visible through that component's own freshness and
+     * through confluence.agingComponents, and must not relabel a live market
+     * pair as STALE.
+     */
+    freshness: (() => {
+      if (marketEvidenceState === 'STALE') return 'STALE';
+      if (marketEvidenceState === 'UNAVAILABLE') return 'UNAVAILABLE';
+      if (confluence?.staleComponents?.length) return 'STALE';
+      if (confluence?.dataQuality === 'DEGRADED') return 'AGING';
+      if (confluence?.agingComponents?.length) return 'AGING';
+      return 'FRESH';
+    })(),
+
+    marketEvidenceState,
+
+    evidenceFreshness: {
+      market: marketEvidenceState,
+      fundamental:
+        confluence?.components?.fundamentals?.availability === 'UNAVAILABLE'
+          ? 'UNAVAILABLE'
+          : confluence?.components?.fundamentals?.freshness === 'FRESH'
+          ? 'AVAILABLE'
+          : 'STALE',
+      policy:
+        confluence?.components?.policy?.availability === 'UNAVAILABLE'
+          ? 'UNAVAILABLE'
+          : confluence?.components?.policy?.freshness === 'FRESH'
+          ? 'AVAILABLE'
+          : 'STALE',
+      catalysts:
+        confluence?.components?.catalysts?.availability === 'UNAVAILABLE'
+          ? 'UNAVAILABLE'
+          : 'AVAILABLE',
+      session:
+        confluence?.components?.session?.availability === 'UNAVAILABLE'
+          ? 'UNAVAILABLE'
+          : 'AVAILABLE'
+    }
   };
 
-  pairIntel.structuredOpportunity = evaluatePairOpportunity(pairIntel);
+  pairIntel.structuredOpportunity =
+    evaluatePairOpportunity(pairIntel);
 
   return pairIntel;
 }

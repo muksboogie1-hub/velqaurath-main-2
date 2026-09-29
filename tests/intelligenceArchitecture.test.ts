@@ -657,12 +657,32 @@ console.log('\n--- Section 9: 11 Deterministic Pipeline Mutations ---');
   assert(intelA.structuredThesis?.status === 'SUPPORTED', 'Mutation A: Structured thesis is SUPPORTED');
   assert(intelA.structuredOpportunity?.state === 'PRIMARY_WATCH', 'Mutation A: Opportunity state is PRIMARY_WATCH');
 
-  // Mutation B: Missing market data (null marketStrength)
+  // Mutation B: Missing market data (null marketStrength) must NOT erase
+  // independently verified fundamental, policy, catalyst and session evidence.
   const baseMissingMkt = { ...baselineBase, marketStrength: null };
   const intelB = evaluatePairIntelligence(pair, baseMissingMkt, baselineQuote, [], new Date('2026-09-24T14:00:00Z'), true);
-  assert(intelB.orientationDirection === 'DATA_UNAVAILABLE', 'Mutation B: Missing market strength yields DATA_UNAVAILABLE');
-  assert(intelB.structuredThesis?.status === 'INSUFFICIENT_DATA', 'Mutation B: Thesis status is INSUFFICIENT_DATA');
-  assert(intelB.structuredOpportunity?.state === 'INSUFFICIENT_DATA', 'Mutation B: Opportunity state is INSUFFICIENT_DATA');
+  assert(intelB.relativeStrengthDelta === null, 'Mutation B: Missing market strength keeps relativeStrengthDelta null (never 0)');
+  assert(intelB.marketEvidenceState !== 'AVAILABLE', 'Mutation B: Market evidence state is not AVAILABLE when quotes are missing');
+  assert(intelB.orientationDirection !== 'DATA_UNAVAILABLE', 'Mutation B: Missing market strength alone does not yield DATA_UNAVAILABLE');
+  assert(intelB.orientationDirection === 'BULLISH_BASE', 'Mutation B: Direction is carried by independent fundamental/policy evidence');
+  const mktB = intelB.confluence?.components?.marketStrength;
+  assert(mktB?.points === 0, 'Mutation B: Unavailable market layer earns 0 points');
+  assert(mktB?.maxPoints === 25, 'Mutation B: Unavailable market layer keeps its 25-point weight (no renormalization)');
+  assert(mktB?.availability === 'UNAVAILABLE' || mktB?.availability === 'STALE' || mktB?.availability === 'PARTIAL', 'Mutation B: Unavailable market layer reports non-AVAILABLE availability');
+  const totalMaxB =
+    (intelB.confluence?.components?.marketStrength?.maxPoints ?? 0) +
+    (intelB.confluence?.components?.fundamentals?.maxPoints ?? 0) +
+    (intelB.confluence?.components?.policy?.maxPoints ?? 0) +
+    (intelB.confluence?.components?.expectations?.maxPoints ?? 0) +
+    (intelB.confluence?.components?.session?.maxPoints ?? 0) +
+    (intelB.confluence?.components?.catalysts?.maxPoints ?? 0);
+  assert(totalMaxB === 100, 'Mutation B: Denominator remains 100 with an unearned market layer');
+  assert((intelB.confluence?.components?.policy?.points ?? 0) > 0, 'Mutation B: Policy layer remains independently scored');
+  assert(intelB.structuredThesis?.status !== 'INSUFFICIENT_DATA', 'Mutation B: Thesis is not INSUFFICIENT_DATA on missing market alone');
+  assert(intelB.structuredOpportunity?.state !== 'INSUFFICIENT_DATA', 'Mutation B: Opportunity is not INSUFFICIENT_DATA on missing market alone');
+  const mktInvB = intelB.structuredInvalidation?.find((c) => c.category === 'MARKET_STRENGTH');
+  assert(mktInvB?.evaluationStatus === 'UNABLE_TO_EVALUATE', 'Mutation B: Unavailable market invalidation is UNABLE_TO_EVALUATE');
+  assert(mktInvB?.triggered === false, 'Mutation B: Unavailable market invalidation is not reported as triggered');
 
   // Mutation C: Stale market data (stale coverage)
   const baseStaleMkt: CurrencyState = {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Info, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { CurrencyState, StrengthThresholds } from '../types';
+import { CurrencyState, ProviderStatus, StrengthThresholds } from '../types';
 
 interface MarketStateSummaryProps {
   allCurrencies: CurrencyState[];
@@ -9,6 +9,7 @@ interface MarketStateSummaryProps {
   weakCurrencies: CurrencyState[];
   thresholds: StrengthThresholds;
   onSelectCurrency: (code: string) => void;
+  marketProviderStatus?: ProviderStatus;
 }
 
 export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
@@ -17,10 +18,30 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
   neutralCurrencies,
   weakCurrencies,
   thresholds,
-  onSelectCurrency
+  onSelectCurrency,
+  marketProviderStatus
 }) => {
   const hasUsableMarketData = allCurrencies.some((c) => c.marketStrength !== null);
-  const isDataUnavailable = allCurrencies.length === 0 || !hasUsableMarketData;
+
+  const isNotConfigured = marketProviderStatus?.isConfigured === false;
+
+  const isStale =
+    marketProviderStatus?.runtimeFeedState === 'STALE' ||
+    marketProviderStatus?.snapshotHealth === 'STALE';
+
+  const isDegraded =
+    marketProviderStatus?.runtimeFeedState === 'DEGRADED' ||
+    marketProviderStatus?.snapshotHealth === 'AGING';
+
+  const isUnavailable =
+    !isNotConfigured &&
+    !isStale &&
+    !isDegraded &&
+    (allCurrencies.length === 0 ||
+      (!hasUsableMarketData && (marketProviderStatus?.quotesCount ?? 0) === 0));
+
+  const isDataUnavailable =
+    isNotConfigured || isStale || isDegraded || isUnavailable;
 
   const stalePairsList = Array.from(
     new Set(
@@ -52,11 +73,25 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
           <div className="inline-flex items-center justify-center p-2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 mb-2">
             <Info className="w-4 h-4" />
           </div>
+
           <h3 className="font-mono text-xs font-bold text-neutral-200 uppercase tracking-wider">
-            MARKET DATA UNAVAILABLE / NOT CONFIGURED
+            {isNotConfigured
+              ? 'MARKET DATA NOT CONFIGURED'
+              : isStale
+              ? 'MARKET DATA STALE'
+              : isDegraded
+              ? 'MARKET DATA DEGRADED'
+              : 'MARKET DATA UNAVAILABLE'}
           </h3>
+
           <p className="text-[11px] text-neutral-400 max-w-md mx-auto mt-1 leading-relaxed">
-            Market strength calculations require real live FX quotes from active providers (Biquote primary, Twelve Data secondary fallback). Macroeconomic fundamental conditions and central bank stances remain active below.
+            {isNotConfigured
+              ? 'No active FX market-data provider is configured. Market strength calculations require a configured provider such as Biquote or Twelve Data.'
+              : isStale
+              ? `The active FX provider is connected, but the available ${marketProviderStatus?.quotesCount ?? 0} quotes are stale. Market strength calculations are excluded until current quotes become available.`
+              : isDegraded
+              ? `${marketProviderStatus?.availablePairsCount ?? 0}/${marketProviderStatus?.requiredPairsCount ?? 0} required FX pairs currently have usable quotes. Market strength calculations remain coverage-limited until the feed recovers.`
+              : 'No usable current FX quotes are available. Market strength calculations require current observations from an active provider. Macroeconomic fundamental conditions and central bank stances remain active below.'}
           </p>
         </div>
       ) : (
@@ -72,7 +107,9 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
               </span>
             </div>
             {strongCurrencies.length === 0 ? (
-              <p className="text-xs text-neutral-500 italic font-mono py-2">No currencies ≥ +{thresholds.strongThreshold.toFixed(2)}%</p>
+              <p className="text-xs text-neutral-500 italic font-mono py-2">
+                No currencies ≥ +{thresholds.strongThreshold.toFixed(2)}%
+              </p>
             ) : (
               <div className="space-y-1.5">
                 {strongCurrencies.map((c) => (
@@ -85,7 +122,8 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
                       {c.currency.code}
                       {c.relativeStrengthBreakdown?.coverage && (
                         <span className="text-[9px] font-normal text-neutral-500">
-                          ({c.relativeStrengthBreakdown.coverage.available}/{c.relativeStrengthBreakdown.coverage.required})
+                          ({c.relativeStrengthBreakdown.coverage.available}/
+                          {c.relativeStrengthBreakdown.coverage.required})
                         </span>
                       )}
                     </span>
@@ -109,7 +147,9 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
               </span>
             </div>
             {neutralCurrencies.length === 0 ? (
-              <p className="text-xs text-neutral-500 italic font-mono py-2">No neutral currencies</p>
+              <p className="text-xs text-neutral-500 italic font-mono py-2">
+                No neutral currencies
+              </p>
             ) : (
               <div className="space-y-1.5">
                 {neutralCurrencies.map((c) => (
@@ -122,12 +162,15 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
                       {c.currency.code}
                       {c.relativeStrengthBreakdown?.coverage && (
                         <span className="text-[9px] font-normal text-neutral-500">
-                          ({c.relativeStrengthBreakdown.coverage.available}/{c.relativeStrengthBreakdown.coverage.required})
+                          ({c.relativeStrengthBreakdown.coverage.available}/
+                          {c.relativeStrengthBreakdown.coverage.required})
                         </span>
                       )}
                     </span>
                     <span className="text-neutral-400 font-semibold tabular-nums">
-                      {c.marketStrength !== null ? `${c.marketStrength >= 0 ? '+' : ''}${c.marketStrength.toFixed(2)}%` : 'N/A'}
+                      {c.marketStrength !== null
+                        ? `${c.marketStrength >= 0 ? '+' : ''}${c.marketStrength.toFixed(2)}%`
+                        : 'N/A'}
                     </span>
                   </button>
                 ))}
@@ -146,7 +189,9 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
               </span>
             </div>
             {weakCurrencies.length === 0 ? (
-              <p className="text-xs text-neutral-500 italic font-mono py-2">No currencies ≤ {thresholds.weakThreshold.toFixed(2)}%</p>
+              <p className="text-xs text-neutral-500 italic font-mono py-2">
+                No currencies ≤ {thresholds.weakThreshold.toFixed(2)}%
+              </p>
             ) : (
               <div className="space-y-1.5">
                 {weakCurrencies.map((c) => (
@@ -159,7 +204,8 @@ export const MarketStateSummary: React.FC<MarketStateSummaryProps> = ({
                       {c.currency.code}
                       {c.relativeStrengthBreakdown?.coverage && (
                         <span className="text-[9px] font-normal text-neutral-500">
-                          ({c.relativeStrengthBreakdown.coverage.available}/{c.relativeStrengthBreakdown.coverage.required})
+                          ({c.relativeStrengthBreakdown.coverage.available}/
+                          {c.relativeStrengthBreakdown.coverage.required})
                         </span>
                       )}
                     </span>

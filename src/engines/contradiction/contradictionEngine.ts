@@ -56,16 +56,10 @@ export function evaluateStructuredContradictions(
       ? Math.round(-quoteScore * 100) / 100
       : null);
   const policySpread =
-    fundamentalDiff?.policyDifferential?.rateSpread ??
-    (baseState.centralBank?.currentPolicyRate !== null &&
-    baseState.centralBank?.currentPolicyRate !== undefined &&
-    quoteState.centralBank?.currentPolicyRate !== null &&
-    quoteState.centralBank?.currentPolicyRate !== undefined
-      ? Math.round(
-          (baseState.centralBank.currentPolicyRate -
-            quoteState.centralBank.currentPolicyRate) *
-            100
-        ) / 100
+    fundamentalDiff?.policyDifferential?.livePolicySpread ??
+    (fundamentalDiff?.policyDifferential?.baseProvenance === 'LIVE' &&
+    fundamentalDiff?.policyDifferential?.quoteProvenance === 'LIVE'
+      ? fundamentalDiff?.policyDifferential?.rateSpread ?? null
       : null);
   const baseStance = baseState.centralBank?.stance;
   const quoteStance = quoteState.centralBank?.stance;
@@ -189,11 +183,28 @@ export function evaluateStructuredContradictions(
   }
 
   // 3. FUNDAMENTALS BULLISH BUT EXPECTATIONS DETERIORATING
-  const baseFundScore = (baseState.fundamentalState as any)?.fundamentalScore ?? 0;
-  const quoteFundScore = (quoteState.fundamentalState as any)?.fundamentalScore ?? 0;
-  const expDiff = fundamentalDiff?.expectationsDifferential?.comparison;
+  //
+  // A missing fundamental score is null, not 0.00. Fabrication here would
+  // invent a neutral fundamental read and manufacture a contradiction.
+  //
+  // Expectation direction is read from COUNTED realized surprises, never from
+  // the prose comparison string. The prose merely names both currencies, so
+  // substring matching on it reported a contradiction for a record in which the
+  // base currency had only beaten expectations.
+  const baseFundScore = (baseState.fundamentalState as any)?.fundamentalScore ?? null;
+  const expCounts = fundamentalDiff?.expectationsDifferential ?? null;
+  const baseAboveCount = expCounts?.baseAboveCount ?? 0;
+  const baseBelowCount = expCounts?.baseBelowCount ?? 0;
+  const quoteAboveCount = expCounts?.quoteAboveCount ?? 0;
+  const quoteBelowCount = expCounts?.quoteBelowCount ?? 0;
+  const hasRealizedExpectations =
+    baseAboveCount + baseBelowCount + quoteAboveCount + quoteBelowCount > 0;
+  const baseNetSurprise = baseAboveCount - baseBelowCount;
+  const quoteNetSurprise = quoteAboveCount - quoteBelowCount;
+  const expectationsFavorQuote = hasRealizedExpectations && quoteNetSurprise > baseNetSurprise;
+  const expectationsFavorBase = hasRealizedExpectations && baseNetSurprise > quoteNetSurprise;
 
-  if (baseFundScore > 0.04 && expDiff && expDiff.includes(pair.quoteCurrency) && !expDiff.includes('balanced')) {
+  if (baseFundScore !== null && baseFundScore > 0.04 && expectationsFavorQuote) {
     contradictions.push({
       id: `contra-${pair.symbol.toLowerCase()}-fund-vs-exp`,
       pair: pair.symbol,
@@ -203,9 +214,9 @@ export function evaluateStructuredContradictions(
       sourceA: `${pair.baseCurrency} Structural Fundamentals`,
       sourceB: `${pair.baseCurrency} Consensus Expectations`,
       statementA: `Macroeconomic fundamentals are expansionary (Score: +${baseFundScore.toFixed(2)})`,
-      statementB: `Recent economic prints are missing market forecasts relative to ${pair.quoteCurrency}`,
-      conflictDescription: `Structural fundamentals for ${pair.baseCurrency} remain positive, but recent data prints are deteriorating and missing market expectations.`,
-      description: `Structural fundamentals for ${pair.baseCurrency} remain positive, but recent data prints are deteriorating and missing market expectations.`,
+      statementB: `Realized economic surprises favor ${pair.quoteCurrency} (net ${quoteNetSurprise >= 0 ? '+' : ''}${quoteNetSurprise} vs ${pair.baseCurrency} net ${baseNetSurprise >= 0 ? '+' : ''}${baseNetSurprise})`,
+      conflictDescription: `Structural fundamentals for ${pair.baseCurrency} remain positive, but realized data prints are missing expectations relative to ${pair.quoteCurrency}.`,
+      description: `Structural fundamentals for ${pair.baseCurrency} remain positive, but realized data prints are missing expectations relative to ${pair.quoteCurrency}.`,
       directionA: 'BULLISH_BASE',
       directionB: 'BEARISH_BASE',
       severity: 'MEDIUM',
@@ -220,8 +231,8 @@ export function evaluateStructuredContradictions(
       },
       provenance: 'Macroeconomic Consensus vs Actual Prints Tracking'
     });
-  } else if (expDiff) {
-    if (isBullishBase && expDiff.includes(pair.quoteCurrency) && !expDiff.includes('balanced')) {
+  } else if (hasRealizedExpectations) {
+    if (isBullishBase && expectationsFavorQuote) {
       contradictions.push({
         id: `contra-${pair.symbol.toLowerCase()}-exp-vs-price`,
         pair: pair.symbol,
@@ -231,9 +242,9 @@ export function evaluateStructuredContradictions(
         sourceA: 'Market Price Trajectory',
         sourceB: 'Recent Economic Surprise Record',
         statementA: `Price momentum leans bullish for ${pair.baseCurrency}`,
-        statementB: `Recent economic surprises favor ${pair.quoteCurrency}`,
-        conflictDescription: `Recent economic surprises are missing expectations for ${pair.baseCurrency} while exceeding for ${pair.quoteCurrency}.`,
-        description: `Recent economic surprises are missing expectations for ${pair.baseCurrency} while exceeding for ${pair.quoteCurrency}.`,
+        statementB: `Realized economic surprises favor ${pair.quoteCurrency} (net ${quoteNetSurprise >= 0 ? '+' : ''}${quoteNetSurprise} vs ${pair.baseCurrency} net ${baseNetSurprise >= 0 ? '+' : ''}${baseNetSurprise})`,
+        conflictDescription: `Realized economic surprises are missing expectations for ${pair.baseCurrency} (net ${baseNetSurprise >= 0 ? '+' : ''}${baseNetSurprise}) while exceeding for ${pair.quoteCurrency} (net ${quoteNetSurprise >= 0 ? '+' : ''}${quoteNetSurprise}).`,
+        description: `Realized economic surprises are missing expectations for ${pair.baseCurrency} while exceeding for ${pair.quoteCurrency}.`,
         directionA: 'BULLISH_BASE',
         directionB: 'BEARISH_BASE',
         severity: 'LOW',
@@ -248,7 +259,7 @@ export function evaluateStructuredContradictions(
         },
         provenance: 'Macroeconomic Consensus vs Actual Prints Tracking'
       });
-    } else if (isBearishBase && expDiff.includes(pair.baseCurrency) && !expDiff.includes('balanced')) {
+    } else if (isBearishBase && expectationsFavorBase) {
       contradictions.push({
         id: `contra-${pair.symbol.toLowerCase()}-exp-vs-price`,
         pair: pair.symbol,
@@ -258,9 +269,9 @@ export function evaluateStructuredContradictions(
         sourceA: 'Market Price Trajectory',
         sourceB: 'Recent Economic Surprise Record',
         statementA: `Price momentum leans bearish for ${pair.baseCurrency}`,
-        statementB: `Recent economic surprises favor ${pair.baseCurrency}`,
-        conflictDescription: `Recent economic surprises are exceeding expectations for ${pair.baseCurrency}.`,
-        description: `Recent economic surprises are exceeding expectations for ${pair.baseCurrency}.`,
+        statementB: `Realized economic surprises favor ${pair.baseCurrency} (net ${baseNetSurprise >= 0 ? '+' : ''}${baseNetSurprise} vs ${pair.quoteCurrency} net ${quoteNetSurprise >= 0 ? '+' : ''}${quoteNetSurprise})`,
+        conflictDescription: `Realized economic surprises are exceeding expectations for ${pair.baseCurrency} while its price momentum is bearish.`,
+        description: `Realized economic surprises are exceeding expectations for ${pair.baseCurrency}.`,
         directionA: 'BEARISH_BASE',
         directionB: 'BULLISH_BASE',
         severity: 'LOW',

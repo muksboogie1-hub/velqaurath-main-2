@@ -38,12 +38,43 @@ export const CurrencyMatrix: React.FC<CurrencyMatrixProps> = ({
               <th className="py-2 px-1 w-6"></th>
             </tr>
           </thead>
+
           <tbody className="divide-y divide-neutral-800/60 font-mono">
             {currencies.map((c) => {
               const mScore = c.marketStrength;
               const fScore = c.fundamentalState.fundamentalScore;
-              const cbStance = c.centralBank.stance;
+              const centralBank = c.centralBank;
               const overall = c.overallState;
+
+              const isLivePolicy =
+                centralBank.policyAvailability === 'AVAILABLE' &&
+                centralBank.policyProvenance === 'LIVE' &&
+                centralBank.currentPolicyRate !== null &&
+                centralBank.currentPolicyRate !== undefined;
+
+              const hasReferencePolicy =
+                centralBank.policyAvailability === 'REFERENCE_ONLY' ||
+                centralBank.sourceType === 'REFERENCE' ||
+                centralBank.dataSourceMode === 'REFERENCE';
+
+              const policyStance = isLivePolicy
+                ? centralBank.stance
+                : hasReferencePolicy
+                ? centralBank.contextualStance
+                : null;
+
+              const policyRate = isLivePolicy
+                ? centralBank.currentPolicyRate
+                : hasReferencePolicy
+                ? centralBank.contextualPolicyRate
+                : null;
+
+              const policyIsAvailable =
+                policyStance !== null &&
+                policyStance !== undefined &&
+                policyStance !== 'UNAVAILABLE';
+
+              const policyIsReference = !isLivePolicy && hasReferencePolicy;
 
               return (
                 <tr
@@ -61,6 +92,7 @@ export const CurrencyMatrix: React.FC<CurrencyMatrixProps> = ({
                       </span>
                     </div>
                   </td>
+
                   <td className="py-2.5 px-2 tabular-nums">
                     {mScore === null ? (
                       <span className="text-neutral-600">
@@ -82,6 +114,7 @@ export const CurrencyMatrix: React.FC<CurrencyMatrixProps> = ({
                           {mScore >= 0 ? '+' : ''}
                           {mScore.toFixed(2)}%
                         </span>
+
                         {c.relativeStrengthBreakdown?.coverage &&
                           c.relativeStrengthBreakdown.coverage.available <
                             c.relativeStrengthBreakdown.coverage.required && (
@@ -93,6 +126,7 @@ export const CurrencyMatrix: React.FC<CurrencyMatrixProps> = ({
                       </div>
                     )}
                   </td>
+
                   <td className="py-2.5 px-2 tabular-nums">
                     {fScore === null ? (
                       <span className="text-neutral-600">UNAVAILABLE</span>
@@ -111,26 +145,46 @@ export const CurrencyMatrix: React.FC<CurrencyMatrixProps> = ({
                       </span>
                     )}
                   </td>
+
                   <td className="py-2.5 px-2">
-                    <span
-                      className={`text-[11px] font-sans font-medium ${
-                        cbStance === 'HAWKISH'
-                          ? 'text-emerald-400'
-                          : cbStance === 'DOVISH'
-                          ? 'text-rose-400'
-                          : 'text-neutral-300'
-                      }`}
-                    >
-                      {cbStance}
-                    </span>
-                    <span className="text-neutral-500 text-[10px] ml-1">
-                      (
-                      {c.centralBank.currentPolicyRate === null
-                        ? 'N/A'
-                        : `${c.centralBank.currentPolicyRate}%`}
-                      )
-                    </span>
+                    <div className="flex flex-col gap-0.5">
+                      {!policyIsAvailable ? (
+                        <span className="text-[11px] font-sans font-medium text-neutral-600">
+                          UNAVAILABLE
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className={`text-[11px] font-sans font-medium ${
+                              policyStance === 'HAWKISH'
+                                ? 'text-emerald-400'
+                                : policyStance === 'DOVISH'
+                                ? 'text-rose-400'
+                                : 'text-neutral-300'
+                            }`}
+                          >
+                            {policyStance}
+                          </span>
+
+                          <span className="text-neutral-500 text-[10px]">
+                            (
+                            {policyRate === null ||
+                            policyRate === undefined
+                              ? 'N/A'
+                              : `${policyRate}%`}
+                            )
+                          </span>
+
+                          {policyIsReference && (
+                            <span className="text-[9px] uppercase tracking-wider text-amber-500/80 font-mono">
+                              REFERENCE
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </td>
+
                   <td className="py-2.5 px-2">
                     <span
                       className={`text-[11px] font-sans font-medium ${
@@ -146,6 +200,7 @@ export const CurrencyMatrix: React.FC<CurrencyMatrixProps> = ({
                       {overall}
                     </span>
                   </td>
+
                   <td className="py-2.5 px-2 text-right">
                     <span
                       className={`text-[10px] uppercase font-mono tracking-wider ${
@@ -159,6 +214,7 @@ export const CurrencyMatrix: React.FC<CurrencyMatrixProps> = ({
                       {c.marketState}
                     </span>
                   </td>
+
                   <td className="py-2.5 px-1 text-neutral-600 group-hover:text-neutral-300">
                     <ChevronRight className="w-3.5 h-3.5" />
                   </td>

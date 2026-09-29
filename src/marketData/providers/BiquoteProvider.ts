@@ -178,10 +178,22 @@ export class BiquoteProvider {
           this.lastQuotes.set(internalSym, quote);
         }
       }
-
       this.lastFetchedAt = new Date(now).toISOString();
       this.lastSuccessfulUpdate = this.lastFetchedAt;
-      this.lastSuccessfulSnapshotAt = this.lastFetchedAt;
+
+      // A successful HTTP request does not automatically mean the market
+      // observations are fresh. Snapshot time must reflect the newest actual
+      // quote timestamp returned by the provider.
+      const newestQuoteTimestamp = normalizedQuotes.reduce(
+        (latest, quote) =>
+          quote.timestamp !== null ? Math.max(latest, quote.timestamp) : latest,
+        0
+      );
+
+      if (newestQuoteTimestamp > 0) {
+        this.lastSuccessfulSnapshotAt = new Date(newestQuoteTimestamp).toISOString();
+      }
+
       this.evaluateStatus(symbols);
       return Array.from(this.lastQuotes.values());
     } catch (err) {
@@ -570,13 +582,25 @@ export class BiquoteProvider {
     // 4. Authoritative runtime feed state
     if (totalQuotes === 0) {
       this.runtimeFeedState = this.streamState === 'CONNECTING' ? 'CONFIGURED' : 'UNAVAILABLE';
-    } else if (this.connectionStatus === 'CONNECTED' && this.snapshotHealth === 'FRESH' && allFreshAndComplete) {
+    } else if (
+      this.connectionStatus === 'CONNECTED' &&
+      this.snapshotHealth === 'FRESH' &&
+      allFreshAndComplete
+    ) {
       this.runtimeFeedState = 'CONNECTED';
-    } else if (this.snapshotHealth === 'FRESH' && (freshCount > 0 || totalQuotes === symbols.length)) {
+    } else if (
+      this.snapshotHealth === 'FRESH' &&
+      freshCount > 0
+    ) {
       this.runtimeFeedState = 'DATA_AVAILABLE';
-    } else if (this.snapshotHealth === 'AGING' || (freshCount > 0 && stale.length > 0)) {
+    } else if (
+      this.snapshotHealth === 'AGING' ||
+      (freshCount > 0 && stale.length > 0)
+    ) {
       this.runtimeFeedState = 'DEGRADED';
-    } else if (this.snapshotHealth === 'STALE') {
+    } else if (
+      this.snapshotHealth === 'STALE'
+    ) {
       this.runtimeFeedState = 'STALE';
     } else {
       this.runtimeFeedState = 'UNAVAILABLE';

@@ -41,7 +41,17 @@ export interface CatalystEvent {
   unit: string;
   source: string;
   sourceUrl?: string;
-  status: 'UPCOMING' | 'RELEASED' | 'CANCELLED';
+  /**
+   * Lifecycle-consistent status. A past-dated event is never exposed as
+   * UPCOMING; the provider-reported label is preserved in `providerStatus`.
+   */
+  status: 'UPCOMING' | 'RELEASED' | 'CANCELLED' | 'PASSED' | 'STALE';
+  /** Raw provider status, preserved verbatim for audit. */
+  providerStatus?: 'UPCOMING' | 'RELEASED' | 'CANCELLED';
+  /** True when the provider label already matched the derived lifecycle. */
+  statusConsistent?: boolean;
+  /** True when the scheduled time is already in the past. */
+  isPastDated?: boolean;
   freshness: 'FRESH' | 'AGING' | 'STALE' | 'UNAVAILABLE';
   lifecycle: CatalystLifecycleState;
   timeToEventMinutes: number; // Positive if future, negative if past

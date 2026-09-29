@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrendingUp, TrendingDown, ArrowLeftRight, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, ArrowLeftRight, Clock, AlertTriangle } from 'lucide-react';
 import { PairIntelligence } from '../types';
 
 interface TopPairCardProps {
@@ -27,7 +27,12 @@ export const TopPairCard: React.FC<TopPairCardProps> = ({
     );
   }
 
-  const delta = topPair.relativeStrengthDelta ?? 0;
+  const delta = topPair.relativeStrengthDelta;
+  const deltaLabel =
+    delta === null
+      ? 'MARKET Δ UNAVAILABLE'
+      : `Δ ${delta >= 0 ? '+' : ''}${delta.toFixed(2)}%`;
+  const marketEvidenceStale = topPair.marketEvidenceState === 'STALE';
   const isBullish = topPair.orientationDirection === 'BULLISH_BASE';
   const isBearish = topPair.orientationDirection === 'BEARISH_BASE';
 
@@ -58,19 +63,31 @@ export const TopPairCard: React.FC<TopPairCardProps> = ({
               {topPair.pair.symbol}
             </button>
             <div className="flex items-center gap-1 font-mono text-xs">
-              {isBullish ? (
+              {delta === null ? (
+                <span className="text-amber-400 flex items-center font-semibold">
+                  <AlertTriangle className="w-4 h-4 mr-0.5" />
+                  MACRO-DERIVED BIAS · {deltaLabel}
+                </span>
+              ) : isBullish ? (
                 <span className="text-emerald-400 flex items-center font-semibold">
                   <TrendingUp className="w-4 h-4 mr-0.5" />
-                  BULLISH BIAS (Δ +{delta.toFixed(2)}%)
+                  BULLISH BIAS ({deltaLabel})
                 </span>
               ) : isBearish ? (
                 <span className="text-rose-400 flex items-center font-semibold">
                   <TrendingDown className="w-4 h-4 mr-0.5" />
-                  BEARISH BIAS (Δ {delta.toFixed(2)}%)
+                  BEARISH BIAS ({deltaLabel})
                 </span>
               ) : (
                 <span className="text-neutral-400 font-semibold">
-                  NEUTRAL (Δ {delta.toFixed(2)}%)
+                  NEUTRAL ({deltaLabel})
+                </span>
+              )}
+              {delta === null && (
+                <span className="text-neutral-500 text-[10px] font-normal">
+                  {marketEvidenceStale
+                    ? '· live quotes stale'
+                    : '· live quotes unavailable'}
                 </span>
               )}
             </div>

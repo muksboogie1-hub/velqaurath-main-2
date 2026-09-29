@@ -618,9 +618,92 @@ console.log('\n--- 12. Opportunity Engine 5 States Verification ---');
 {
   const eurMod = createTestState(eur, 0.12, 'STRONG', 0.05);
   const usdMod = createTestState(usd, -0.02, 'NEUTRAL', -0.02);
-  const modIntel = evaluatePairIntelligence(pairEurusd, eurMod, usdMod, [], new Date(), true);
+  /*
+   * The moderate-alignment scenario is only genuinely evidenced when the
+   * releases that earn the alignment are actually supplied. A currency state
+   * that asserts a fundamental score but carries no released observations is
+   * not a moderate setup; it is an unevidenced one (asserted below).
+   */
+  const moderateReleases = [
+    {
+      id: 'obs-mod-eur-cpi',
+      indicatorId: 'ind-cpi',
+      indicatorName: 'CPI YoY',
+      currency: 'EUR',
+      category: 'INFLATION',
+      actual: 2.4,
+      forecast: 2.1,
+      previous: 2.2,
+      unit: '%',
+      period: 'Aug 2026',
+      sourceStatus: 'CONNECTED' as const
+    },
+    {
+      id: 'obs-mod-eur-gdp',
+      indicatorId: 'ind-gdp',
+      indicatorName: 'GDP QoQ',
+      currency: 'EUR',
+      category: 'GROWTH',
+      actual: 0.4,
+      forecast: 0.3,
+      previous: 0.3,
+      unit: '%',
+      period: 'Q2 2026',
+      sourceStatus: 'CONNECTED' as const
+    },
+    {
+      id: 'obs-mod-usd-cpi',
+      indicatorId: 'ind-cpi',
+      indicatorName: 'CPI YoY',
+      currency: 'USD',
+      category: 'INFLATION',
+      actual: 3.0,
+      forecast: 3.0,
+      previous: 3.1,
+      unit: '%',
+      period: 'Aug 2026',
+      sourceStatus: 'CONNECTED' as const
+    }
+  ];
+  const modIntel = evaluatePairIntelligence(
+    pairEurusd,
+    eurMod,
+    usdMod,
+    [],
+    new Date(),
+    true,
+    moderateReleases as any
+  );
   const opp = evaluatePairOpportunity(modIntel);
-  assert(opp.state === 'SECONDARY_WATCH' || opp.state === 'PRIMARY_WATCH', 'Moderate alignment evaluates to SECONDARY_WATCH or PRIMARY_WATCH');
+  assert(
+    opp.state === 'SECONDARY_WATCH' || opp.state === 'PRIMARY_WATCH',
+    'Moderate alignment with verified releases evaluates to SECONDARY_WATCH or PRIMARY_WATCH'
+  );
+
+  /*
+   * Counterpart regression: the same market and asserted-score shape with no
+   * released evidence must NOT be promoted to a watch state. Missing layers
+   * stay in the denominator and are never renormalized into points.
+   */
+  const unevidencedIntel = evaluatePairIntelligence(
+    pairEurusd,
+    eurMod,
+    usdMod,
+    [],
+    new Date(),
+    true,
+    []
+  );
+  const unevidencedOpp = evaluatePairOpportunity(unevidencedIntel);
+  assert(
+    unevidencedOpp.state === 'MONITOR' || unevidencedOpp.state === 'WAIT',
+    `Unevidenced moderate profile is not promoted to a watch state (got ${unevidencedOpp.state})`
+  );
+  assert(
+    (unevidencedIntel.confluence?.components?.expectations?.points ?? 0) <
+      (modIntel.confluence?.components?.expectations?.points ?? 0),
+    'Expectation points require counted realized surprises, not asserted scores'
+  );
 }
 console.log('✅ PASS: All required opportunity states (PRIMARY_WATCH, SECONDARY_WATCH, MONITOR, WAIT, INSUFFICIENT_DATA) verified');
 

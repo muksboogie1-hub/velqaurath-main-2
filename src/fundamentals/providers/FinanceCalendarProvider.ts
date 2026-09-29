@@ -61,11 +61,24 @@ export const COUNTRY_TO_CURRENCY_MAP: Record<string, string> = Object.freeze({
   'NEW ZEALAND': 'NZD'
 });
 
+const SUPPORTED_CURRENCIES = [
+  'USD',
+  'EUR',
+  'GBP',
+  'JPY',
+  'CHF',
+  'CAD',
+  'AUD',
+  'NZD'
+] as const;
+
 export function normalizeCountryToCurrency(countryOrCurrency: string): string | null {
   const clean = countryOrCurrency.trim().toUpperCase();
-  if (['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'].includes(clean)) {
+
+  if (SUPPORTED_CURRENCIES.includes(clean as typeof SUPPORTED_CURRENCIES[number])) {
     return clean;
   }
+
   return COUNTRY_TO_CURRENCY_MAP[clean] ?? null;
 }
 
@@ -74,11 +87,14 @@ export function detectCurrencyFromEvent(item: any): string | null {
     const c = normalizeCountryToCurrency(String(item.currency));
     if (c) return c;
   }
+
   if (item.country) {
     const c = normalizeCountryToCurrency(String(item.country));
     if (c) return c;
   }
+
   const text = `${item.title || ''} ${item.name || ''} ${item.url || ''}`.toUpperCase();
+
   if (
     text.includes('US ') ||
     text.includes('USA') ||
@@ -94,6 +110,7 @@ export function detectCurrencyFromEvent(item: any): string | null {
   ) {
     return 'USD';
   }
+
   if (
     text.includes('EUROZONE') ||
     text.includes('GERMANY') ||
@@ -106,6 +123,7 @@ export function detectCurrencyFromEvent(item: any): string | null {
   ) {
     return 'EUR';
   }
+
   if (
     text.includes('UK ') ||
     text.includes('BRITAIN') ||
@@ -116,21 +134,49 @@ export function detectCurrencyFromEvent(item: any): string | null {
   ) {
     return 'GBP';
   }
-  if (text.includes('JAPAN') || text.includes('BOJ') || text.includes('BANK OF JAPAN') || text.includes('TOKYO')) {
+
+  if (
+    text.includes('JAPAN') ||
+    text.includes('BOJ') ||
+    text.includes('BANK OF JAPAN') ||
+    text.includes('TOKYO')
+  ) {
     return 'JPY';
   }
-  if (text.includes('SWISS') || text.includes('SWITZERLAND') || text.includes('SNB')) {
+
+  if (
+    text.includes('SWISS') ||
+    text.includes('SWITZERLAND') ||
+    text.includes('SNB')
+  ) {
     return 'CHF';
   }
-  if (text.includes('CANADA') || text.includes('BOC') || text.includes('BANK OF CANADA') || text.includes('STATSCAN')) {
+
+  if (
+    text.includes('CANADA') ||
+    /\bBOC\b/.test(text) ||
+    text.includes('BANK OF CANADA') ||
+    text.includes('STATSCAN')
+  ) {
     return 'CAD';
   }
-  if (text.includes('AUSTRALIA') || text.includes('RBA') || text.includes('RESERVE BANK OF AUSTRALIA')) {
+
+  if (
+    text.includes('AUSTRALIA') ||
+    text.includes('RBA') ||
+    text.includes('RESERVE BANK OF AUSTRALIA')
+  ) {
     return 'AUD';
   }
-  if (text.includes('NEW ZEALAND') || text.includes('RBNZ') || text.includes('RESERVE BANK OF NEW ZEALAND')) {
+
+  if (
+    text.includes('NEW ZEALAND') ||
+    text.includes('RBNZ') ||
+    text.includes('RESERVE BANK OF NEW ZEALAND')
+  ) {
     return 'NZD';
   }
+
   return null;
 }
 
@@ -140,7 +186,7 @@ export function detectCategoryFromEvent(item: any): FundamentalCategory | null {
 
   // Strict Phase 7 rule:
   // War, geopolitical shocks, tariff announcements, bond auctions, generic political events
-  // must NOT automatically become a macro observation in an unrelated category (e.g. GROWTH or CENTRAL_BANK).
+  // must NOT automatically become a macro observation in an unrelated category.
   if (
     text.includes('WAR') ||
     text.includes('GEOPOLITICAL') ||
@@ -157,7 +203,7 @@ export function detectCategoryFromEvent(item: any): FundamentalCategory | null {
     cat.includes('auction') ||
     cat.includes('speech')
   ) {
-    return null; // UNCLASSIFIED / UNSUPPORTED for macro fundamental pillars; remains catalyst/event only
+    return null;
   }
 
   // 1. Central Bank Monetary Policy & Rate Decisions
@@ -199,6 +245,7 @@ export function detectCategoryFromEvent(item: any): FundamentalCategory | null {
     text.includes('UNEMPLOYMENT') ||
     text.includes('EMPLOYMENT CHANGE') ||
     text.includes('JOBLESS CLAIMS') ||
+    text.includes('JOBLESS') ||
     text.includes('JOLTS') ||
     text.includes('AVERAGE HOURLY EARNINGS') ||
     text.includes('LABOR FORCE') ||
@@ -290,33 +337,130 @@ export function detectCategoryFromEvent(item: any): FundamentalCategory | null {
 
 export function detectEventCategory(item: any): string {
   const macro = detectCategoryFromEvent(item);
+
   if (macro) return macro;
 
   const text = `${item.title || ''} ${item.name || ''}`.toUpperCase();
-  if (text.includes('WAR') || text.includes('GEOPOLITICAL') || text.includes('CRISIS')) {
+
+  if (
+    text.includes('WAR') ||
+    text.includes('GEOPOLITICAL') ||
+    text.includes('CRISIS')
+  ) {
     return 'GEOPOLITICAL';
   }
-  if (text.includes('TARIFF') || text.includes('TRADE WAR') || text.includes('SANCTION')) {
+
+  if (
+    text.includes('TARIFF') ||
+    text.includes('TRADE WAR') ||
+    text.includes('SANCTION')
+  ) {
     return 'TARIFF';
   }
-  if (text.includes('AUCTION') || text.includes('BOND') || text.includes('YIELD')) {
+
+  if (
+    text.includes('AUCTION') ||
+    text.includes('BOND') ||
+    text.includes('YIELD')
+  ) {
     return 'BOND_AUCTION';
   }
-  if (text.includes('SPEECH') || text.includes('TESTIMONY')) {
+
+  if (
+    text.includes('SPEECH') ||
+    text.includes('TESTIMONY')
+  ) {
     return 'CENTRAL_BANK_SPEECH';
   }
-  if (text.includes('ELECTION') || text.includes('POLITICAL')) {
+
+  if (
+    text.includes('ELECTION') ||
+    text.includes('POLITICAL')
+  ) {
     return 'POLITICAL';
   }
+
   return 'UNCLASSIFIED';
 }
 
-export function parseMacroNumericValue(val: any): { num: number | null; unit: string } {
-  if (val === null || val === undefined) return { num: null, unit: '%' };
-  if (typeof val === 'number') {
-    return { num: Number.isFinite(val) ? val : null, unit: '%' };
+function getSemanticDefaultUnit(
+  indicatorName: string,
+  category: FundamentalCategory | null
+): string {
+  const text = indicatorName.toUpperCase();
+
+  if (
+    text.includes('PMI') ||
+    text.includes('PURCHASING MANAGERS') ||
+    text.includes('BUSINESS CONFIDENCE') ||
+    text.includes('CONSUMER CONFIDENCE') ||
+    text.includes('SENTIMENT') ||
+    text.includes('ISM')
+  ) {
+    return 'pts';
   }
+
+  if (
+    category === 'EMPLOYMENT' &&
+    (
+      text.includes('NON-FARM') ||
+      text.includes('NONFARM') ||
+      text.includes('NFP') ||
+      text.includes('PAYROLL') ||
+      text.includes('JOBLESS CLAIMS') ||
+      text.includes('INITIAL CLAIMS') ||
+      text.includes('CONTINUING CLAIMS') ||
+      text.includes('EMPLOYMENT CHANGE') ||
+      text.includes('JOBS')
+    )
+  ) {
+    return 'count';
+  }
+
+  if (
+    text.includes('TRADE BALANCE') ||
+    text.includes('CURRENT ACCOUNT') ||
+    text.includes('BUDGET BALANCE') ||
+    text.includes('FISCAL BALANCE') ||
+    text.includes('GOVERNMENT DEBT') ||
+    text.includes('BUDGET DEFICIT') ||
+    text.includes('HOUSING STARTS') ||
+    text.includes('BUILDING PERMITS')
+  ) {
+    return 'B';
+  }
+
+  return '%';
+}
+
+export function parseMacroNumericValue(
+  val: any,
+  context?: {
+    indicatorName?: string;
+    category?: FundamentalCategory | null;
+  }
+): { num: number | null; unit: string } {
+  const indicatorName = String(context?.indicatorName || '').toUpperCase();
+  const category = context?.category ?? null;
+  const semanticDefaultUnit = getSemanticDefaultUnit(indicatorName, category);
+
+  if (val === null || val === undefined) {
+    return { num: null, unit: semanticDefaultUnit };
+  }
+
+  if (typeof val === 'number') {
+    if (!Number.isFinite(val)) {
+      return { num: null, unit: semanticDefaultUnit };
+    }
+
+    return {
+      num: val,
+      unit: semanticDefaultUnit
+    };
+  }
+
   const s = String(val).trim();
+
   if (
     !s ||
     s.toLowerCase() === 'null' ||
@@ -325,23 +469,196 @@ export function parseMacroNumericValue(val: any): { num: number | null; unit: st
     s === '—' ||
     s === '-'
   ) {
+    return { num: null, unit: semanticDefaultUnit };
+  }
+
+  /*
+   * Source-explicit units are authoritative except where the indicator
+   * semantics make the source label demonstrably misleading.
+   *
+   * PMI is an index, so "54.6%" from the source is normalized to 54.6 pts.
+   */
+  let unit = semanticDefaultUnit;
+
+  if (s.includes('%') && semanticDefaultUnit !== 'pts') {
+    unit = '%';
+  } else if (/k\b|thousand/i.test(s)) {
+    unit = 'k';
+  } else if (/m\b|million/i.test(s)) {
+    unit = 'M';
+  } else if (/b\b|billion/i.test(s)) {
+    unit = 'B';
+  } else if (/pts|points|index/i.test(s)) {
+    unit = 'pts';
+  }
+
+  /*
+   * Narrative monetary-policy releases require semantic parsing.
+   *
+   * Examples:
+   * "OCR raised 25bp to 2.75%" -> 2.75
+   * "Held at 2.25%"           -> 2.25
+   * "Cut 25bp to 4.00%"       -> 4.00
+   *
+   * Never interpret the size of a policy move as the resulting rate.
+   */
+  const normalized = s
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const hasBasisPointNarrative =
+    /(?:\d+(?:\.\d+)?\s*(?:bp|bps)\b|\bbasis[- ]?points?\b)/i.test(normalized);
+
+  const rateRangePattern =
+    /[-+]?\d*\.?\d+\s*%\s*(?:-|–|—)\s*[-+]?\d*\.?\d+\s*%/i;
+
+  if (rateRangePattern.test(normalized)) {
     return { num: null, unit: '%' };
   }
 
-  let unit = '%';
-  if (s.includes('%')) unit = '%';
-  else if (/k\b|thousand/i.test(s)) unit = 'k';
-  else if (/m\b|million/i.test(s)) unit = 'M';
-  else if (/b\b|billion/i.test(s)) unit = 'B';
-  else if (/pts|points|index/i.test(s)) unit = 'pts';
+  if (hasBasisPointNarrative) {
+    const resultingRateMatches = [
+      ...normalized.matchAll(
+        /\b(?:to|at)\s+([-+]?\d*\.?\d+)\s*%/gi
+      )
+    ];
 
-  const match = s.replace(/,/g, '').match(/[-+]?\d*\.?\d+/);
-  if (match) {
-    const num = parseFloat(match[0]);
-    if (!Number.isNaN(num)) {
+    if (resultingRateMatches.length === 1) {
+      const num = parseFloat(resultingRateMatches[0][1]);
+
+      if (Number.isFinite(num)) {
+        return { num, unit: '%' };
+      }
+    }
+
+    return { num: null, unit: '%' };
+  }
+
+  /*
+   * Trade/external-balance narratives frequently contain words around
+   * the actual number, for example:
+   *
+   * "Deficit widened to $88.6 billion"
+   *
+   * The semantic category establishes that the scalar is a monetary
+   * balance, so extract the single monetary number and preserve B.
+   */
+  const monetaryMatch = normalized.match(
+    /(?:\$|€|£|¥)\s*([-+]?\d[\d,]*(?:\.\d+)?)\s*(billion|million|thousand|bn|m|k)?/i
+  );
+
+  if (monetaryMatch) {
+    const num = parseFloat(monetaryMatch[1].replace(/,/g, ''));
+
+    if (Number.isFinite(num)) {
+      const magnitude = String(monetaryMatch[2] || '').toLowerCase();
+
+      if (magnitude === 'billion' || magnitude === 'bn') {
+        return { num, unit: 'B' };
+      }
+
+      if (magnitude === 'million') {
+        return { num, unit: 'M' };
+      }
+
+      if (magnitude === 'thousand') {
+        return { num, unit: 'k' };
+      }
+
       return { num, unit };
     }
   }
+
+  /*
+   * Employment narratives can contain a number followed by "jobs" or
+   * "initial claims", e.g.:
+   *
+   * "+162,000 jobs"
+   * "206,000 initial claims"
+   *
+   * Preserve the complete count instead of treating it as a percentage.
+   */
+  if (
+    category === 'EMPLOYMENT' &&
+    (
+      indicatorName.includes('NFP') ||
+      indicatorName.includes('NON-FARM') ||
+      indicatorName.includes('NONFARM') ||
+      indicatorName.includes('PAYROLL') ||
+      indicatorName.includes('JOBLESS') ||
+      indicatorName.includes('CLAIMS') ||
+      indicatorName.includes('EMPLOYMENT CHANGE')
+    )
+  ) {
+    const countMatch = normalized.match(
+      /[-+]?\d[\d,]*(?:\.\d+)?\s*(?:jobs?|initial claims|continuing claims|people|workers)/i
+    );
+
+    if (countMatch) {
+      const numericPart = countMatch[0].match(/[-+]?\d[\d,]*(?:\.\d+)?/);
+
+      if (numericPart) {
+        const num = parseFloat(numericPart[0].replace(/,/g, ''));
+
+        if (Number.isFinite(num)) {
+          return { num, unit: 'count' };
+        }
+      }
+    }
+  }
+
+  /*
+   * Explicit magnitude without currency symbol.
+   */
+  const magnitudeMatch = normalized.match(
+    /([-+]?\d[\d,]*(?:\.\d+)?)\s*(billion|million|thousand|bn|mn|m|k)\b/i
+  );
+
+  if (magnitudeMatch) {
+    const num = parseFloat(magnitudeMatch[1].replace(/,/g, ''));
+
+    if (Number.isFinite(num)) {
+      const magnitude = magnitudeMatch[2].toLowerCase();
+
+      if (magnitude === 'billion' || magnitude === 'bn') {
+        return { num, unit: 'B' };
+      }
+
+      if (
+        magnitude === 'million' ||
+        magnitude === 'mn' ||
+        magnitude === 'm'
+      ) {
+        return { num, unit: 'M' };
+      }
+
+      if (magnitude === 'thousand' || magnitude === 'k') {
+        return { num, unit: 'k' };
+      }
+    }
+  }
+
+  /*
+   * Ordinary numeric macroeconomic fields.
+   *
+   * Comma separators are removed only after the numeric token has been
+   * identified, so "206,000" remains 206000 rather than becoming two
+   * separate numbers.
+   */
+  const numericMatches = normalized.match(/[-+]?\d[\d,]*(?:\.\d+)?/g);
+
+  if (numericMatches && numericMatches.length === 1) {
+    const num = parseFloat(numericMatches[0].replace(/,/g, ''));
+
+    if (Number.isFinite(num)) {
+      return { num, unit };
+    }
+  }
+
+  /*
+   * A narrative containing multiple unrelated numbers is ambiguous.
+   * Never select one arbitrarily.
+   */
   return { num: null, unit };
 }
 
@@ -389,13 +706,13 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
 
     this.fetchFn =
       options?.fetchFn ?? (typeof fetch !== 'undefined' ? fetch.bind(globalThis) : undefined);
-    this.staleThresholdMs = options?.staleThresholdMs ?? 30 * 60 * 1000; // 30 minutes
+
+    this.staleThresholdMs = options?.staleThresholdMs ?? 30 * 60 * 1000;
 
     if (options?.apiKey) {
       this.apiKey = options.apiKey;
     }
 
-    // Provider is NOT_CONFIGURED only if explicitly disabled or baseUrl is empty
     if (
       options?.enabled === false ||
       options?.configured === false ||
@@ -430,7 +747,6 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
       currenciesSet.add(o.currency);
     }
 
-    // Default canonical coverage if connected
     const defaultCategories: FundamentalCategory[] = [
       'INFLATION',
       'EMPLOYMENT',
@@ -452,23 +768,29 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
     const categoriesConfigured: FundamentalCategory[] = defaultCategories;
 
     const currenciesAvailable = this.isConfigured
-      ? ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD']
+      ? [...SUPPORTED_CURRENCIES]
       : [];
 
     let oldestObsTime: string | null = null;
+
     if (this.observationsCache.length > 0) {
       const sorted = [...this.observationsCache]
         .map((o) => o.releaseDate)
         .filter(Boolean)
         .sort();
+
       oldestObsTime = sorted[0] || null;
     }
 
     const populatedDimensions = categoriesAvailable;
-    const missingDimensions = defaultCategories.filter((c) => !categoriesSet.has(c));
+    const missingDimensions = defaultCategories.filter(
+      (c) => !categoriesSet.has(c)
+    );
+
     const livePopulatedDimensionsCount = categoriesAvailable.length;
     const supportedDimensionsCount = defaultCategories.length;
-    const missingDimensionsCount = supportedDimensionsCount - livePopulatedDimensionsCount;
+    const missingDimensionsCount =
+      supportedDimensionsCount - livePopulatedDimensionsCount;
 
     return {
       providerName: this.name,
@@ -506,7 +828,10 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
 
   public checkIfStale(): boolean {
     if (!this.lastSuccessfulUpdate) return false;
-    const elapsed = Date.now() - new Date(this.lastSuccessfulUpdate).getTime();
+
+    const elapsed =
+      Date.now() - new Date(this.lastSuccessfulUpdate).getTime();
+
     return elapsed > this.staleThresholdMs;
   }
 
@@ -518,7 +843,8 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
     if (!this.isConfigured) {
       this.health = 'NOT_CONFIGURED';
       this.lifecycleState = 'NOT_CONFIGURED';
-      this.message = 'Finance Calendar live provider is not configured. Live refresh bypassed.';
+      this.message =
+        'Finance Calendar live provider is not configured. Live refresh bypassed.';
       return false;
     }
 
@@ -533,6 +859,7 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
       if (this.fetchFn) {
         try {
           const resp = await this.fetchFn(this.baseUrl);
+
           if (!resp.ok) {
             throw new Error(`HTTP ${resp.status}`);
           }
@@ -540,20 +867,26 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
           if (this.observationsCache.length > 0) {
             this.lifecycleState = 'DEGRADED';
             this.health = 'DEGRADED';
-            this.message = `Finance Calendar refresh failed (${err?.message || err}). Retaining last valid live dataset (${this.lastSuccessfulUpdate}).`;
+            this.message =
+              `Finance Calendar refresh failed (${err?.message || err}). Retaining last valid live dataset (${this.lastSuccessfulUpdate}).`;
           } else {
             this.lifecycleState = 'ERROR';
             this.health = 'ERROR';
-            this.message = `Finance Calendar connection failed (${err?.message || err}). No live fundamental data available.`;
+            this.message =
+              `Finance Calendar connection failed (${err?.message || err}). No live fundamental data available.`;
           }
+
           return false;
         }
       }
+
       const nowIso = new Date().toISOString();
+
       this.lastSuccessfulUpdate = nowIso;
       this.lastFetchedAt = nowIso;
       this.lifecycleState = 'CONNECTED';
       this.health = 'AVAILABLE';
+
       return true;
     }
 
@@ -563,35 +896,55 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
           throw new Error('Fetch function unavailable in runtime environment');
         }
 
-        // Fetch a date window: from 30 days ago to 30 days ahead (or direct /calendar)
-        const fromDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        const toDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        const url = `${this.baseUrl}/calendar?from=${fromDate}&to=${toDate}&limit=500`;
+        const fromDate = new Date(
+          Date.now() - 30 * 24 * 60 * 60 * 1000
+        )
+          .toISOString()
+          .split('T')[0];
+
+        const toDate = new Date(
+          Date.now() + 30 * 24 * 60 * 60 * 1000
+        )
+          .toISOString()
+          .split('T')[0];
+
+        const url =
+          `${this.baseUrl}/calendar?from=${fromDate}&to=${toDate}&limit=500`;
 
         let fetchSignal: any;
-        if (typeof AbortSignal !== 'undefined' && typeof (AbortSignal as any).timeout === 'function') {
+
+        if (
+          typeof AbortSignal !== 'undefined' &&
+          typeof (AbortSignal as any).timeout === 'function'
+        ) {
           try {
             fetchSignal = (AbortSignal as any).timeout(15000);
           } catch {
             // ignore if not supported
           }
         }
-        const fetchOpts = fetchSignal ? { signal: fetchSignal } : undefined;
+
+        const fetchOpts = fetchSignal
+          ? { signal: fetchSignal }
+          : undefined;
 
         let response: Response;
+
         try {
           response = await this.fetchFn(url, fetchOpts);
         } catch (fetchErr: any) {
-          // If query with params failed, attempt default endpoint
           const fallbackUrl = `${this.baseUrl}/calendar`;
           response = await this.fetchFn(fallbackUrl, fetchOpts);
         }
 
         if (!response.ok || response.status >= 400) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText || 'Request failed'}`);
+          throw new Error(
+            `HTTP ${response.status}: ${response.statusText || 'Request failed'}`
+          );
         }
 
         const rawData = await response.json();
+
         const items: any[] = Array.isArray(rawData)
           ? rawData
           : Array.isArray(rawData?.events)
@@ -599,23 +952,38 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
           : [];
 
         if (items.length === 0 && !Array.isArray(rawData)) {
-          throw new Error('Finance Calendar response format unrecognized or empty');
+          throw new Error(
+            'Finance Calendar response format unrecognized or empty'
+          );
         }
 
         const normalizedEvents: EconomicEvent[] = [];
-        const normalizedObservations: (FundamentalObservation & EconomicObservation)[] = [];
+        const normalizedObservations:
+          (FundamentalObservation & EconomicObservation)[] = [];
+
         const nowIso = new Date().toISOString();
         const seenEventIds = new Set<string>();
 
         for (const item of items) {
           const currency = detectCurrencyFromEvent(item);
+
+          // Unsupported currencies such as CNY are never reassigned
+          // to one of the supported G8 currencies.
           if (!currency) continue;
 
-          const baseSlug = (item.slug || item.name || item.title || item.event || '')
+          const baseSlug = (
+            item.slug ||
+            item.name ||
+            item.title ||
+            item.event ||
+            ''
+          )
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, '-')
             .slice(0, 30);
+
           const rawId = item.id ? String(item.id) : null;
+
           let eventId = rawId
             ? `fc-${rawId}`
             : baseSlug
@@ -624,35 +992,97 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
 
           if (seenEventIds.has(eventId)) {
             let counter = 1;
+
             while (seenEventIds.has(`${eventId}-${counter}`)) {
               counter++;
             }
+
             eventId = `${eventId}-${counter}`;
           }
+
           seenEventIds.add(eventId);
-          const eventName = String(item.name || item.title || item.event || 'Macroeconomic Release');
+
+          const eventName = String(
+            item.name ||
+            item.title ||
+            item.event ||
+            'Macroeconomic Release'
+          );
+
           const category = detectCategoryFromEvent(item);
-          const impactRaw = String(item.impact || item.importance || 'MEDIUM').toUpperCase();
+
+          const impactRaw = String(
+            item.impact ||
+            item.importance ||
+            'MEDIUM'
+          ).toUpperCase();
+
           const importance: 'HIGH' | 'MEDIUM' | 'LOW' =
-            impactRaw === 'HIGH' ? 'HIGH' : impactRaw === 'LOW' ? 'LOW' : 'MEDIUM';
+            impactRaw === 'HIGH'
+              ? 'HIGH'
+              : impactRaw === 'LOW'
+              ? 'LOW'
+              : 'MEDIUM';
 
-          const scheduledTime = item.time_utc || item.date || nowIso;
-          const period = item.period || (item.date ? String(item.date).slice(0, 7) : 'Current');
+          const scheduledTime =
+            item.time_utc ||
+            item.date ||
+            nowIso;
 
-          const prevParsed = parseMacroNumericValue(item.prior ?? item.previous);
-          const forecastParsed = parseMacroNumericValue(item.consensus ?? item.forecast);
-          const actualParsed = parseMacroNumericValue(item.actual);
+          const period =
+            item.period ||
+            (item.date
+              ? String(item.date).slice(0, 7)
+              : 'Current');
+
+          const prevParsed = parseMacroNumericValue(
+            item.prior ?? item.previous,
+            {
+              indicatorName: eventName,
+              category
+            }
+          );
+
+          const forecastParsed = parseMacroNumericValue(
+            item.consensus ?? item.forecast,
+            {
+              indicatorName: eventName,
+              category
+            }
+          );
+
+          const actualParsed = parseMacroNumericValue(
+            item.actual,
+            {
+              indicatorName: eventName,
+              category
+            }
+          );
 
           const previous = prevParsed.num;
           const forecast = forecastParsed.num;
-          // STRICT NO-FABRICATION RULE: never fabricate missing actual values
+
+          // STRICT NO-FABRICATION RULE:
+          // never fabricate missing actual values.
           const actual = actualParsed.num;
-          const unit = actualParsed.unit || forecastParsed.unit || prevParsed.unit || '%';
+
+          const unit =
+            actualParsed.unit ||
+            forecastParsed.unit ||
+            prevParsed.unit ||
+            getSemanticDefaultUnit(eventName, category);
 
           const source = item.source || 'Finance Calendar';
-          const sourceUrl = item.url || item.sourceUrl || 'https://www.financecalendar.com';
 
-          const status: 'UPCOMING' | 'RELEASED' = actual !== null ? 'RELEASED' : 'UPCOMING';
+          const sourceUrl =
+            item.url ||
+            item.sourceUrl ||
+            'https://www.financecalendar.com';
+
+          const status: 'UPCOMING' | 'RELEASED' =
+            actual !== null
+              ? 'RELEASED'
+              : 'UPCOMING';
 
           // 1. Economic Event model
           normalizedEvents.push({
@@ -670,23 +1100,31 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
             category: detectEventCategory(item)
           });
 
-          // 2. Fundamental Observation model (only for released facts or verified historicals with classified category)
+          // 2. Fundamental Observation model
+          // Only released facts with a verified macro category become observations.
           if (actual !== null && category !== null) {
-            const surpriseCalc = calculateExpectationSurprise(previous, forecast, actual);
-            const statements: FactInterpretationBundle = generateFactInterpretationStatements(
-              {
+            const surpriseCalc =
+              calculateExpectationSurprise(
                 previous,
                 forecast,
-                actual,
-                unit,
-                indicatorName: eventName,
-                period,
-                category,
-                currency,
-                highIsHawkish: true
-              },
-              surpriseCalc
-            );
+                actual
+              );
+
+            const statements: FactInterpretationBundle =
+              generateFactInterpretationStatements(
+                {
+                  previous,
+                  forecast,
+                  actual,
+                  unit,
+                  indicatorName: eventName,
+                  period,
+                  category,
+                  currency,
+                  highIsHawkish: true
+                },
+                surpriseCalc
+              );
 
             normalizedObservations.push({
               id: `obs-${eventId}`,
@@ -714,28 +1152,35 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
               provenance: `Finance Calendar Live API (${sourceUrl})`,
               classification: 'FACT',
               statements,
-              notes: `Live release normalized from Finance Calendar API (${scheduledTime})`
+              notes:
+                `Live release normalized from Finance Calendar API (${scheduledTime})`
             });
           }
         }
 
-        if (normalizedObservations.length === 0 && normalizedEvents.length > 0) {
-          // Edge case: Events exist, but released macro observations are empty
-          // Retain prior observationsCache if one was already populated
+        if (
+          normalizedObservations.length === 0 &&
+          normalizedEvents.length > 0
+        ) {
+          // Events exist, but released macro observations are empty.
+          // Retain prior observationsCache if one was already populated.
           if (this.observationsCache.length > 0) {
             this.calendarCache = normalizedEvents;
             this.lastFetchedAt = nowIso;
             this.lifecycleState = 'DEGRADED';
             this.health = 'DEGRADED';
-            this.message = `Finance Calendar live sync: ${normalizedEvents.length} calendar events updated, but 0 fresh macro prints returned. Retaining ${this.observationsCache.length} prior observations.`;
+            this.message =
+              `Finance Calendar live sync: ${normalizedEvents.length} calendar events updated, but 0 fresh macro prints returned. Retaining ${this.observationsCache.length} prior observations.`;
           } else {
             this.calendarCache = normalizedEvents;
             this.observationsCache = [];
             this.lastFetchedAt = nowIso;
             this.lifecycleState = 'DEGRADED';
             this.health = 'DEGRADED';
-            this.message = `Finance Calendar live sync: ${normalizedEvents.length} calendar events parsed, but 0 released macroeconomic observations available. Awaiting released macro prints.`;
+            this.message =
+              `Finance Calendar live sync: ${normalizedEvents.length} calendar events parsed, but 0 released macroeconomic observations available. Awaiting released macro prints.`;
           }
+
           return false;
         }
 
@@ -745,22 +1190,27 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
         this.lastFetchedAt = nowIso;
         this.lifecycleState = 'CONNECTED';
         this.health = 'CONNECTED';
-        this.message = `Finance Calendar live sync active: ${normalizedEvents.length} events, ${normalizedObservations.length} released macro prints parsed.`;
+
+        this.message =
+          `Finance Calendar live sync active: ${normalizedEvents.length} events, ${normalizedObservations.length} released macro prints parsed.`;
 
         return true;
       } catch (err: any) {
         // STRICT LIVE FAILURE BEHAVIOR:
-        // If prior valid live cache exists: retain it, mark DEGRADED, expose stale age
-        // If no prior valid cache exists: mark ERROR, do NOT substitute benchmark data
+        // If prior valid live cache exists: retain it, mark DEGRADED.
+        // If no prior valid cache exists: mark ERROR.
         if (this.observationsCache.length > 0) {
           this.lifecycleState = 'DEGRADED';
           this.health = 'DEGRADED';
-          this.message = `Finance Calendar refresh failed (${err?.message || err}). Retaining last valid live dataset (${this.lastSuccessfulUpdate}).`;
+          this.message =
+            `Finance Calendar refresh failed (${err?.message || err}). Retaining last valid live dataset (${this.lastSuccessfulUpdate}).`;
         } else {
           this.lifecycleState = 'ERROR';
           this.health = 'ERROR';
-          this.message = `Finance Calendar connection failed (${err?.message || err}). No live fundamental data available.`;
+          this.message =
+            `Finance Calendar connection failed (${err?.message || err}). No live fundamental data available.`;
         }
+
         return false;
       } finally {
         this.inFlightRefresh = null;
@@ -775,17 +1225,27 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
     category?: FundamentalCategory
   ): Promise<FundamentalObservation[]> {
     let result = [...this.observationsCache];
+
     if (currency) {
       const clean = currency.trim().toUpperCase();
-      result = result.filter((o) => o.currency.toUpperCase() === clean);
+
+      result = result.filter(
+        (o) => o.currency.toUpperCase() === clean
+      );
     }
+
     if (category) {
-      result = result.filter((o) => o.category === category);
+      result = result.filter(
+        (o) => o.category === category
+      );
     }
+
     return result;
   }
 
-  public async getCentralBankProfile(currency: string): Promise<CentralBankProfile | null> {
+  public async getCentralBankProfile(
+    currency: string
+  ): Promise<CentralBankProfile | null> {
     return buildCentralBankProfile(currency);
   }
 
@@ -793,11 +1253,17 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
     return getAllCoreCentralBankProfiles();
   }
 
-  public async getEconomicCalendar(currency?: string): Promise<EconomicEvent[]> {
+  public async getEconomicCalendar(
+    currency?: string
+  ): Promise<EconomicEvent[]> {
     if (currency) {
       const clean = currency.trim().toUpperCase();
-      return this.calendarCache.filter((e) => e.currency.toUpperCase() === clean);
+
+      return this.calendarCache.filter(
+        (e) => e.currency.toUpperCase() === clean
+      );
     }
+
     return [...this.calendarCache];
   }
 
@@ -809,6 +1275,7 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
     observations: (FundamentalObservation & EconomicObservation)[]
   ): void {
     const nowIso = new Date().toISOString();
+
     this.isFixtureMode = true;
     this.calendarCache = [...events];
     this.observationsCache = [...observations];
@@ -816,11 +1283,22 @@ export class FinanceCalendarProvider implements IFundamentalDataProvider {
     this.lastFetchedAt = nowIso;
     this.lifecycleState = 'CONNECTED';
     this.health = 'AVAILABLE';
+
     this.fetchFn = async () =>
-      new Response(JSON.stringify({ count: events.length, events: [] }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    this.message = `Finance Calendar fixture dataset loaded: ${events.length} events, ${observations.length} observations.`;
+      new Response(
+        JSON.stringify({
+          count: events.length,
+          events: []
+        }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+    this.message =
+      `Finance Calendar fixture dataset loaded: ${events.length} events, ${observations.length} observations.`;
   }
 }

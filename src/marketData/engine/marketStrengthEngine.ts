@@ -43,7 +43,7 @@ export function calculatePairContribution(
       pairReturnPercent: dailyReturn,
       role: 'BASE',
       signedContribution: dailyReturn,
-      timestamp: quote.timestamp ?? Date.now()
+      timestamp: quote.timestamp
     };
   }
 
@@ -53,7 +53,7 @@ export function calculatePairContribution(
       pairReturnPercent: dailyReturn,
       role: 'QUOTE',
       signedContribution: -dailyReturn,
-      timestamp: quote.timestamp ?? Date.now()
+      timestamp: quote.timestamp
     };
   }
 
