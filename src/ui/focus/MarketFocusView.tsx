@@ -50,19 +50,26 @@ export const MarketFocusView: React.FC<MarketFocusViewProps> = ({
       </div>
 
       <div className="space-y-3 px-3.5 pb-4 sm:px-4 sm:pb-5">
-        {/*
-         * When no pair is promoted, the Pair in Focus card owns the decision
-         * statement and the research lead. This surface then carries only the
-         * queue, so the two never repeat each other.
-         */}
-        {selected !== null && (
+        {selected === null ? (
+          <>
+            {/*
+             * With no promoted primary, the lead's own verified catalyst
+             * evidence is shown. It belongs to the research lead and is never
+             * presented as if a pair had been promoted.
+             */}
+            <TodaysCatalysts
+              catalysts={focus.leadCatalysts}
+              leadSymbol={focus.researchLead?.symbol ?? null}
+            />
+            <ResearchQueue focus={focus} onSelectPair={onSelectPair} />
+          </>
+        ) : (
           <>
             <WhenToWatch window={focus.researchWindow} />
-            <TodaysCatalysts catalysts={focus.catalysts} />
+            <TodaysCatalysts catalysts={focus.catalysts} leadSymbol={selected.symbol} />
+            <ResearchQueue focus={focus} onSelectPair={onSelectPair} />
           </>
         )}
-
-        <ResearchQueue focus={focus} onSelectPair={onSelectPair} />
       </div>
     </section>
   );

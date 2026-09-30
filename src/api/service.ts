@@ -7,7 +7,10 @@ import { ECONOMIC_INDICATORS } from '../data/indicators';
 import { marketDataService } from '../marketData/service/marketDataService';
 import { analyzeObservationExpectations } from '../engines/expectations/expectationsEngine';
 import { fundamentalService } from '../fundamentals/service/fundamentalService';
-import { aggregateCurrencyIntelligence } from '../fundamentals/engine/currencyIntelligenceEngine';
+import {
+  aggregateCurrencyIntelligence,
+  isUnusableMarketRecordStatus
+} from '../fundamentals/engine/currencyIntelligenceEngine';
 import { buildCentralBankProfile, getAllCoreCentralBankProfiles } from '../fundamentals/centralBank/centralBankProfiles';
 import { FUNDAMENTAL_CATEGORIES } from '../types/fundamentals';
 import { refreshScheduler, SchedulerStatus } from '../services/refreshScheduler';
@@ -183,7 +186,7 @@ function hasCurrentMarketEvidence(
         quote &&
         quote.source.toUpperCase() === provider.toUpperCase() &&
         quote.stale === false &&
-        (quote.sourceStatus === 'CONNECTED' || quote.sourceStatus === 'DEGRADED') &&
+        !isUnusableMarketRecordStatus(quote.sourceStatus) &&
         (typeof quote.providerTimestamp === 'string' && Number.isFinite(Date.parse(quote.providerTimestamp)) ||
           typeof quote.timestamp === 'number' && Number.isFinite(quote.timestamp)) &&
         !normalizedStalePairs.has(symbol)
@@ -743,9 +746,31 @@ export class VelquarathApiService {
   public static getMarketFocus(date: Date = new Date()): MarketFocus {
     const allIntelligences = this.getAllPairIntelligences(date);
     const sessionOverview = getActiveSessionOverview(date);
+
+    /*
+     * The basket reading is taken from the currency evidence assessment rather
+     * than from the raw strength map. That assessment is the layer that verifies
+     * every contributing quote against the active provider, so the "what
+     * changed" line can never claim leadership that the currency cards deny.
+     */
+    const currencyStrengths = this.getCurrencyIntelligences(date).map((intelligence) => {
+      const market = intelligence.evidenceAssessment?.market;
+      const usable =
+        market !== undefined &&
+        market.strength !== null &&
+        (market.availability === 'AVAILABLE' || market.availability === 'PARTIAL');
+
+      return {
+        currency: intelligence.currency.code,
+        marketStrength: usable ? market!.strength : null,
+        classification: usable ? market!.classification : 'DATA_UNAVAILABLE'
+      };
+    });
+
     return buildMarketFocus(allIntelligences, {
       now: date,
-      activeOverlaps: sessionOverview.activeOverlaps
+      activeOverlaps: sessionOverview.activeOverlaps,
+      currencyStrengths
     });
   }
 

@@ -312,6 +312,20 @@ function CatalystCard({ catalyst }: { catalyst: FocusCatalyst }) {
             {event.actual !== null ? ` ${event.unit}` : ''}
           </dd>
         </div>
+        {/*
+         * A surprise exists only when a consensus forecast was published.
+         * Without one the cell is absent rather than filled with the change
+         * against the previous release.
+         */}
+        {event.surprise !== null && (
+          <div className="flex gap-1.5">
+            <dt className="text-slate-500">Surprise</dt>
+            <dd className="text-slate-300">
+              <MetricValue value={event.surprise} />
+              {event.surprisePercentage !== null ? ` (${event.surprisePercentage}%)` : ''}
+            </dd>
+          </div>
+        )}
         <div className="flex gap-1.5">
           <dt className="text-slate-500">Source</dt>
           <dd className="truncate text-slate-500">{event.source}</dd>
@@ -321,23 +335,43 @@ function CatalystCard({ catalyst }: { catalyst: FocusCatalyst }) {
   );
 }
 
-export function TodaysCatalysts({ catalysts }: { catalysts: FocusCatalyst[] }) {
+export function TodaysCatalysts({
+  catalysts,
+  leadSymbol
+}: {
+  catalysts: FocusCatalyst[];
+  /** The pair these catalysts belong to, so their ownership is never implied. */
+  leadSymbol: string | null;
+}) {
+  const title = leadSymbol ? `Catalysts — ${leadSymbol}` : 'Catalysts';
+
   if (catalysts.length === 0) {
     return (
-      <FocusSection title="Catalysts" icon={<CalendarClock className="h-3.5 w-3.5" />}>
+      <FocusSection title={title} icon={<CalendarClock className="h-3.5 w-3.5" />}>
         <HonestEmpty>
-          No verified catalyst record exists for either leg of this pair.
+          {leadSymbol
+            ? `No verified catalyst record exists for either leg of ${leadSymbol}.`
+            : 'No verified catalyst record exists for this pair.'}
         </HonestEmpty>
       </FocusSection>
     );
   }
 
+  const upcoming = catalysts.filter(
+    (catalyst) =>
+      catalyst.countdownState === 'COUNTDOWN' ||
+      catalyst.countdownState === 'REASSESSMENT_PENDING' ||
+      catalyst.countdownState === 'RELEASED'
+  ).length;
+
   return (
     <FocusSection
-      title="Catalysts"
+      title={title}
       icon={<CalendarClock className="h-3.5 w-3.5" />}
       aside={
-        <span className="velqo-chip !py-0 !text-[0.6rem] tnum">{catalysts.length}</span>
+        <span className="velqo-chip !py-0 !text-[0.6rem] tnum">
+          {upcoming} current or upcoming
+        </span>
       }
     >
       <ul className="space-y-2">

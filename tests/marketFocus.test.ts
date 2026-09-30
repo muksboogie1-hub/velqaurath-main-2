@@ -1,5 +1,5 @@
-/**
- * VELQUARATH — MARKET FOCUS TEST SUITE
+﻿/**
+ * VELQUARATH â€” MARKET FOCUS TEST SUITE
  *
  * Market Focus is a projection layer. These tests pin the contract that makes
  * it safe to show on the opening screen:
@@ -43,6 +43,10 @@ import {
   selectNextCatalyst,
   verifiedEvidenceLayers
 } from '../src/engines/focus/marketFocus';
+import { evaluateIndicatorImpact } from '../src/engines/catalyst/catalystEngine';
+import { isUnusableMarketRecordStatus } from '../src/fundamentals/engine/currencyIntelligenceEngine';
+import { describeEvidenceCoverage, deriveFeedStatus } from '../src/ui/feedStatus';
+import { deriveBasketNarrative } from '../src/ui/focus/basketNarrative';
 
 const NOW = new Date('2026-09-30T12:00:00.000Z');
 const MINUTE = 60 * 1000;
@@ -58,10 +62,10 @@ function check(desc: string, fn: () => void) {
   total++;
   try {
     fn();
-    console.log(`✅ PASS: ${desc}`);
+    console.log(`âœ… PASS: ${desc}`);
     passed++;
   } catch (err) {
-    console.error(`❌ FAIL: ${desc}`);
+    console.error(`âŒ FAIL: ${desc}`);
     console.error(`   ${(err as Error).message}`);
     process.exitCode = 1;
   }
@@ -1134,6 +1138,343 @@ check('20b. The research lead reports its real evidence gaps', () => {
   }
   if (!reason.includes('PRIMARY_WATCH')) {
     throw new Error(`the promotion condition must be named: ${reason}`);
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * 21. Catalyst surprise integrity
+ * ------------------------------------------------------------------ */
+
+check('21. A surprise requires a consensus forecast and is never faked from the previous print', () => {
+  const noConsensus = evaluateIndicatorImpact('US jobs report (NFP)', 162000, null, -23000);
+  if (noConsensus.surprise !== null) {
+    throw new Error(`surprise must be absent without a consensus, got ${noConsensus.surprise}`);
+  }
+  if (noConsensus.isVerifiedInterpretation) {
+    throw new Error('a change against the previous print is not a verified consensus interpretation');
+  }
+  if (/vs consensus/i.test(noConsensus.reason)) {
+    throw new Error(`reason must not claim a consensus it does not have: ${noConsensus.reason}`);
+  }
+
+  // With a consensus, the surprise is measured against the forecast.
+  const withConsensus = evaluateIndicatorImpact('US CPI', 3.2, 3.0, 3.1);
+  if (withConsensus.surprise === null || Math.abs(withConsensus.surprise - 0.2) > 0.001) {
+    throw new Error(`surprise must be measured against the forecast, got ${withConsensus.surprise}`);
+  }
+  if (!withConsensus.isVerifiedInterpretation) {
+    throw new Error('a genuine consensus surprise must remain a verified interpretation');
+  }
+
+  // Neither forecast nor previous: nothing to compare against.
+  const noBenchmark = evaluateIndicatorImpact('US CPI', 3.2, null, null);
+  if (noBenchmark.surprise !== null) {
+    throw new Error('surprise must be absent with no benchmark at all');
+  }
+  if (noBenchmark.isVerifiedInterpretation) {
+    throw new Error('an unbenchmarked print cannot be a verified interpretation');
+  }
+
+  // A print identical to the previous release is not a consensus beat.
+  const unchanged = evaluateIndicatorImpact('Industrial Production', 0.1, null, 0.1);
+  if (unchanged.surprise !== null) {
+    throw new Error('an unchanged print must not produce a surprise');
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * 22. Research lead catalysts
+ * ------------------------------------------------------------------ */
+
+check('22. The research lead keeps its own verified catalyst evidence', () => {
+  const template = makeIntelligence();
+  const lead = makeIntelligence({
+    symbol: 'GBP/CHF',
+    pair: {
+      ...template.pair,
+      id: 'pair-GBP/CHF',
+      symbol: 'GBP/CHF',
+      baseCurrency: 'GBP',
+      quoteCurrency: 'CHF'
+    },
+    structuredOpportunity: {
+      state: 'MONITOR',
+      whyThisPair: 'queued',
+      confluenceScore: 49,
+      directionalConfidence: 'LOW'
+    } as any,
+    catalystIntelligence: [
+      makeCatalyst({
+        id: 'evt-gbp-gdp',
+        currency: 'GBP',
+        name: 'UK GDP',
+        scheduledTime: new Date(NOW.getTime() + 60 * MINUTE).toISOString(),
+        timeToEventMinutes: 60,
+        lifecycle: 'IMMINENT',
+        status: 'UPCOMING'
+      }),
+      makeCatalyst({
+        id: 'evt-gbp-cpi-stale',
+        currency: 'GBP',
+        name: 'UK CPI',
+        lifecycle: 'STALE',
+        status: 'STALE',
+        scheduledTime: new Date(NOW.getTime() - 600 * MINUTE).toISOString()
+      }),
+      makeCatalyst({
+        id: 'evt-eur-noise',
+        currency: 'EUR',
+        name: 'Eurozone Flash CPI',
+        lifecycle: 'UPCOMING',
+        status: 'UPCOMING'
+      })
+    ]
+  });
+
+  const focus = buildMarketFocus([lead], { now: NOW });
+
+  if (focus.selected !== null) throw new Error('no primary may be promoted');
+  if (focus.researchLead?.symbol !== 'GBP/CHF') {
+    throw new Error(`expected the GBP/CHF lead, got ${focus.researchLead?.symbol}`);
+  }
+  if (focus.leadCatalysts.length !== 2) {
+    throw new Error(`only leg catalysts may be projected, got ${focus.leadCatalysts.length}`);
+  }
+  if (focus.leadCatalysts.some((c) => c.event.currency === 'EUR')) {
+    throw new Error('a third-currency catalyst leaked into the lead narrative');
+  }
+  if (focus.leadNextCatalyst?.event.id !== 'evt-gbp-gdp') {
+    throw new Error('the upcoming lead catalyst must be selectable as next');
+  }
+  if (focus.leadNextCatalyst?.countdownState !== 'COUNTDOWN') {
+    throw new Error(`an imminent future event must be COUNTDOWN, got ${focus.leadNextCatalyst?.countdownState}`);
+  }
+  if (focus.catalysts.length !== 0) {
+    throw new Error('lead catalysts must not be presented as a promoted primaryâ€™s catalysts');
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * 23. Basket standing
+ * ------------------------------------------------------------------ */
+
+check('23. Basket standing is derived from real market values only', () => {
+  const focus = buildMarketFocus([makeIntelligence()], {
+    now: NOW,
+    currencyStrengths: [
+      { currency: 'GBP', marketStrength: 0.49, classification: 'STRONG' },
+      { currency: 'JPY', marketStrength: 0.29, classification: 'STRONG' },
+      { currency: 'USD', marketStrength: 0.05, classification: 'NEUTRAL' },
+      { currency: 'EUR', marketStrength: -0.11, classification: 'WEAK' },
+      { currency: 'AUD', marketStrength: -0.29, classification: 'WEAK' }
+    ]
+  });
+
+  if (focus.basket.leader?.code !== 'GBP') {
+    throw new Error(`expected GBP to lead, got ${focus.basket.leader?.code}`);
+  }
+  if (focus.basket.laggard?.code !== 'AUD') {
+    throw new Error(`expected AUD to lag, got ${focus.basket.laggard?.code}`);
+  }
+  if (focus.basket.currenciesWithEvidence !== 5 || focus.basket.currenciesAssessed !== 5) {
+    throw new Error('basket counts must reflect the assessed universe');
+  }
+  if (!focus.basket.statement.includes('GBP is leading')) {
+    throw new Error(`unexpected statement: ${focus.basket.statement}`);
+  }
+  if (!focus.basket.statement.includes('AUD trails')) {
+    throw new Error(`the laggard must be named: ${focus.basket.statement}`);
+  }
+});
+
+check('23b. A missing basket never produces a leader or a zero score', () => {
+  const empty = buildMarketFocus([makeIntelligence()], { now: NOW, currencyStrengths: [] });
+  if (empty.basket.leader !== null) throw new Error('no leader may be invented');
+  if (empty.basket.currenciesWithEvidence !== 0) throw new Error('evidence count must be zero, not inferred');
+  if (/0\.00%/.test(empty.basket.statement)) {
+    throw new Error(`an absent basket must not print a zero: ${empty.basket.statement}`);
+  }
+
+  const unusable = buildMarketFocus([makeIntelligence()], {
+    now: NOW,
+    currencyStrengths: [
+      { currency: 'GBP', marketStrength: null, classification: 'DATA_UNAVAILABLE' },
+      { currency: 'EUR', marketStrength: null, classification: 'INSUFFICIENT_COVERAGE' }
+    ]
+  });
+  if (unusable.basket.leader !== null) {
+    throw new Error('a currency with no market value must never lead the basket');
+  }
+  if (unusable.basket.currenciesAssessed !== 2 || unusable.basket.currenciesWithEvidence !== 0) {
+    throw new Error('unusable entries must be counted as assessed but not as evidence');
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * 24. Derived evidence wording
+ * ------------------------------------------------------------------ */
+
+check('24. Evidence wording is derived from the recorded state, never softened', () => {
+  const status = {
+    quoteCoverage: { available: 15, required: 15 },
+    requiredPairsCount: 15,
+    availablePairsCount: 15,
+    stalePairs: [],
+    quotesCount: 15,
+    snapshotHealth: 'FRESH' as const,
+    health: 'CONNECTED' as const,
+    connectionStatus: 'CONNECTED' as const,
+    streamState: 'CONNECTED' as const
+  } as any;
+
+  const intelligence = Array.from({ length: 8 }, (_, index) => {
+    const code = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'][index];
+    const hasMacro = ['USD', 'GBP', 'JPY', 'CAD', 'NZD'].includes(code);
+    return {
+      currency: { code },
+      evidenceAssessment: {
+        fundamentals: hasMacro
+          ? {
+              availability: 'PARTIAL',
+              provenance: 'LIVE',
+              freshness: 'FRESH',
+              evidenceCount: 2
+            }
+          : {
+              availability: 'UNAVAILABLE',
+              provenance: 'UNAVAILABLE',
+              freshness: 'UNAVAILABLE',
+              evidenceCount: 0
+            }
+      }
+    } as any;
+  });
+
+  const fundamentals = {
+    freshness: 'FRESH',
+    isStale: false
+  } as any;
+
+  const summary = deriveFeedStatus(status, fundamentals, 'LIVE', intelligence);
+  if (summary.fx !== 'FRESH') throw new Error(`expected FRESH market state, got ${summary.fx}`);
+  if (summary.fundamentals !== 'DEGRADED') {
+    throw new Error(`expected partial macro coverage, got ${summary.fundamentals}`);
+  }
+
+  const wording = describeEvidenceCoverage(summary, 8);
+  if (wording.market !== 'Market evidence is current') {
+    throw new Error(`unexpected market clause: ${wording.market}`);
+  }
+  if (wording.macro !== 'Macro coverage is partial (5 of 8 currencies)') {
+    throw new Error(`unexpected macro clause: ${wording.macro}`);
+  }
+  if (wording.sentence !== 'Market evidence is current. Macro coverage is partial (5 of 8 currencies).') {
+    throw new Error(`unexpected sentence: ${wording.sentence}`);
+  }
+
+  // Reference-only macro evidence must never be described as current.
+  const benchmark = deriveFeedStatus(status, fundamentals, 'BENCHMARK', intelligence);
+  const benchmarkWording = describeEvidenceCoverage(benchmark, 8);
+  if (benchmarkWording.macro !== 'Macro evidence is reference only') {
+    throw new Error(`benchmark mode must read as reference, got: ${benchmarkWording.macro}`);
+  }
+
+  // No market evidence at all must not be described as current.
+  const noMarket = deriveFeedStatus(
+    { ...status, availablePairsCount: 0, quotesCount: 0, quoteCoverage: { available: 0, required: 15 } } as any,
+    fundamentals,
+    'LIVE',
+    intelligence
+  );
+  if (describeEvidenceCoverage(noMarket, 8).market !== 'Market evidence is unavailable') {
+    throw new Error('absent market evidence must not be described as current');
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * 25. Basket narrative claims only what exists
+ * ------------------------------------------------------------------ */
+
+check('25. The basket narrative names only the layers that are actually present', () => {
+  const basket = {
+    leader: { code: 'GBP', strength: 0.49, classification: 'STRONG' },
+    laggard: { code: 'AUD', strength: -0.29, classification: 'WEAK' },
+    currenciesWithEvidence: 8,
+    currenciesAssessed: 8,
+    statement: 'GBP is leading the current currency basket at +0.49% relative to the basket average.'
+  };
+
+  const gbp = {
+    currency: { code: 'GBP' },
+    evidenceAssessment: {
+      market: { availability: 'AVAILABLE', provenance: 'LIVE', freshness: 'FRESH', evidenceCount: 4 },
+      fundamentals: { availability: 'PARTIAL', provenance: 'LIVE', freshness: 'FRESH', evidenceCount: 2 },
+      policy: { availability: 'UNAVAILABLE', provenance: 'REFERENCE', evidenceCount: 0 }
+    }
+  } as any;
+
+  const narrative = deriveBasketNarrative(basket, [gbp]);
+  const support = narrative.supportedBy.join(' ');
+  if (!support.includes('live market evidence for GBP across 4 pairs')) {
+    throw new Error(`the live market layer must be cited, got: ${support}`);
+  }
+  if (!support.includes('2 live GBP macro observations')) {
+    throw new Error(`the live macro layer must be cited, got: ${support}`);
+  }
+  if (narrative.incomplete.join(' ').includes('policy confirmation is reference context only') === false) {
+    throw new Error(`reference policy must be named as reference, got: ${narrative.incomplete.join(' ')}`);
+  }
+  if (narrative.incomplete.join(' ').includes('macro observation')) {
+    throw new Error('GBP has live macro evidence, so it must not be reported as a gap');
+  }
+
+  // A leader with no macro or live policy evidence must report both gaps.
+  const bare = {
+    currency: { code: 'EUR' },
+    evidenceAssessment: {
+      market: { availability: 'AVAILABLE', provenance: 'LIVE', freshness: 'FRESH', evidenceCount: 4 },
+      fundamentals: { availability: 'UNAVAILABLE', provenance: 'UNAVAILABLE', evidenceCount: 0 },
+      policy: { availability: 'UNAVAILABLE', provenance: 'UNAVAILABLE', evidenceCount: 0 }
+    }
+  } as any;
+
+  const bareNarrative = deriveBasketNarrative(
+    { ...basket, leader: { code: 'EUR', strength: 0.1, classification: 'STRONG' } },
+    [bare]
+  );
+  const gaps = bareNarrative.incomplete.join(' ');
+  if (!gaps.includes('no live EUR macro observation has arrived')) {
+    throw new Error(`the missing macro layer must be named, got: ${gaps}`);
+  }
+  if (!gaps.includes('EUR policy confirmation is incomplete')) {
+    throw new Error(`the missing policy layer must be named, got: ${gaps}`);
+  }
+  if (bareNarrative.supportedBy.join(' ').includes('macro')) {
+    throw new Error('a currency with no macro evidence must not be described as macro-supported');
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * 26. Market record usability is a data verdict, not a transport phase
+ * ------------------------------------------------------------------ */
+
+check('26. A connection phase never disqualifies an otherwise verified quote', () => {
+  // The provider stamps quotes with its own health at production time, so a
+  // fresh quote can carry a transient phase label.
+  for (const phase of ['CONNECTED', 'DEGRADED', 'CONNECTING', 'RECONNECTING', 'STALE']) {
+    if (isUnusableMarketRecordStatus(phase)) {
+      throw new Error(`${phase} must not disqualify a timestamped, attributed record`);
+    }
+  }
+
+  // A record that affirmatively says it is not usable is still rejected.
+  for (const dead of ['DISCONNECTED', 'ERROR', 'NOT_CONFIGURED']) {
+    if (!isUnusableMarketRecordStatus(dead)) {
+      throw new Error(`${dead} must remain rejected`);
+    }
+  }
+  if (!isUnusableMarketRecordStatus(undefined)) {
+    throw new Error('an unknown status must not be treated as verified');
   }
 });
 

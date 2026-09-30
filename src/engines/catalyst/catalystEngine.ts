@@ -112,7 +112,13 @@ export function evaluateIndicatorImpact(
     };
   }
 
-  const target = forecast !== null ? forecast : previous;
+  /*
+   * A surprise is defined against a consensus forecast. When no consensus was
+   * published, the print may still be compared with the prior release, but that
+   * is a change — not a surprise — and it is never reported as one.
+   */
+  const hasConsensus = forecast !== null;
+  const target = hasConsensus ? forecast : previous;
   if (target === null) {
     return {
       bias: 'NEUTRAL',
@@ -124,8 +130,14 @@ export function evaluateIndicatorImpact(
     };
   }
 
-  const surprise = Math.round((actual - target) * 1000) / 1000;
-  const surprisePercentage = target !== 0 ? Math.round(((actual - target) / Math.abs(target)) * 1000) / 10 : null;
+  const deviation = Math.round((actual - target) * 1000) / 1000;
+  const deviationPercentage = target !== 0 ? Math.round(((actual - target) / Math.abs(target)) * 1000) / 10 : null;
+
+  // Without a consensus forecast there is no surprise to report.
+  const surprise = hasConsensus ? deviation : null;
+  const surprisePercentage = hasConsensus ? deviationPercentage : null;
+  const isVerifiedInterpretation = hasConsensus;
+  const signed = (value: number) => `${value >= 0 ? '+' : ''}${value}`;
 
   const nameUpper = eventName.toUpperCase();
 
@@ -136,24 +148,28 @@ export function evaluateIndicatorImpact(
   const isRateDecision = nameUpper.includes('RATE DECISION') || nameUpper.includes('INTEREST RATE') || nameUpper.includes('CASH RATE');
   const isInflation = nameUpper.includes('CPI') || nameUpper.includes('INFLATION') || nameUpper.includes('PPI');
 
-  if (Math.abs(surprise) < 0.001) {
+  if (Math.abs(deviation) < 0.001) {
     return {
       bias: 'NEUTRAL',
       weight: 3,
-      reason: `Actual print (${actual}) matches consensus expectation exactly. Neutral impulse.`,
-      isVerifiedInterpretation: true,
-      surprise: 0,
-      surprisePercentage: 0
+      reason: hasConsensus
+        ? `Actual print (${actual}) matches consensus expectation exactly. Neutral impulse.`
+        : `Actual print (${actual}) is unchanged from the previous release.`,
+      isVerifiedInterpretation,
+      surprise,
+      surprisePercentage
     };
   }
 
   if (isRateDecision) {
-    if (surprise > 0) {
+    if (deviation > 0) {
       return {
         bias: 'BULLISH',
         weight: 9,
-        reason: `Rate hike surprise (+${surprise}% vs consensus): hawkish tightening impulse.`,
-        isVerifiedInterpretation: true,
+        reason: hasConsensus
+          ? `Rate hike surprise (+${deviation}% vs consensus): hawkish tightening impulse.`
+          : `Rate decision above the previous print (+${deviation}%); no consensus was published.`,
+        isVerifiedInterpretation,
         surprise,
         surprisePercentage
       };
@@ -161,8 +177,10 @@ export function evaluateIndicatorImpact(
       return {
         bias: 'BEARISH',
         weight: 9,
-        reason: `Rate cut or pause surprise (${surprise}% vs consensus): dovish easing impulse.`,
-        isVerifiedInterpretation: true,
+        reason: hasConsensus
+          ? `Rate cut or pause surprise (${deviation}% vs consensus): dovish easing impulse.`
+          : `Rate decision below the previous print (${deviation}%); no consensus was published.`,
+        isVerifiedInterpretation,
         surprise,
         surprisePercentage
       };
@@ -170,12 +188,14 @@ export function evaluateIndicatorImpact(
   }
 
   if (isUnemployment) {
-    if (surprise < 0) {
+    if (deviation < 0) {
       return {
         bias: 'BULLISH',
         weight: 7,
-        reason: `Labor slack surprise beat: unemployment printed lower than expected (${actual} vs ${target}).`,
-        isVerifiedInterpretation: true,
+        reason: hasConsensus
+          ? `Labor slack surprise beat: unemployment printed lower than expected (${actual} vs ${target}).`
+          : `Unemployment printed lower than the previous release (${actual} vs ${target}); no consensus was published.`,
+        isVerifiedInterpretation,
         surprise,
         surprisePercentage
       };
@@ -183,8 +203,10 @@ export function evaluateIndicatorImpact(
       return {
         bias: 'BEARISH',
         weight: 7,
-        reason: `Labor softening: unemployment rose higher than consensus (${actual} vs ${target}).`,
-        isVerifiedInterpretation: true,
+        reason: hasConsensus
+          ? `Labor softening: unemployment rose higher than consensus (${actual} vs ${target}).`
+          : `Unemployment printed higher than the previous release (${actual} vs ${target}); no consensus was published.`,
+        isVerifiedInterpretation,
         surprise,
         surprisePercentage
       };
@@ -192,12 +214,14 @@ export function evaluateIndicatorImpact(
   }
 
   if (isInflation) {
-    if (surprise > 0) {
+    if (deviation > 0) {
       return {
         bias: 'BULLISH',
         weight: 7,
-        reason: `Inflation surprise beat (+${surprise}): reinforces higher terminal interest rate pricing.`,
-        isVerifiedInterpretation: true,
+        reason: hasConsensus
+          ? `Inflation surprise beat (+${deviation}): reinforces higher terminal interest rate pricing.`
+          : `Inflation printed above the previous release (+${deviation}); no consensus was published.`,
+        isVerifiedInterpretation,
         surprise,
         surprisePercentage
       };
@@ -205,8 +229,10 @@ export function evaluateIndicatorImpact(
       return {
         bias: 'BEARISH',
         weight: 7,
-        reason: `Inflation undershoot (${surprise}): reinforces disinflation trajectory and potential rate easing.`,
-        isVerifiedInterpretation: true,
+        reason: hasConsensus
+          ? `Inflation undershoot (${deviation}): reinforces disinflation trajectory and potential rate easing.`
+          : `Inflation printed below the previous release (${deviation}); no consensus was published.`,
+        isVerifiedInterpretation,
         surprise,
         surprisePercentage
       };
@@ -214,12 +240,14 @@ export function evaluateIndicatorImpact(
   }
 
   // Standard economic activity / growth
-  if (surprise > 0) {
+  if (deviation > 0) {
     return {
       bias: 'BULLISH',
       weight: 6,
-      reason: `Macro outperformance (+${surprise} vs consensus): reinforces domestic economic momentum.`,
-      isVerifiedInterpretation: true,
+      reason: hasConsensus
+        ? `Macro outperformance (+${deviation} vs consensus): reinforces domestic economic momentum.`
+        : `Macro print above the previous release (+${signed(deviation)}); no consensus was published.`,
+      isVerifiedInterpretation,
       surprise,
       surprisePercentage
     };
@@ -227,8 +255,10 @@ export function evaluateIndicatorImpact(
     return {
       bias: 'BEARISH',
       weight: 6,
-      reason: `Macro shortfall (${surprise} vs consensus): signals economic deceleration.`,
-      isVerifiedInterpretation: true,
+      reason: hasConsensus
+        ? `Macro shortfall (${deviation} vs consensus): signals economic deceleration.`
+        : `Macro print below the previous release (${signed(deviation)}); no consensus was published.`,
+      isVerifiedInterpretation,
       surprise,
       surprisePercentage
     };

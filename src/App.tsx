@@ -257,6 +257,7 @@ export function App() {
               neutralCurrencies={dashboard.neutralCurrencies}
               weakCurrencies={dashboard.weakCurrencies}
               topPair={marketFocus?.selected ?? null}
+              basket={marketFocus?.basket ?? null}
               marketProviderStatus={dashboard.marketProviderStatus}
               fundamentalProviderStatus={dashboard.fundamentalProviderStatus}
               fundamentalDatasetMode={dashboard.fundamentalDatasetMode}

@@ -12,7 +12,7 @@ import { DataSource, ProviderStatus } from '../types';
 import { FundamentalProviderStatus } from '../fundamentals/providers/IFundamentalDataProvider';
 import { FundamentalDatasetMode } from '../types/fundamentals';
 import { CurrencyFundamentalIntelligence } from '../types';
-import { deriveFeedStatus, EvidenceDisplayState } from './feedStatus';
+import { deriveFeedStatus, describeEvidenceCoverage, EvidenceDisplayState } from './feedStatus';
 
 interface EvidenceStripProps {
   dataStatus: string;
@@ -71,6 +71,8 @@ export const EvidenceStrip: React.FC<EvidenceStripProps> = ({
   const macroSources = dataSources.filter((s) => s.id !== 'src-twelvedata');
   const connectedMacroCount = macroSources.filter((s) => s.status === 'CONNECTED').length;
 
+  const coverage = describeEvidenceCoverage(feedStatus, currencyIntelligence.length);
+
   const headline =
     feedStatus.pipeline === 'LIVE'
       ? 'Evidence is live'
@@ -78,14 +80,12 @@ export const EvidenceStrip: React.FC<EvidenceStripProps> = ({
       ? 'Some evidence needs attention'
       : 'Evidence is unavailable';
 
-  const attention =
-    feedStatus.pipeline === 'LIVE'
-      ? null
-      : feedStatus.fx !== 'FRESH'
-      ? `Market quotes ${feedStatus.fx.toLowerCase()}`
-      : feedStatus.fundamentals !== 'FRESH'
-      ? `Macro evidence ${feedStatus.fundamentals.toLowerCase()}`
-      : 'Coverage is partial';
+  /*
+   * The attention clause states what is actually incomplete, in plain words,
+   * and keeps the counts so the engineering state stays auditable. The raw
+   * DEGRADED state is never hidden — it is demoted to the chips beside it.
+   */
+  const attention = feedStatus.pipeline === 'LIVE' ? null : coverage.macro;
 
   const StatusIcon =
     feedStatus.pipeline === 'LIVE'
@@ -139,8 +139,7 @@ export const EvidenceStrip: React.FC<EvidenceStripProps> = ({
               <p className="mt-0.5 line-clamp-1 text-[0.7rem] text-slate-500">
                 {feedStatus.pipeline === 'LIVE'
                   ? 'Market and macro evidence are both current.'
-                  : statusMessage ||
-                    'Evidence is partially available, stale, or reference-only.'}
+                  : coverage.sentence}
               </p>
             </div>
           </div>

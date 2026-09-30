@@ -98,3 +98,60 @@ export function deriveFeedStatus(
     stream: market?.connectionStatus ?? market?.streamState ?? 'UNAVAILABLE'
   };
 }
+
+export interface EvidenceCoverageNarrative {
+  /** One short clause describing the market layer. */
+  market: string;
+  /** One short clause describing the macro layer. */
+  macro: string;
+  /** A single sentence combining both, derived only from recorded state. */
+  sentence: string;
+}
+
+/**
+ * Turns the feed status into language a person can act on.
+ *
+ * The underlying states are never softened. "Partial" is used only when the
+ * status is genuinely partial, and it always carries the real counts, so the
+ * engineering state stays visible underneath the plain wording.
+ */
+export function describeEvidenceCoverage(
+  summary: FeedStatusSummary,
+  currencyCount: number
+): EvidenceCoverageNarrative {
+  const market =
+    summary.fx === 'FRESH'
+      ? 'Market evidence is current'
+      : summary.fx === 'AGING'
+      ? 'Market evidence is aging'
+      : summary.fx === 'DEGRADED'
+      ? 'Market coverage is partial'
+      : summary.fx === 'STALE'
+      ? 'Market evidence is stale'
+      : 'Market evidence is unavailable';
+
+  const currenciesWithMacro = summary.fundamentalsCurrentCurrencies;
+  const totalCurrencies = Math.max(
+    currencyCount,
+    currenciesWithMacro + summary.fundamentalsStaleCurrencies
+  );
+
+  const macro =
+    summary.fundamentals === 'FRESH'
+      ? 'Macro evidence is current'
+      : summary.fundamentals === 'DEGRADED'
+      ? currenciesWithMacro > 0
+        ? `Macro coverage is partial (${currenciesWithMacro} of ${totalCurrencies} currencies)`
+        : 'Macro coverage is partial'
+      : summary.fundamentals === 'REFERENCE'
+      ? 'Macro evidence is reference only'
+      : summary.fundamentals === 'STALE'
+      ? 'Macro evidence is stale'
+      : 'Macro evidence is unavailable';
+
+  return {
+    market,
+    macro,
+    sentence: `${market}. ${macro}.`
+  };
+}

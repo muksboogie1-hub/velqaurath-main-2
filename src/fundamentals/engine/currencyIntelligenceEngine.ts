@@ -580,6 +580,34 @@ function normalizePairSymbol(symbol: string): string {
   return symbol.replace(/[-_]/g, '/').toUpperCase();
 }
 
+/**
+ * A contribution is accepted when the record is attributed to the active
+ * provider and is not affirmatively unusable. Connection phase is deliberately
+ * not disqualifying.
+ *
+ * The provider stamps each quote with its own health at the moment the quote
+ * was produced, so a freshly timestamped, correctly attributed quote can carry
+ * CONNECTING or RECONNECTING while the live stream re-establishes. That is
+ * transport state, not a verdict on the record. Treating it as one discarded
+ * real, verified market evidence for a whole refresh interval and left the
+ * product reporting every currency as having no market evidence while the
+ * provider was live and complete.
+ *
+ * DISCONNECTED, ERROR, NOT_CONFIGURED and any unrecognised or absent value
+ * remain rejected, so an unknown status is never treated as verified. A stale
+ * record is still accepted here and downgraded through the existing freshness
+ * path, so the deliberate stale handling is unchanged.
+ */
+export function isUnusableMarketRecordStatus(status: string | undefined): boolean {
+  return !(
+    status === 'CONNECTED' ||
+    status === 'DEGRADED' ||
+    status === 'CONNECTING' ||
+    status === 'RECONNECTING' ||
+    status === 'STALE'
+  );
+}
+
 function toSourceTimestamp(quote: MarketQuote | undefined): string | null {
   if (!quote) return null;
   if (hasValidTimestamp(quote.providerTimestamp)) return quote.providerTimestamp;
@@ -718,9 +746,8 @@ export function aggregateCurrencyIntelligence(
     const quoteSourceMatches = !quote || Boolean(
       quote.source &&
       quote.source.toUpperCase() === activeProvider.toUpperCase() &&
-      (quote.sourceStatus === 'CONNECTED' ||
-        quote.sourceStatus === 'DEGRADED' ||
-        quote.sourceStatus === 'STALE')
+      quote.stale !== true &&
+      !isUnusableMarketRecordStatus(quote.sourceStatus)
     );
     const isProviderContribution = Boolean(
       strengthSourceMatches && quoteSourceMatches && sourceTimestamp

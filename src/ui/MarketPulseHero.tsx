@@ -1,11 +1,22 @@
 import React from 'react';
 import { ArrowUpRight, ArrowDownRight, Minus, Target, Activity } from 'lucide-react';
 import { CurrencyState, ProviderStatus } from '../types';
-import type { FocusPair } from '../types/focus';
+import type { FocusBasketStanding, FocusPair } from '../types/focus';
 import { CurrencyFundamentalIntelligence } from '../types';
 import { FundamentalProviderStatus } from '../fundamentals/providers/IFundamentalDataProvider';
 import { FundamentalDatasetMode } from '../types/fundamentals';
-import { deriveFeedStatus } from './feedStatus';
+import { deriveFeedStatus, describeEvidenceCoverage } from './feedStatus';
+import { deriveBasketNarrative } from './focus/basketNarrative';
+
+function joinClauses(items: string[]): string {
+  if (items.length === 0) return '';
+  if (items.length === 1) return items[0];
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
+function capitalise(text: string): string {
+  return text.length === 0 ? text : text[0].toUpperCase() + text.slice(1);
+}
 
 interface MarketPulseHeroProps {
   allCurrencies: CurrencyState[];
@@ -18,6 +29,8 @@ interface MarketPulseHeroProps {
    * bias can never disagree.
    */
   topPair: FocusPair | null;
+  /** The live basket standing, used for the "what changed" reading. */
+  basket: FocusBasketStanding | null;
   marketProviderStatus?: ProviderStatus;
   fundamentalProviderStatus?: FundamentalProviderStatus;
   fundamentalDatasetMode?: FundamentalDatasetMode;
@@ -53,6 +66,7 @@ export const MarketPulseHero: React.FC<MarketPulseHeroProps> = ({
   neutralCurrencies,
   weakCurrencies,
   topPair,
+  basket,
   marketProviderStatus,
   fundamentalProviderStatus,
   fundamentalDatasetMode = 'LIVE',
@@ -66,6 +80,8 @@ export const MarketPulseHero: React.FC<MarketPulseHeroProps> = ({
     fundamentalDatasetMode,
     currencyIntelligence
   );
+  const coverage = describeEvidenceCoverage(feedStatus, allCurrencies.length);
+  const basketNarrative = deriveBasketNarrative(basket, currencyIntelligence);
 
   const withMarketEvidence = allCurrencies.filter((c) => c.marketStrength !== null).length;
   const universeSize = allCurrencies.length;
@@ -129,12 +145,24 @@ export const MarketPulseHero: React.FC<MarketPulseHeroProps> = ({
           <div className="min-w-0">
             <p className="velqo-eyebrow mb-3 text-teal-300/80">Market Pulse</p>
             <h1 className="velqo-display max-w-md text-2xl text-white sm:text-[2.1rem]">
-              What is changing across the currency universe?
+              {basketNarrative.statement}
             </h1>
-            <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-400">
-              Relative strength across the core majors, the pair currently demanding
-              attention, and the state of the evidence underneath both.
-            </p>
+
+            {/*
+             * The evidence behind the headline is stated, not implied. Support
+             * and gaps are both derived from layers that are actually present,
+             * so the sentence above can never overstate the case.
+             */}
+            {basketNarrative.supportedBy.length > 0 && (
+              <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-400">
+                Supported by {joinClauses(basketNarrative.supportedBy)}.
+              </p>
+            )}
+            {basketNarrative.incomplete.length > 0 && (
+              <p className="mt-1.5 max-w-md text-[0.78rem] leading-relaxed text-slate-500">
+                {capitalise(joinClauses(basketNarrative.incomplete))}.
+              </p>
+            )}
           </div>
 
           {/* Live evidence indicator — secondary, honest, always present. */}
@@ -163,8 +191,10 @@ export const MarketPulseHero: React.FC<MarketPulseHeroProps> = ({
               </span>
             </div>
             <p className="mt-2 text-[0.7rem] leading-relaxed text-slate-500">
-              {withMarketEvidence}/{universeSize} currencies carry current market
-              evidence · macro {feedStatus.fundamentals}
+              {coverage.sentence}
+            </p>
+            <p className="mt-1 text-[0.65rem] leading-relaxed text-slate-600">
+              {withMarketEvidence}/{universeSize} currencies carry current market evidence
             </p>
           </div>
         </div>

@@ -152,7 +152,27 @@ export interface FocusPair {
   dataQuality: FocusDataQuality;
 }
 
+/**
+ * Where a currency stands inside the live basket, projected from the existing
+ * market strength engine. This is the answer to "what changed", and it is
+ * never inferred from a layer that is missing.
+ */
+export interface FocusBasketStanding {
+  /** The strongest currency with a verified market value, if any. */
+  leader: { code: string; strength: number; classification: string } | null;
+  /** The weakest currency with a verified market value, if any. */
+  laggard: { code: string; strength: number; classification: string } | null;
+  /** How many currencies carried a usable market value. */
+  currenciesWithEvidence: number;
+  /** How many currencies were assessed at all. */
+  currenciesAssessed: number;
+  /** The plain-language reading of the basket. */
+  statement: string;
+}
+
 export interface MarketFocus {
+  /** Where the live basket stands — the answer to "what changed". */
+  basket: FocusBasketStanding;
   /** The promoted pair, or null when no pair qualifies for PRIMARY_WATCH. */
   selected: FocusPair | null;
   /** Why nothing was promoted, when selected is null. */
@@ -165,6 +185,13 @@ export interface MarketFocus {
   researchLead: FocusPair | null;
   /** What holds the research lead below primary, and what would change that. */
   leadReason: string | null;
+  /**
+   * Catalysts for the research lead's legs, projected through the same
+   * verified pipeline as a promoted primary. They belong to the lead, not to a
+   * promoted pair, and are only populated when no primary is selected.
+   */
+  leadCatalysts: FocusCatalyst[];
+  leadNextCatalyst: FocusCatalyst | null;
   /** How the selected pair was chosen, when selected is not null. */
   selectionReason: string | null;
   why: string | null;
