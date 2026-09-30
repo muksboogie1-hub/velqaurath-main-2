@@ -22,7 +22,7 @@ import { evaluatePairOpportunity, evaluateAllOpportunities } from '../src/engine
 import { analyzeObservationExpectations } from '../src/engines/expectations/expectationsEngine';
 import { TARGET_MACRO_DIMENSIONS, FUNDAMENTAL_CATEGORIES } from '../src/types/fundamentals';
 import { CurrencyState, PairIntelligence } from '../src/types';
-import { VelqoarathApiService } from '../src/api/service';
+import { VelquarathApiService } from '../src/api/service';
 
 console.log('================================================================');
 console.log('RUNNING VELQOARATH STAGE 2: COMPLETE INTELLIGENCE VERIFICATION');
@@ -353,19 +353,19 @@ console.log('✅ PASS: Structured Contradictions Engine correctly detects confli
 // 8. API SERVICE VERIFICATION
 // -------------------------------------------------------------
 console.log('\n--- 8. API Service Verification ---');
-const currenciesApi = VelqoarathApiService.getCurrencies();
+const currenciesApi = VelquarathApiService.getCurrencies();
 assert.equal(currenciesApi.length, 8, 'API getCurrencies returns 8 currencies');
 
-const pairsApi = VelqoarathApiService.getPairs();
+const pairsApi = VelquarathApiService.getPairs();
 assert.equal(pairsApi.length, 15, 'API getPairs returns 15 pairs');
 
-const centralBanksApi = VelqoarathApiService.getCentralBanks();
+const centralBanksApi = VelquarathApiService.getCentralBanks();
 assert.equal(centralBanksApi.length, 8, 'API getCentralBanks returns 8 central banks');
 
-const sessionsApi = VelqoarathApiService.getSessions();
+const sessionsApi = VelquarathApiService.getSessions();
 assert.equal(sessionsApi.length, 4, 'API getSessions returns 4 market sessions');
 
-const dashboardApi = VelqoarathApiService.getDashboard();
+const dashboardApi = VelquarathApiService.getDashboard();
 assert(dashboardApi.allCurrencies.length >= 8, 'Dashboard contains 8 currencies');
 assert(dashboardApi.marketProviderStatus, 'Dashboard includes marketProviderStatus');
 assert(dashboardApi.fundamentalProviderStatus, 'Dashboard includes fundamentalProviderStatus');
@@ -712,7 +712,7 @@ console.log('✅ PASS: All required opportunity states (PRIMARY_WATCH, SECONDARY
 // -------------------------------------------------------------
 console.log('\n--- 13. Data Integrity & Benchmark Separation ---');
 // Verify that benchmark mode is never silently activated for live feeds
-const fStatus = VelqoarathApiService.getFundamentalsStatus();
+const fStatus = VelquarathApiService.getFundamentalsStatus();
 assert(fStatus.datasetMode === 'LIVE' || fStatus.datasetMode === 'BENCHMARK', 'Status honestly reports mode');
 console.log('✅ PASS: Data integrity and benchmark separation verified');
 

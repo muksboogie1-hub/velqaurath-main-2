@@ -13,12 +13,14 @@ import {
 } from 'lucide-react';
 import { globalStore } from './data/store';
 import { CurrencyFundamentalIntelligence, DashboardPayload, PairIntelligence, StrengthThresholds } from './types';
+import type { MarketFocus } from './types/focus';
 import { Header } from './ui/Header';
 import { BottomNav, NavTab } from './ui/BottomNav';
 import { MarketPulseHero } from './ui/MarketPulseHero';
 import { MarketContext } from './ui/MarketContext';
 import { CurrencyLandscape } from './ui/CurrencyLandscape';
 import { PairInFocusCard } from './ui/PairInFocusCard';
+import { MarketFocusView } from './ui/focus/MarketFocusView';
 import { SessionIntelligenceCard } from './ui/SessionIntelligenceCard';
 import { EconomicCalendarTable } from './ui/EconomicCalendarTable';
 import { EvidenceStrip } from './ui/EvidenceStrip';
@@ -39,6 +41,7 @@ export function App() {
     globalStore.getAllPairIntelligences()
   );
   const [currencyIntelligences, setCurrencyIntelligences] = useState<CurrencyFundamentalIntelligence[]>([]);
+  const [marketFocus, setMarketFocus] = useState<MarketFocus | null>(null);
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
   const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
   const [selectedPair, setSelectedPair] = useState<string | null>(null);
@@ -53,9 +56,10 @@ export function App() {
 
     const fetchServerData = async () => {
       try {
-        const [dashRes, pairsRes] = await Promise.all([
+        const [dashRes, pairsRes, focusRes] = await Promise.all([
           fetch('/api/dashboard'),
-          fetch('/api/pairs/intelligence')
+          fetch('/api/pairs/intelligence'),
+          fetch('/api/market-focus')
         ]);
 
         if (dashRes.ok) {
@@ -124,6 +128,17 @@ export function App() {
         if (pairsRes.ok) {
           const pairsData = await pairsRes.json();
           setPairIntelligences(pairsData);
+        }
+
+        /*
+         * The focus payload is served from the same intelligence the rest of
+         * the product consumes, so the narrative and the underlying evidence
+         * cannot diverge.
+         */
+        if (focusRes.ok) {
+          setMarketFocus(await focusRes.json());
+        } else {
+          setMarketFocus(null);
         }
       } catch {
         // Fallback to local store only on network failure
@@ -241,7 +256,7 @@ export function App() {
               strongCurrencies={dashboard.strongCurrencies}
               neutralCurrencies={dashboard.neutralCurrencies}
               weakCurrencies={dashboard.weakCurrencies}
-              topPair={dashboard.topPairToWatch}
+              topPair={marketFocus?.selected ?? null}
               marketProviderStatus={dashboard.marketProviderStatus}
               fundamentalProviderStatus={dashboard.fundamentalProviderStatus}
               fundamentalDatasetMode={dashboard.fundamentalDatasetMode}
@@ -251,7 +266,12 @@ export function App() {
             />
 
             <PairInFocusCard
-              topPair={dashboard.topPairToWatch}
+              focus={marketFocus}
+              onSelectPair={(symbol) => setSelectedPair(symbol)}
+            />
+
+            <MarketFocusView
+              focus={marketFocus}
               onSelectPair={(symbol) => setSelectedPair(symbol)}
             />
 
@@ -347,7 +367,7 @@ export function App() {
             <p className="velqo-eyebrow mb-1.5">Evidence</p>
             <h2 className="velqo-display text-lg text-white">Provenance & source directory</h2>
             <p className="mt-2 max-w-xl text-[0.78rem] leading-relaxed text-slate-400">
-              VELQOARATH does not fabricate evidence. Every macro observation, policy record and
+              VELQUARATH does not fabricate evidence. Every macro observation, policy record and
               market quote below is traceable to a primary agency or market-data provider, and a
               layer without a verified live record is reported as unavailable rather than inferred.
             </p>
@@ -363,7 +383,7 @@ export function App() {
       </main>
 
       <footer className="border-t border-white/[0.05] px-4 py-6 text-center">
-        <p className="text-[0.72rem] font-medium text-slate-500">VELQOARATH · Global Market Intelligence</p>
+        <p className="text-[0.72rem] font-medium text-slate-500">VELQUARATH · Global Market Intelligence</p>
         <p className="mt-1 text-[0.7rem] text-slate-600">
           Built by Boogie · Fundamental intelligence for currencies. Not an execution venue.
         </p>

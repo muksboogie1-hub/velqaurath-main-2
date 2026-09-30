@@ -23,7 +23,7 @@ import { FinanceCalendarProvider } from '../src/fundamentals/providers/FinanceCa
 import { VerifiedDatasetFundamentalProvider } from '../src/fundamentals/providers/VerifiedDatasetFundamentalProvider';
 import { FundamentalService } from '../src/fundamentals/service/fundamentalService';
 import { globalStore } from '../src/data/store';
-import { VelqoarathApiService } from '../src/api/service';
+import { VelquarathApiService } from '../src/api/service';
 import { RefreshScheduler } from '../src/services/refreshScheduler';
 import { INITIAL_CURRENCIES } from '../src/data/currencies';
 import { INITIAL_PAIRS } from '../src/data/pairs';
@@ -207,7 +207,7 @@ console.log('================================================================\n'
 
   const usdState = globalStore.getCurrencyState('USD');
   assert(usdState !== null, 'Test 4.1: Evaluates USD currency state');
-  const usdFund = VelqoarathApiService.getFundamentalCurrency('USD');
+  const usdFund = VelquarathApiService.getFundamentalCurrency('USD');
 
   assert(usdFund !== null, 'Test 4.2: API returns USD fundamental intelligence');
   assert(usdFund?.observations.some((o: any) => o.id === 'obs-usd-live-cpi'), 'Test 4.3: Consumes live CPI observation');
@@ -367,7 +367,7 @@ console.log('================================================================\n'
 {
   console.log('\n--- Test 14: Fundamental Timestamps Update ---');
 
-  const initialStatus = VelqoarathApiService.getFundamentalsStatus();
+  const initialStatus = VelquarathApiService.getFundamentalsStatus();
   const beforeTime = initialStatus.lastSuccessfulFetch;
 
   // Simulate a live update
@@ -409,7 +409,7 @@ console.log('================================================================\n'
   await fundamentalService.useLiveProvider();
   await fundamentalService.refresh(true);
 
-  const updatedStatus = VelqoarathApiService.getFundamentalsStatus();
+  const updatedStatus = VelquarathApiService.getFundamentalsStatus();
   assert(updatedStatus.lastSuccessfulFetch !== null, 'Test 14.1: lastSuccessfulFetch is populated');
   assert(updatedStatus.datasetMode === 'LIVE', 'Test 14.2: Mode is LIVE');
   assert(updatedStatus.observationsCount === 1, 'Test 14.3: Observations count reflects updated dataset');
@@ -422,7 +422,7 @@ console.log('================================================================\n'
   console.log('\n--- Test 15: Changed Live Observation Alters Downstream Intelligence ---');
 
   // Baseline reading for USD
-  const usdBefore = VelqoarathApiService.getFundamentalCurrency('USD');
+  const usdBefore = VelquarathApiService.getFundamentalCurrency('USD');
   const initialObsValue = usdBefore?.observations[0]?.actual;
   assert(initialObsValue === 2.4, 'Test 15.1: Initial observation is 2.4%');
 
@@ -464,7 +464,7 @@ console.log('================================================================\n'
   liveProvider.setFixtureData([], shockObs);
   await fundamentalService.refresh(true);
 
-  const usdAfter = VelqoarathApiService.getFundamentalCurrency('USD');
+  const usdAfter = VelquarathApiService.getFundamentalCurrency('USD');
   const updatedObsValue = usdAfter?.observations[0]?.actual;
 
   assert(updatedObsValue === 4.5, 'Test 15.2: In-memory state immediately reflects new 4.5% observation');
@@ -542,7 +542,7 @@ console.log('================================================================\n'
   assert(state.events.length >= 2, 'Test 16.14: DataStore contains normalized live calendar events');
 
   // Verify Dashboard API payload exposes the live fundamental provider status
-  const dashboard = VelqoarathApiService.getDashboard();
+  const dashboard = VelquarathApiService.getDashboard();
   assert(dashboard.fundamentalProviderStatus?.lifecycleState === 'CONNECTED', 'Test 16.15: getDashboard() exposes CONNECTED fundamental status');
   assert(dashboard.fundamentalDatasetMode === 'LIVE', 'Test 16.16: getDashboard() exposes LIVE dataset mode');
 }

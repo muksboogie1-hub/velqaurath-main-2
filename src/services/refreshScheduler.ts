@@ -95,13 +95,13 @@ export class RefreshScheduler {
     // 1. Establish background interval timers first
     this.marketTimer = setInterval(() => {
       this.refreshMarketSnapshot(true).catch((err) => {
-        console.error('[VELQOARATH] Background market refresh error:', err?.message || err);
+        console.error('[VELQUARATH] Background market refresh error:', err?.message || err);
       });
     }, this.marketIntervalMs);
 
     this.fundamentalTimer = setInterval(() => {
       this.refreshFundamentals(false).catch((err) => {
-        console.error('[VELQOARATH] Background fundamental refresh error:', err?.message || err);
+        console.error('[VELQUARATH] Background fundamental refresh error:', err?.message || err);
       });
     }, this.fundamentalIntervalMs);
 
@@ -109,25 +109,25 @@ export class RefreshScheduler {
     this.nextFundamentalRefresh = new Date(Date.now() + this.fundamentalIntervalMs).toISOString();
 
     console.log(
-      `[VELQOARATH] RefreshScheduler active: Market interval ${this.marketIntervalMs / 1000}s, Fundamentals interval ${this.fundamentalIntervalMs / 1000}s`
+      `[VELQUARATH] RefreshScheduler active: Market interval ${this.marketIntervalMs / 1000}s, Fundamentals interval ${this.fundamentalIntervalMs / 1000}s`
     );
 
     // 2. Perform immediate startup synchronization without waiting for first interval
     // Fundamentals and Market snapshots execute concurrently so neither blocks the other
     const fundamentalStartupPromise = this.refreshFundamentals(true).catch((err) => {
-      console.warn('[VELQOARATH] Initial fundamental sync error:', err?.message || err);
+      console.warn('[VELQUARATH] Initial fundamental sync error:', err?.message || err);
       return false;
     });
 
     const marketStartupPromise = this.refreshMarketSnapshot(true).catch((err) => {
-      console.warn('[VELQOARATH] Initial market snapshot refresh error:', err?.message || err);
+      console.warn('[VELQUARATH] Initial market snapshot refresh error:', err?.message || err);
       return false;
     });
 
     try {
       await marketDataService.startLiveStream();
     } catch (err: any) {
-      console.warn('[VELQOARATH] Live stream start deferred:', err?.message || err);
+      console.warn('[VELQUARATH] Live stream start deferred:', err?.message || err);
     }
 
     await Promise.allSettled([fundamentalStartupPromise, marketStartupPromise]);
@@ -151,7 +151,7 @@ export class RefreshScheduler {
    */
   public async refreshMarketSnapshot(force: boolean = false): Promise<boolean> {
     if (this.isMarketRefreshing) {
-      console.log('[VELQOARATH] Market refresh already in progress — skipping overlapping run.');
+      console.log('[VELQUARATH] Market refresh already in progress — skipping overlapping run.');
       return false;
     }
 
@@ -176,7 +176,7 @@ export class RefreshScheduler {
 
       return true;
     } catch (err: any) {
-      console.warn('[VELQOARATH] Market snapshot refresh failed:', err?.message || err);
+      console.warn('[VELQUARATH] Market snapshot refresh failed:', err?.message || err);
       // Preserves existing cached quotes in global store
       return false;
     } finally {
@@ -190,7 +190,7 @@ export class RefreshScheduler {
    */
   public async refreshFundamentals(force: boolean = false): Promise<boolean> {
     if (this.isFundamentalRefreshing) {
-      console.log('[VELQOARATH] Fundamental refresh already in progress — skipping overlapping run.');
+      console.log('[VELQUARATH] Fundamental refresh already in progress — skipping overlapping run.');
       return false;
     }
 
@@ -216,7 +216,7 @@ export class RefreshScheduler {
       }
       return success;
     } catch (err: any) {
-      console.warn('[VELQOARATH] Fundamental refresh failed:', err?.message || err);
+      console.warn('[VELQUARATH] Fundamental refresh failed:', err?.message || err);
       return false;
     } finally {
       this.isFundamentalRefreshing = false;

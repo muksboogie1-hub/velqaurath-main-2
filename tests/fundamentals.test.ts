@@ -25,7 +25,7 @@ import { FUNDAMENTAL_CATEGORIES } from '../src/types/fundamentals';
 import { INITIAL_CURRENCIES } from '../src/data/currencies';
 import { INITIAL_PAIRS } from '../src/data/pairs';
 import { INITIAL_EVENTS } from '../src/data/benchmarkDataset';
-import { VelqoarathApiService } from '../src/api/service';
+import { VelquarathApiService } from '../src/api/service';
 
 let passedTests = 0;
 let totalTests = 0;
@@ -362,7 +362,7 @@ console.log('================================================================\n'
 {
   await fundamentalService.useBenchmarkProvider();
 
-  const status = VelqoarathApiService.getFundamentalsStatus();
+  const status = VelquarathApiService.getFundamentalsStatus();
   assert(status.categoriesCount === 10, 'Test 11.1: API status reports 10 categories');
   assert(
     status.provider.health === 'AVAILABLE' ||
@@ -371,15 +371,15 @@ console.log('================================================================\n'
     'Test 11.1: API provider status is AVAILABLE or NOT_CONFIGURED'
   );
 
-  const cbList = VelqoarathApiService.getCentralBanks();
+  const cbList = VelquarathApiService.getCentralBanks();
   assert(cbList.length === 8, 'Test 11.2: API getCentralBanks returns 8 central banks');
 
-  const usdFund = VelqoarathApiService.getFundamentalCurrency('USD');
+  const usdFund = VelquarathApiService.getFundamentalCurrency('USD');
   assert(usdFund !== null, 'Test 11.3: API getFundamentalCurrency returns USD data');
   assert(usdFund?.supportingFactors.length > 0, 'Test 11.3: USD returns supportingFactors');
   assert(usdFund?.dataGaps.length > 0, 'Test 11.3: USD returns dataGaps');
 
-  const pairIntel = VelqoarathApiService.getPairIntelligence('USD/JPY');
+  const pairIntel = VelquarathApiService.getPairIntelligence('USD/JPY');
   assert(pairIntel !== null, 'Test 11.4: API getPairIntelligence returns USD/JPY');
   assert(pairIntel?.fundamentalDifferential !== undefined, 'Test 11.4: Pair intelligence includes fundamentalDifferential');
 }

@@ -13,6 +13,8 @@ import { FUNDAMENTAL_CATEGORIES } from '../types/fundamentals';
 import { refreshScheduler, SchedulerStatus } from '../services/refreshScheduler';
 import { evaluateCatalystIntelligence } from '../engines/catalyst/catalystEngine';
 import { evaluateAllOpportunities } from '../engines/opportunity/opportunityEngine';
+import { buildMarketFocus } from '../engines/focus/marketFocus';
+import type { MarketFocus } from '../types/focus';
 import {
   Currency,
   CurrencyState,
@@ -332,7 +334,7 @@ function projectStoredPolicyPillar(
   };
 }
 
-export class VelqoarathApiService {
+export class VelquarathApiService {
   // Currencies
   public static getCurrencies(): Currency[] {
     return globalStore.getState().currencies;
@@ -731,6 +733,20 @@ export class VelqoarathApiService {
   public static getStructuredOpportunities(date: Date = new Date()) {
     const allIntelligences = this.getAllPairIntelligences(date);
     return evaluateAllOpportunities(allIntelligences);
+  }
+
+  /**
+   * Market Focus is a derived presentation layer over the existing pair
+   * intelligence. It is served from the same intelligence the UI consumes so
+   * that the conclusion and the underlying evidence can never diverge.
+   */
+  public static getMarketFocus(date: Date = new Date()): MarketFocus {
+    const allIntelligences = this.getAllPairIntelligences(date);
+    const sessionOverview = getActiveSessionOverview(date);
+    return buildMarketFocus(allIntelligences, {
+      now: date,
+      activeOverlaps: sessionOverview.activeOverlaps
+    });
   }
 
   public static getCatalystIntelligence(currency?: string, date: Date = new Date()) {

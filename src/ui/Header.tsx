@@ -89,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="min-w-0">
             <div className="flex items-baseline gap-1.5">
               <span className="velqo-display text-[1.05rem] text-white sm:text-xl">
-                VELQOARATH
+                VELQUARATH
               </span>
               <span className="hidden truncate text-[0.7rem] text-slate-400 sm:inline">
                 · Global Market Intelligence

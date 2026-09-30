@@ -3,7 +3,7 @@ import { MarketDataService } from '../src/marketData/service/marketDataService';
 import { calculateCurrencyMarketStrengths } from '../src/marketData/engine/marketStrengthEngine';
 import { CANONICAL_15_PAIRS, SUPPORTED_MAJOR_CURRENCIES } from '../src/marketData/config';
 import { globalStore } from '../src/data/store';
-import { VelqoarathApiService } from '../src/api/service';
+import { VelquarathApiService } from '../src/api/service';
 import { MarketQuote } from '../src/marketData/types';
 
 let passed = 0;
@@ -190,7 +190,7 @@ async function runPipelineVerification() {
   assert(eurUsdIntel?.structuredOpportunity?.state !== 'INSUFFICIENT_DATA', `Step 15: structuredOpportunity state is ${eurUsdIntel?.structuredOpportunity?.state} (not INSUFFICIENT_DATA)`);
 
   // Step 16: dashboard can identify valid intelligence
-  const dashboard = VelqoarathApiService.getDashboard();
+  const dashboard = VelquarathApiService.getDashboard();
   assert(dashboard.allCurrencies.every((c) => c.marketStrength !== null), 'Step 16: All 8 currencies in dashboard have non-null marketStrength');
   assert(dashboard.allCurrencies.some((c) => c.marketState === 'STRONG'), 'Step 16: Dashboard includes STRONG currencies');
   assert(dashboard.topPairToWatch !== null, `Step 16: Dashboard topPairToWatch identified (${dashboard.topPairToWatch?.pair.symbol})`);

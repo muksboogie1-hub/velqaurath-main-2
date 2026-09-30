@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowUpRight, ArrowDownRight, Minus, Target, Activity } from 'lucide-react';
-import { CurrencyState, PairIntelligence, ProviderStatus } from '../types';
+import { CurrencyState, ProviderStatus } from '../types';
+import type { FocusPair } from '../types/focus';
 import { CurrencyFundamentalIntelligence } from '../types';
 import { FundamentalProviderStatus } from '../fundamentals/providers/IFundamentalDataProvider';
 import { FundamentalDatasetMode } from '../types/fundamentals';
@@ -11,7 +12,12 @@ interface MarketPulseHeroProps {
   strongCurrencies: CurrencyState[];
   neutralCurrencies: CurrencyState[];
   weakCurrencies: CurrencyState[];
-  topPair: PairIntelligence | null;
+  /**
+   * The pair the focus engine promoted. It is deliberately the same selection
+   * the Pair in Focus card shows, so the opening statement and the headline
+   * bias can never disagree.
+   */
+  topPair: FocusPair | null;
   marketProviderStatus?: ProviderStatus;
   fundamentalProviderStatus?: FundamentalProviderStatus;
   fundamentalDatasetMode?: FundamentalDatasetMode;
@@ -202,10 +208,10 @@ export const MarketPulseHero: React.FC<MarketPulseHeroProps> = ({
                 {attentionPair ? (
                   <div className="mt-1 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                     <button
-                      onClick={() => onSelectPair(attentionPair.pair.symbol)}
+                      onClick={() => onSelectPair(attentionPair.symbol)}
                       className="velqo-display text-lg text-white transition-colors hover:text-teal-200"
                     >
-                      {attentionPair.pair.symbol}
+                      {attentionPair.symbol}
                     </button>
                     <span
                       className={`text-[0.7rem] font-semibold ${
@@ -234,7 +240,7 @@ export const MarketPulseHero: React.FC<MarketPulseHeroProps> = ({
                   </div>
                 ) : (
                   <p className="mt-1 text-[0.8rem] text-slate-400">
-                    No pair intelligence is available from current evidence.
+                    No pair is held at a primary watch state on current evidence.
                   </p>
                 )}
               </div>

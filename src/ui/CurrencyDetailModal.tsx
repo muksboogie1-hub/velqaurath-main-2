@@ -377,7 +377,7 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
               <AlertCircle className="h-3.5 w-3.5" /> Data gaps and transparency
             </span>
             <p className="mb-2 text-[0.72rem] text-slate-400">
-              VELQOARATH never fabricates economic indicators. The following categories currently have
+              VELQUARATH never fabricates economic indicators. The following categories currently have
               no live authenticated feed configured, so they are reported as gaps rather than estimated:
             </p>
             <div className="grid grid-cols-1 gap-1 text-[0.68rem] text-slate-500 sm:grid-cols-2">

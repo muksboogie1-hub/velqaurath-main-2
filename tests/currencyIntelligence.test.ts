@@ -4,7 +4,7 @@ import { buildCentralBankProfile } from '../src/fundamentals/centralBank/central
 import { INITIAL_CURRENCIES } from '../src/data/currencies';
 import { INITIAL_PAIRS } from '../src/data/pairs';
 import { CANONICAL_15_PAIRS } from '../src/marketData/config';
-import { VelqoarathApiService } from '../src/api/service';
+import { VelquarathApiService } from '../src/api/service';
 import {
   CurrencyMarketStrength,
   EconomicObservation,
@@ -630,7 +630,7 @@ check('Currency intelligence retains the repository canonical 15-pair universe',
 });
 
 check('Existing dashboard API exposes intelligence for every canonical currency', () => {
-  const dashboard = VelqoarathApiService.getDashboard(calculatedAt);
+  const dashboard = VelquarathApiService.getDashboard(calculatedAt);
   assert.equal(dashboard.currencyIntelligence?.length, INITIAL_CURRENCIES.length);
   assert(dashboard.currencyIntelligence?.every(
     (intelligence) => intelligence.evidenceAssessment?.calculatedAt === calculatedAt.toISOString()
@@ -645,7 +645,7 @@ check('Existing dashboard API exposes intelligence for every canonical currency'
 });
 
 check('Fundamental currency API separates reference policy from current LIVE policy', () => {
-  const result = VelqoarathApiService.getFundamentalCurrency('USD');
+  const result = VelquarathApiService.getFundamentalCurrency('USD');
   assert(result);
   assert.equal(result.centralBank.currentPolicyRate, null);
   assert.equal(result.centralBank.policyRate, null);
@@ -662,7 +662,7 @@ check('Fundamental currency API separates reference policy from current LIVE pol
 });
 
 check('Currency and pair API states do not expose stored reference rates as current', () => {
-  const state = VelqoarathApiService.getCurrencyState('USD');
+  const state = VelquarathApiService.getCurrencyState('USD');
   assert(state);
   assert.equal(state.centralBank.currentPolicyRate, null);
   assert.equal(state.centralBank.policyRate, null);
@@ -674,7 +674,7 @@ check('Currency and pair API states do not expose stored reference rates as curr
     assert(state.fundamentalState.monetaryPolicy.currentCondition.includes('contextual policy rate'));
   }
 
-  const pair = VelqoarathApiService.getPairIntelligence('EUR/USD');
+  const pair = VelquarathApiService.getPairIntelligence('EUR/USD');
   assert(pair);
   assert.equal(pair.baseState.centralBank.currentPolicyRate, null);
   assert.equal(pair.quoteState.centralBank.currentPolicyRate, null);
