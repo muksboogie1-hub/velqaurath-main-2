@@ -92,7 +92,7 @@ function EvidenceList({
 export function WhyThisBias({ why }: { why: string | null }) {
   return (
     <FocusSection
-      title="Why this bias"
+      title="How this view was derived"
       icon={<Scale className="h-3.5 w-3.5" />}
     >
       {why ? (
@@ -515,16 +515,101 @@ export function ResearchQueue({
  * NO PRIMARY PAIR
  * ------------------------------------------------------------------ */
 
-export function NoPrimaryFocus({ reason }: { reason: string | null }) {
+/**
+ * The absence of a primary pair is a research decision, not a failure. This
+ * states the decision, the strongest candidate that did not qualify, the
+ * evidence behind it and the condition that would change it.
+ */
+export function NoPrimaryFocus({
+  reason,
+  lead,
+  leadReason
+}: {
+  reason: string | null;
+  lead: FocusPair | null;
+  leadReason: string | null;
+}) {
+  if (!lead) {
+    return (
+      <FocusSection title="Pair in focus" icon={<CircleSlash className="h-3.5 w-3.5" />}>
+        <div className="flex flex-col items-center gap-2 py-4 text-center">
+          <CircleSlash className="h-5 w-5 text-slate-600" />
+          <p className="text-[0.8rem] font-medium text-slate-300">No primary pair</p>
+          <p className="max-w-sm text-[0.72rem] leading-relaxed text-slate-500">
+            {reason ??
+              'No pair is held at a verified watch state on the current evidence, so none is promoted.'}
+          </p>
+        </div>
+      </FocusSection>
+    );
+  }
+
+  const quality = lead.dataQuality;
+
   return (
     <FocusSection title="Pair in focus" icon={<CircleSlash className="h-3.5 w-3.5" />}>
-      <div className="flex flex-col items-center gap-2 py-4 text-center">
-        <CircleSlash className="h-5 w-5 text-slate-600" />
-        <p className="text-[0.8rem] font-medium text-slate-300">No primary pair</p>
-        <p className="max-w-sm text-[0.72rem] leading-relaxed text-slate-500">
-          {reason ??
-            'No pair is held at a verified watch state on the current evidence, so none is promoted.'}
-        </p>
+      <div className="mb-3 flex items-start gap-2">
+        <CircleSlash className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+        <div className="min-w-0">
+          <p className="text-[0.85rem] font-semibold text-slate-200">No primary pair</p>
+          <p className="mt-1 text-[0.73rem] leading-relaxed text-slate-400">
+            {reason ?? 'No pair currently meets the evidence threshold for primary attention.'}
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-3.5 py-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="velqo-eyebrow">Next research</span>
+          <StateChip state={lead.opportunityState} />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="velqo-display text-lg text-white">{lead.symbol}</span>
+          <span className={`velqo-chip !py-0 !text-[0.6rem] ${BIAS_TONE[lead.bias]}`}>
+            {BIAS_SHORT[lead.bias]}
+          </span>
+        </div>
+
+        <p className="mt-1.5 text-[0.75rem] leading-relaxed text-slate-300">{lead.headline}</p>
+
+        {leadReason && (
+          <p className="mt-2 border-t border-white/[0.05] pt-2 text-[0.7rem] leading-relaxed text-slate-500">
+            {leadReason}
+          </p>
+        )}
+
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {quality.availableComponents.length > 0 && (
+            <span className="velqo-chip !py-0 !text-[0.6rem] !border-teal-400/25 !text-teal-200">
+              present: {quality.availableComponents.length} layers
+            </span>
+          )}
+          {quality.missingComponents.map((component) => (
+            <span
+              key={component}
+              className="velqo-chip !py-0 !text-[0.6rem] !border-slate-500/30 !text-slate-400"
+            >
+              missing: {component}
+            </span>
+          ))}
+          {quality.staleComponents.map((component) => (
+            <span
+              key={component}
+              className="velqo-chip !py-0 !text-[0.6rem] !border-amber-400/25 !text-amber-200"
+            >
+              stale: {component}
+            </span>
+          ))}
+          {quality.referenceOnlyComponents.map((component) => (
+            <span
+              key={component}
+              className="velqo-chip !py-0 !text-[0.6rem] !border-violet-400/25 !text-violet-200"
+            >
+              reference only: {component}
+            </span>
+          ))}
+        </div>
       </div>
     </FocusSection>
   );

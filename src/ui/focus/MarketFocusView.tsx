@@ -1,7 +1,7 @@
 import React from 'react';
 import { Telescope } from 'lucide-react';
 import type { MarketFocus } from '../../types/focus';
-import { NoPrimaryFocus, ResearchQueue, TodaysCatalysts, WhenToWatch } from './FocusNarrative';
+import { ResearchQueue, TodaysCatalysts, WhenToWatch } from './FocusNarrative';
 
 interface MarketFocusViewProps {
   focus: MarketFocus | null;
@@ -50,9 +50,12 @@ export const MarketFocusView: React.FC<MarketFocusViewProps> = ({
       </div>
 
       <div className="space-y-3 px-3.5 pb-4 sm:px-4 sm:pb-5">
-        {selected === null ? (
-          <NoPrimaryFocus reason={focus.noPrimaryReason} />
-        ) : (
+        {/*
+         * When no pair is promoted, the Pair in Focus card owns the decision
+         * statement and the research lead. This surface then carries only the
+         * queue, so the two never repeat each other.
+         */}
+        {selected !== null && (
           <>
             <WhenToWatch window={focus.researchWindow} />
             <TodaysCatalysts catalysts={focus.catalysts} />

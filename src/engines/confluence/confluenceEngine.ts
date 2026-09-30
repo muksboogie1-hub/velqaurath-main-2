@@ -765,12 +765,12 @@ export function calculatePairConfluence(params: ConfluenceEngineParams): Conflue
     if (isBullishBase && policySpread < -2.0) {
       contradictionPenalty += 5;
       contradictionReasons.push(
-        `Negative Carry Friction: Significant rate disadvantage of ${policySpread.toFixed(2)}% on long ${pair.baseCurrency}.`
+        `Negative Carry Friction: the ${pair.baseCurrency} leg carries a significant rate disadvantage of ${policySpread.toFixed(2)}% against the ${pair.quoteCurrency} leg.`
       );
     } else if (isBearishBase && policySpread > 2.0) {
       contradictionPenalty += 5;
       contradictionReasons.push(
-        `Negative Carry Friction: Significant rate disadvantage of +${policySpread.toFixed(2)}% against short ${pair.baseCurrency}.`
+        `Negative Carry Friction: the ${pair.baseCurrency} leg carries a significant rate disadvantage of +${policySpread.toFixed(2)}% relative to the ${pair.quoteCurrency} leg.`
       );
     }
   }

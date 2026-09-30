@@ -35,7 +35,11 @@ export const PairInFocusCard: React.FC<PairInFocusCardProps> = ({
         </div>
         <div className="px-4 py-4 sm:px-6">
           {focus ? (
-            <NoPrimaryFocus reason={focus.noPrimaryReason} />
+            <NoPrimaryFocus
+              reason={focus.noPrimaryReason}
+              lead={focus.researchLead}
+              leadReason={focus.leadReason}
+            />
           ) : (
             <div className="flex flex-col items-center gap-2 py-6 text-center">
               <Telescope className="h-6 w-6 text-slate-600" />
@@ -75,20 +79,31 @@ export const PairInFocusCard: React.FC<PairInFocusCardProps> = ({
         {/* Identity and bias — the first thing to understand. */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <button
-              onClick={() => onSelectPair(selected.symbol)}
-              className="velqo-display text-3xl text-white transition-colors hover:text-teal-200 sm:text-4xl"
-            >
-              {selected.symbol}
-            </button>
-            <div className="mt-3">
-              <BiasBadge
-                bias={selected.bias}
-                basisNote={biasBasisNote(selected.biasBasis)}
-                size="lg"
-              />
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <BiasBadge bias={selected.bias} size="lg" />
+              <button
+                onClick={() => onSelectPair(selected.symbol)}
+                className="velqo-display text-3xl text-white transition-colors hover:text-teal-200 sm:text-4xl"
+              >
+                {selected.symbol}
+              </button>
             </div>
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+
+            <p className="mt-3 max-w-md text-[0.9rem] font-medium leading-relaxed text-slate-100">
+              {selected.headline}
+            </p>
+
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <span
+                className={`velqo-chip ${
+                  selected.biasBasis === 'MACRO_DERIVED'
+                    ? '!border-amber-400/25 !text-amber-200'
+                    : ''
+                }`}
+              >
+                {biasBasisNote(selected.biasBasis)}
+              </span>
+
               <span className="velqo-chip tnum">
                 {selected.relativeStrengthDelta === null
                   ? 'Market Δ unavailable'
@@ -155,8 +170,7 @@ export const PairInFocusCard: React.FC<PairInFocusCardProps> = ({
             hasVerified={focus.hasVerifiedChangeConditions}
           />
           <DataTrust quality={dataQuality} />
-        </div>
-      </div>
+        </div>      </div>
     </section>
   );
 };

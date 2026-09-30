@@ -1,9 +1,15 @@
 import React from 'react';
 import { ChevronRight, Landmark, LineChart, Scale } from 'lucide-react';
-import { CurrencyState } from '../types';
+import { CurrencyFundamentalIntelligence, CurrencyState } from '../types';
 
 interface CurrencyLandscapeProps {
   currencies: CurrencyState[];
+  /**
+   * The aggregated fundamental evidence per currency. The card shows the real
+   * evidence state rather than a bare score, so a currency carrying live
+   * observations is never presented as though nothing arrived.
+   */
+  intelligences: CurrencyFundamentalIntelligence[];
   onSelectCurrency: (code: string) => void;
 }
 
@@ -18,8 +24,13 @@ interface CurrencyLandscapeProps {
  */
 export const CurrencyLandscape: React.FC<CurrencyLandscapeProps> = ({
   currencies,
+  intelligences,
   onSelectCurrency
 }) => {
+  const evidenceByCurrency = new Map(
+    intelligences.map((intelligence) => [intelligence.currency.code, intelligence])
+  );
+
   return (
     <section className="velqo-card overflow-hidden">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-white/[0.06] px-4 py-4 sm:px-6">
@@ -40,8 +51,49 @@ export const CurrencyLandscape: React.FC<CurrencyLandscapeProps> = ({
       <div className="grid gap-2.5 p-3 sm:p-4 md:grid-cols-2 xl:grid-cols-4">
         {currencies.map((currency) => {
           const marketValue = currency.marketStrength;
-          const fundamentalValue = currency.fundamentalState.fundamentalScore;
           const centralBank = currency.centralBank;
+
+          const intelligence = evidenceByCurrency.get(currency.currency.code);
+          const fundamentals = intelligence?.evidenceAssessment?.fundamentals;
+          const fundamentalEvidenceCount = fundamentals?.evidenceCount ?? 0;
+          const fundamentalAvailability = fundamentals?.availability ?? 'UNAVAILABLE';
+          const hasFundamentalEvidence =
+            fundamentalEvidenceCount > 0 &&
+            (fundamentalAvailability === 'AVAILABLE' ||
+              fundamentalAvailability === 'PARTIAL');
+
+          /*
+           * A scored fundamental impulse is only shown when the engine actually
+           * produced one. Live evidence without a score is reported as evidence,
+           * never converted into a number.
+           */
+          const fundamentalValue = hasFundamentalEvidence
+            ? intelligence?.fundamentalScore ?? null
+            : null;
+
+          const fundamentalTone = hasFundamentalEvidence
+            ? fundamentalValue === null
+              ? 'text-teal-200/80'
+              : fundamentalValue > 0.05
+              ? 'text-teal-300'
+              : fundamentalValue < -0.05
+              ? 'text-rose-300'
+              : 'text-slate-300'
+            : 'text-slate-500';
+
+          const fundamentalLabel = hasFundamentalEvidence
+            ? fundamentalValue === null
+              ? `${fundamentalEvidenceCount} live ${
+                  fundamentalEvidenceCount === 1 ? 'observation' : 'observations'
+                }`
+              : `${fundamentalValue >= 0 ? '+' : ''}${fundamentalValue.toFixed(2)}`
+            : 'No live observations';
+
+          const fundamentalDetail = hasFundamentalEvidence
+            ? fundamentalValue === null
+              ? 'Present, not scored — no verified forecast baseline to measure a surprise against.'
+              : undefined
+            : 'No source-identified live observations with an actual value have arrived for this currency.';
 
           const isLivePolicy =
             centralBank.policyAvailability === 'AVAILABLE' &&
@@ -150,26 +202,21 @@ export const CurrencyLandscape: React.FC<CurrencyLandscapeProps> = ({
               </div>
 
               {/* Fundamental impulse */}
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="flex items-center gap-1.5 text-slate-500">
-                  <Scale className="h-3 w-3" />
-                  <span className="text-[0.65rem]">Fundamentals</span>
-                </span>
-                <span
-                  className={`text-[0.78rem] font-medium tnum ${
-                    fundamentalValue === null
-                      ? 'text-slate-500'
-                      : fundamentalValue > 0.05
-                      ? 'text-teal-300'
-                      : fundamentalValue < -0.05
-                      ? 'text-rose-300'
-                      : 'text-slate-300'
-                  }`}
-                >
-                  {fundamentalValue === null
-                    ? 'Unavailable'
-                    : `${fundamentalValue >= 0 ? '+' : ''}${fundamentalValue.toFixed(2)}`}
-                </span>
+              <div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-slate-500">
+                    <Scale className="h-3 w-3" />
+                    <span className="text-[0.65rem]">Fundamentals</span>
+                  </span>
+                  <span className={`text-[0.78rem] font-medium tnum ${fundamentalTone}`}>
+                    {fundamentalLabel}
+                  </span>
+                </div>
+                {fundamentalDetail && (
+                  <p className="mt-1 text-[0.62rem] leading-relaxed text-slate-600">
+                    {fundamentalDetail}
+                  </p>
+                )}
               </div>
 
               {/* Policy posture, with provenance made explicit */}

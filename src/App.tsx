@@ -277,6 +277,7 @@ export function App() {
 
             <CurrencyLandscape
               currencies={dashboard.allCurrencies}
+              intelligences={currencyIntelligences}
               onSelectCurrency={(code) => setSelectedCurrency(code)}
             />
 
@@ -311,6 +312,7 @@ export function App() {
 
             <CurrencyLandscape
               currencies={dashboard.allCurrencies}
+              intelligences={currencyIntelligences}
               onSelectCurrency={(code) => setSelectedCurrency(code)}
             />
 

@@ -620,8 +620,8 @@ check('9. No PRIMARY_WATCH pair means no primary pair, stated honestly', () => {
   if (focus.why !== null) throw new Error('no bias explanation may be produced without a selection');
   if (focus.supportingEvidence.length !== 0) throw new Error('no evidence may be attributed without a selection');
   if (focus.nextCatalyst !== null) throw new Error('no catalyst may be promoted without a selection');
-  if (!focus.noPrimaryReason || !focus.noPrimaryReason.includes('PRIMARY_WATCH')) {
-    throw new Error('the reason must name the missing watch state');
+  if (!focus.noPrimaryReason || !focus.noPrimaryReason.includes('primary attention')) {
+    throw new Error('the reason must name the unmet primary threshold');
   }
 });
 
@@ -1005,6 +1005,135 @@ check('18. The focus layer never fabricates a LIVE or FRESH state', () => {
   }
   if (blindFocus.researchWindow?.headline !== 'Research window unavailable') {
     throw new Error('the window must state that it is unavailable');
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * 19. Human-readable presentation
+ * ------------------------------------------------------------------ */
+
+check('19. The headline states the bias in plain language without new arithmetic', () => {
+  const bull = makeIntelligence({ relativeStrengthDelta: 0.13 });
+  const bullFocus = buildMarketFocus([bull], { now: NOW });
+  if (bullFocus.selected?.headline !== 'EUR is stronger than USD by 0.13%.') {
+    throw new Error(`unexpected bullish headline: ${bullFocus.selected?.headline}`);
+  }
+
+  const bear = makeIntelligence({
+    orientationDirection: 'BEARISH_BASE',
+    relativeStrengthDelta: -0.13
+  });
+  const bearFocus = buildMarketFocus([bear], { now: NOW });
+  if (bearFocus.selected?.headline !== 'EUR is weaker than USD by 0.13%.') {
+    throw new Error(`unexpected bearish headline: ${bearFocus.selected?.headline}`);
+  }
+
+  // A missing differential must not be turned into a magnitude.
+  const noDelta = makeIntelligence({ relativeStrengthDelta: null, marketEvidenceState: 'UNAVAILABLE' });
+  const noDeltaFocus = buildMarketFocus([noDelta], { now: NOW });
+  if (noDeltaFocus.selected?.headline.includes('0.00%')) {
+    throw new Error('a missing differential must not appear in the headline');
+  }
+
+  const unconfirmed = withAvailability(
+    { relativeStrengthDelta: null, marketEvidenceState: 'UNAVAILABLE', orientationDirection: 'NEUTRAL' },
+    {
+      marketStrength: 'UNAVAILABLE',
+      fundamentals: 'UNAVAILABLE',
+      policy: 'UNAVAILABLE',
+      expectations: 'UNAVAILABLE',
+      catalysts: 'UNAVAILABLE',
+      session: 'UNAVAILABLE'
+    }
+  );
+  const unconfirmedFocus = buildMarketFocus([unconfirmed], { now: NOW });
+  if (unconfirmedFocus.selected?.bias !== 'UNCONFIRMED') {
+    throw new Error('expected an unconfirmed read');
+  }
+  if (!unconfirmedFocus.selected?.headline.startsWith('No verified directional view')) {
+    throw new Error(`unexpected unconfirmed headline: ${unconfirmedFocus.selected?.headline}`);
+  }
+
+  // The engineering derivation is still exposed alongside the plain headline.
+  if (!bullFocus.why || !bullFocus.why.includes('+0.13%')) {
+    throw new Error(`the detailed derivation must remain available, got: ${bullFocus.why}`);
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * 20. Research lead when no primary qualifies
+ * ------------------------------------------------------------------ */
+
+check('20. No primary pair still reports the strongest candidate and why it stopped', () => {
+  const template = makeIntelligence();
+  const build = (symbol: string, state: OpportunityState, score: number) => {
+    const [base, quote] = symbol.split('/');
+    return makeIntelligence({
+      symbol,
+      pair: { ...template.pair, id: `pair-${symbol}`, symbol, baseCurrency: base, quoteCurrency: quote },
+      confluence: { ...(template.confluence as any), confluenceScore: score },
+      structuredOpportunity: { state, whyThisPair: 'queued', confluenceScore: score, directionalConfidence: 'MODERATE' } as any
+    });
+  };
+
+  const focus = buildMarketFocus(
+    [build('EUR/USD', 'SECONDARY_WATCH', 60), build('GBP/USD', 'SECONDARY_WATCH', 80), build('USD/JPY', 'MONITOR', 90)],
+    { now: NOW }
+  );
+
+  if (focus.selected !== null) throw new Error('no primary may be promoted');
+  if (focus.researchLead === null) throw new Error('a research lead must still be reported');
+  if (focus.researchLead.symbol !== 'GBP/USD') {
+    throw new Error(`the lead must be the strongest queued candidate, got ${focus.researchLead.symbol}`);
+  }
+  if (focus.researchLead.opportunityState !== 'SECONDARY_WATCH') {
+    throw new Error('the lead must keep its real opportunity state');
+  }
+  if (focus.leadReason === null || !focus.leadReason.includes('SECONDARY_WATCH')) {
+    throw new Error(`the lead reason must name the state, got: ${focus.leadReason}`);
+  }
+  if (!focus.leadReason.includes('PRIMARY_WATCH')) {
+    throw new Error('the lead reason must name the promotion condition');
+  }
+  if (!focus.noPrimaryReason?.includes('GBP/USD')) {
+    throw new Error('the no-primary reason must name the strongest candidate');
+  }
+
+  // A lead is never a promoted primary.
+  if (focus.why !== null) throw new Error('no bias narrative may be produced for the lead');
+  if (focus.catalysts.length !== 0) throw new Error('no catalyst may be attached to the lead');
+});
+
+check('20b. The research lead reports its real evidence gaps', () => {
+  const lead = withAvailability(
+    {
+      relativeStrengthDelta: null,
+      marketEvidenceState: 'UNAVAILABLE',
+      structuredOpportunity: { state: 'MONITOR', whyThisPair: 'queued', confluenceScore: 44, directionalConfidence: 'LOW' } as any
+    },
+    {
+      marketStrength: 'UNAVAILABLE',
+      fundamentals: 'PARTIAL',
+      policy: 'REFERENCE_ONLY',
+      expectations: 'UNAVAILABLE',
+      catalysts: 'AVAILABLE',
+      session: 'AVAILABLE'
+    }
+  );
+
+  const focus = buildMarketFocus([lead], { now: NOW });
+  const reason = focus.leadReason ?? '';
+  if (!reason.includes('Market Strength')) {
+    throw new Error(`missing layers must be named: ${reason}`);
+  }
+  if (!/Policy is reference/i.test(reason)) {
+    throw new Error(`reference-only layers must be named: ${reason}`);
+  }
+  if (!/market evidence is (unavailable|stale|unknown)/i.test(reason)) {
+    throw new Error(`the market state must be named: ${reason}`);
+  }
+  if (!reason.includes('PRIMARY_WATCH')) {
+    throw new Error(`the promotion condition must be named: ${reason}`);
   }
 });
 

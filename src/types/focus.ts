@@ -138,7 +138,12 @@ export interface FocusPair {
   orientationDirection: PairOrientationDirection;
   bias: FocusBias;
   biasBasis: FocusBiasBasis;
-  /** Existing confluence score, passed through. No new score is introduced. */
+  /**
+   * The plain-language reading of the bias, suitable as the primary
+   * presentation line ("EUR is weaker than USD by 0.13%"). It restates values
+   * the engines already produced and never introduces a new calculation.
+   */
+  headline: string;
   confluenceScore: number | null;
   directionalConfidence: string;
   evidenceAlignment: FocusEvidenceAlignment;
@@ -152,6 +157,14 @@ export interface MarketFocus {
   selected: FocusPair | null;
   /** Why nothing was promoted, when selected is null. */
   noPrimaryReason: string | null;
+  /**
+   * The strongest pair that did not qualify for primary attention. It uses the
+   * same queue ordering as the research list, so it is never a second
+   * selection algorithm and never a promoted primary.
+   */
+  researchLead: FocusPair | null;
+  /** What holds the research lead below primary, and what would change that. */
+  leadReason: string | null;
   /** How the selected pair was chosen, when selected is not null. */
   selectionReason: string | null;
   why: string | null;

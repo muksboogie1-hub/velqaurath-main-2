@@ -267,6 +267,46 @@ export function deriveDataQuality(intelligence: PairIntelligence): FocusDataQual
  * FOCUS PAIR
  * ------------------------------------------------------------------ */
 
+/**
+ * The plain-language reading of the bias.
+ *
+ * This is presentation, not a new calculation: it restates the orientation and
+ * the verified differential the engines already produced, in the order the user
+ * reads them. The engineering detail stays available in the supporting
+ * narrative, so nothing is hidden by simplifying the headline.
+ */
+export function headlineFor(
+  intelligence: PairIntelligence,
+  bias: FocusBias,
+  basis: FocusBiasBasis
+): string {
+  const base = intelligence.pair.baseCurrency;
+  const quote = intelligence.pair.quoteCurrency;
+  const delta = intelligence.relativeStrengthDelta;
+
+  if (bias === 'UNCONFIRMED') {
+    return `No verified directional view between ${base} and ${quote} yet.`;
+  }
+
+  if (bias === 'NEUTRAL') {
+    return `${base} and ${quote} are currently balanced.`;
+  }
+
+  const direction = bias === 'BULLISH' ? 'stronger' : 'weaker';
+
+  if (basis === 'MARKET_CONFIRMED' && delta !== null) {
+    return `${base} is ${direction} than ${quote} by ${Math.abs(delta).toFixed(2)}%.`;
+  }
+
+  if (basis === 'MACRO_DERIVED') {
+    const layers = describeVerifiedLayers(verifiedEvidenceLayers(intelligence));
+    const evidence = layers ? ` on ${layers} evidence` : ' on verified macro evidence';
+    return `${base} is currently favoured over ${quote}${evidence}.`;
+  }
+
+  return `${base} is currently ${direction} than ${quote} on the available evidence.`;
+}
+
 export function buildFocusPair(
   intelligence: PairIntelligence,
   band: FocusBand
@@ -283,6 +323,7 @@ export function buildFocusPair(
     orientationDirection: intelligence.orientationDirection,
     bias,
     biasBasis: basis,
+    headline: headlineFor(intelligence, bias, basis),
     confluenceScore: intelligence.confluence?.confluenceScore ?? null,
     directionalConfidence:
       intelligence.confluence?.directionalConfidence ?? 'DATA_UNAVAILABLE',
@@ -291,6 +332,48 @@ export function buildFocusPair(
     stateReason: opportunity?.whyThisPair ?? intelligence.orientationExplanation,
     dataQuality: deriveDataQuality(intelligence)
   };
+}
+
+/**
+ * Why the research lead stopped short of primary attention, stated from the
+ * evidence that is actually present. The final line always names the real
+ * promotion condition rather than implying the pair is close to qualifying.
+ */
+function describeResearchLead(lead: PairIntelligence): string {
+  const focus = buildFocusPair(lead, bandForState(lead.structuredOpportunity?.state ?? 'INSUFFICIENT_DATA'));
+  const quality = focus.dataQuality;
+  const parts: string[] = [];
+
+  parts.push(
+    `${focus.symbol} is held at ${focus.opportunityState}${
+      focus.confluenceScore === null
+        ? ' with no confluence assessment available'
+        : ` on a confluence of ${focus.confluenceScore}/100`
+    }.`
+  );
+
+  if (quality.missingComponents.length > 0) {
+    parts.push(`${quality.missingComponents.join(', ')} evidence is missing.`);
+  }
+  if (quality.staleComponents.length > 0) {
+    parts.push(`${quality.staleComponents.join(', ')} evidence is stale.`);
+  }
+  if (quality.referenceOnlyComponents.length > 0) {
+    parts.push(
+      `${quality.referenceOnlyComponents.join(', ')} is reference context only and earns no support.`
+    );
+  }
+  if (quality.marketEvidenceState !== 'AVAILABLE') {
+    parts.push(
+      `Market evidence is ${String(quality.marketEvidenceState).toLowerCase()}, so no direction is market-confirmed.`
+    );
+  }
+
+  parts.push(
+    'It reaches primary attention when the opportunity engine raises it to PRIMARY_WATCH on verified evidence — not before.'
+  );
+
+  return parts.join(' ');
 }
 
 function bandForState(state: OpportunityState): FocusBand {
@@ -779,16 +862,25 @@ export function buildMarketFocus(
   };
 
   if (!primary) {
-    const nearest = buckets.SECONDARY_WATCH[0] ?? buckets.RADAR[0] ?? buckets.INSUFFICIENT[0] ?? null;
-    const reason = nearest
-      ? `No pair is held at PRIMARY_WATCH on current evidence. The strongest available state is ${
-          nearest.structuredOpportunity?.state ?? 'INSUFFICIENT_DATA'
-        } (${nearest.symbol}), which does not justify prioritising a single pair yet.`
-      : 'No pair intelligence could be derived from the current evidence set.';
+    /*
+     * No pair is promoted, but the research decision is still reported. The
+     * lead is taken from the same queue ordering used everywhere else, so the
+     * strongest available candidate is shown without inventing a primary.
+     */
+    const lead = buckets.SECONDARY_WATCH[0] ?? buckets.RADAR[0] ?? null;
+    const reason = lead
+      ? `No pair currently meets the evidence threshold for primary attention. The strongest candidate, ${lead.symbol}, is held at ${
+          lead.structuredOpportunity?.state ?? 'INSUFFICIENT_DATA'
+        }.`
+      : 'No pair is held at a verified watch state on the current evidence, so no research lead can be named.';
 
     return {
       selected: null,
       noPrimaryReason: reason,
+      researchLead: lead
+        ? buildFocusPair(lead, bandForState(lead.structuredOpportunity?.state ?? 'INSUFFICIENT_DATA'))
+        : null,
+      leadReason: lead ? describeResearchLead(lead) : null,
       selectionReason: null,
       why: null,
       supportingEvidence: [],
@@ -829,6 +921,8 @@ export function buildMarketFocus(
   return {
     selected: buildFocusPair(primary, 'PRIMARY_WATCH'),
     noPrimaryReason: null,
+    researchLead: null,
+    leadReason: null,
     selectionReason:
       primary.structuredOpportunity?.whyThisPair ??
       'Highest-ranked PRIMARY_WATCH opportunity on current evidence.',
