@@ -12,7 +12,12 @@ import { DataSource, ProviderStatus } from '../types';
 import { FundamentalProviderStatus } from '../fundamentals/providers/IFundamentalDataProvider';
 import { FundamentalDatasetMode } from '../types/fundamentals';
 import { CurrencyFundamentalIntelligence } from '../types';
-import { deriveFeedStatus, describeEvidenceCoverage, EvidenceDisplayState } from './feedStatus';
+import {
+  deriveFeedStatus,
+  describeEvidenceCoverage,
+  evidenceLabel,
+  EvidenceDisplayState
+} from './feedStatus';
 
 interface EvidenceStripProps {
   dataStatus: string;
@@ -146,19 +151,22 @@ export const EvidenceStrip: React.FC<EvidenceStripProps> = ({
 
           <div className="flex shrink-0 items-center gap-2">
             <div className="hidden items-center gap-2 sm:flex">
-              <span className={`velqo-chip ${fxTone.ring} ${fxTone.text}`}>
+              <span className={`velqo-chip ${fxTone.ring} ${fxTone.text}`} title={`Market state: ${feedStatus.fx}`}>
                 <LineChart className="h-3 w-3" />
-                Market {feedStatus.fx}
+                Market {evidenceLabel(feedStatus.fx)}
               </span>
-              <span className={`velqo-chip ${fundamentalTone.ring} ${fundamentalTone.text}`}>
+              <span
+                className={`velqo-chip ${fundamentalTone.ring} ${fundamentalTone.text}`}
+                title={`Macro state: ${feedStatus.fundamentals}`}
+              >
                 <Landmark className="h-3 w-3" />
-                Macro {feedStatus.fundamentals}
+                Macro {evidenceLabel(feedStatus.fundamentals)}
               </span>
             </div>
 
             <button
               onClick={() => setExpanded((value) => !value)}
-              className="flex min-h-9 items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.03] px-3 text-[0.7rem] font-medium text-slate-400 transition-colors hover:border-teal-400/30 hover:text-teal-200"
+              className="flex min-h-10 items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.03] px-3 text-[0.7rem] font-medium text-slate-400 transition-colors hover:border-teal-400/30 hover:text-teal-200 sm:min-h-9"
               aria-expanded={expanded}
             >
               Details
@@ -169,7 +177,7 @@ export const EvidenceStrip: React.FC<EvidenceStripProps> = ({
 
             <button
               onClick={onOpenSources}
-              className="flex min-h-9 items-center gap-1.5 rounded-full border border-teal-400/25 bg-teal-400/[0.07] px-3 text-[0.7rem] font-medium text-teal-200 transition-colors hover:border-teal-400/45 hover:bg-teal-400/[0.12]"
+              className="flex min-h-10 items-center gap-1.5 rounded-full border border-teal-400/25 bg-teal-400/[0.07] px-3 text-[0.7rem] font-medium text-teal-200 transition-colors hover:border-teal-400/45 hover:bg-teal-400/[0.12] sm:min-h-9"
             >
               <Database className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Inspect sources</span>
@@ -211,8 +219,8 @@ export const EvidenceStrip: React.FC<EvidenceStripProps> = ({
               />
               <DetailTile
                 label="Macro freshness"
-                value={feedStatus.fundamentals}
-                note={`Updated ${lastUpdateFormatted}`}
+                value={evidenceLabel(feedStatus.fundamentals)}
+                note={`Raw state ${feedStatus.fundamentals} · updated ${lastUpdateFormatted}`}
                 tone={fundamentalTone.text}
               />
               <DetailTile

@@ -4,6 +4,7 @@ import { CurrencyState, EconomicEvent } from '../types';
 import { FUNDAMENTAL_CATEGORIES, FundamentalCategory } from '../types/fundamentals';
 import { ECONOMIC_INDICATORS } from '../data/indicators';
 import { analyzeObservationExpectations } from '../engines/expectations/expectationsEngine';
+import { evidenceLabel } from './feedStatus';
 
 interface CurrencyDetailModalProps {
   currencyState: CurrencyState | null;
@@ -48,6 +49,7 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
   const misses = analyzedExpectations.filter((a: any) => a.expectationStatus === 'BELOW_EXPECTATION').length;
   const inLine = analyzedExpectations.filter((a: any) => a.expectationStatus === 'IN_LINE').length;
   const unknown = analyzedExpectations.filter((a: any) => a.expectationStatus === 'UNKNOWN').length;
+  const evidenceCount = currencyObservations.length;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-velqo-ink/80 backdrop-blur-md">
@@ -82,10 +84,28 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
               <div className="flex items-center gap-1.5">
                 <span>Fundamentals</span>
                 <span className="font-semibold text-sky-200">
-                  {fundamentalState.overallCondition}
+                  {evidenceLabel(fundamentalState.overallCondition)}
                 </span>
               </div>
             </div>
+
+            {/*
+             * Market strength and the fundamental score are independent
+             * verdicts. A currency can carry a real market reading while its
+             * fundamental layer has evidence but no scorable baseline, and the
+             * user must be told which is which rather than shown a bare
+             * DATA_UNAVAILABLE beside a percentage.
+             */}
+            {marketStrength !== null &&
+              fundamentalState.overallCondition === 'DATA_UNAVAILABLE' && (
+                <p className="mt-2 text-[0.7rem] leading-relaxed text-slate-500">
+                  Market evidence is current and scored. The fundamental layer carries{' '}
+                  {evidenceCount > 0
+                    ? `${evidenceCount} live observation${evidenceCount === 1 ? '' : 's'} but no verified consensus baseline, so no fundamental score is calculated.`
+                    : 'no source-identified live observations yet, so no fundamental score is calculated.'}
+                  Neither reading contradicts the other.
+                </p>
+              )}
           </div>
           <button
             onClick={onClose}
@@ -377,7 +397,7 @@ export const CurrencyDetailModal: React.FC<CurrencyDetailModalProps> = ({
               <AlertCircle className="h-3.5 w-3.5" /> Data gaps and transparency
             </span>
             <p className="mb-2 text-[0.72rem] text-slate-400">
-              VELQUARATH never fabricates economic indicators. The following categories currently have
+              VELQAURATH never fabricates economic indicators. The following categories currently have
               no live authenticated feed configured, so they are reported as gaps rather than estimated:
             </p>
             <div className="grid grid-cols-1 gap-1 text-[0.68rem] text-slate-500 sm:grid-cols-2">

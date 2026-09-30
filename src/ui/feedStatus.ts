@@ -109,6 +109,44 @@ export interface EvidenceCoverageNarrative {
 }
 
 /**
+ * Human-readable labels for the raw evidence states.
+ *
+ * The raw values are never changed or removed — they remain the truth model and
+ * stay visible in the detail views, the inspector and the status surfaces. This
+ * map only decides what the primary experience says, so a person reads
+ * "Partial coverage" instead of "DEGRADED" while an engineer can still find the
+ * exact state one disclosure away.
+ */
+const EVIDENCE_LABEL: Record<string, string> = {
+  FRESH: 'Current',
+  AGING: 'Aging',
+  STALE: 'Stale',
+  DEGRADED: 'Coverage needs attention',
+  PARTIAL: 'Partial coverage',
+  UNAVAILABLE: 'Not available',
+  DATA_UNAVAILABLE: 'Not available',
+  UNCLASSIFIED: 'Not classified',
+  REFERENCE: 'Reference context',
+  AVAILABLE: 'Present',
+  LIVE: 'Live evidence',
+  STATIC: 'Static reference',
+  BENCHMARK: 'Benchmark reference',
+  CONNECTED: 'Feed connected',
+  DISCONNECTED: 'Feed disconnected',
+  CONNECTING: 'Connecting',
+  ERROR: 'Feed error',
+  NOT_CONFIGURED: 'Not configured',
+  COMPLETE: 'Complete',
+  INSUFFICIENT_DATA: 'Not enough evidence',
+  DATA_AVAILABLE: 'Data available'
+};
+
+export function evidenceLabel(state: string | null | undefined): string {
+  if (!state) return 'Not available';
+  return EVIDENCE_LABEL[state.toUpperCase()] ?? state;
+}
+
+/**
  * Turns the feed status into language a person can act on.
  *
  * The underlying states are never softened. "Partial" is used only when the

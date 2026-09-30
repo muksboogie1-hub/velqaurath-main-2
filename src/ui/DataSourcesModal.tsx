@@ -57,7 +57,7 @@ export const DataSourcesModal: React.FC<DataSourcesModalProps> = ({
           {/* Integrity Principle */}
           <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-3.5 leading-relaxed text-slate-300">
             <span className="mb-1 block font-semibold text-slate-100">
-              VELQUARATH never fabricates evidence
+              VELQAURATH never fabricates evidence
             </span>
             CPI, GDP, employment, central bank decisions and FX quotes are only ever shown when a
             verified feed supplies them. When a feed is offline or unconfigured the product reports{' '}

@@ -6,7 +6,6 @@ import { CurrencyFundamentalIntelligence } from '../types';
 import { FundamentalProviderStatus } from '../fundamentals/providers/IFundamentalDataProvider';
 import { FundamentalDatasetMode } from '../types/fundamentals';
 import { deriveFeedStatus, describeEvidenceCoverage } from './feedStatus';
-import { deriveBasketNarrative } from './focus/basketNarrative';
 
 function joinClauses(items: string[]): string {
   if (items.length === 0) return '';
@@ -81,16 +80,14 @@ export const MarketPulseHero: React.FC<MarketPulseHeroProps> = ({
     currencyIntelligence
   );
   const coverage = describeEvidenceCoverage(feedStatus, allCurrencies.length);
-  const basketNarrative = deriveBasketNarrative(basket, currencyIntelligence);
 
   const withMarketEvidence = allCurrencies.filter((c) => c.marketStrength !== null).length;
   const universeSize = allCurrencies.length;
 
-  const evidenceSentence = feedStatus.pipeline === 'LIVE'
-    ? 'Market and macro evidence are both live and current.'
-    : feedStatus.pipeline === 'DEGRADED'
-    ? 'Some evidence is stale, partial or reference-only. The view below reflects only what is verified.'
-    : 'Current evidence is unavailable. Nothing below is claimed as live.';
+  /*
+   * One coherent coverage statement, taken from the derived truth model. The
+   * raw state stays available on the chips and in the inspector.
+   */
 
   const renderGroup = (
     label: string,
@@ -116,7 +113,7 @@ export const MarketPulseHero: React.FC<MarketPulseHeroProps> = ({
             <button
               key={currency.currency.code}
               onClick={() => onSelectCurrency(currency.currency.code)}
-              className="group flex min-h-9 items-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-2.5 py-1.5 transition-all hover:border-teal-400/30 hover:bg-white/[0.06] active:scale-[0.97]"
+              className="group flex min-h-10 items-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-2.5 py-1.5 transition-all hover:border-teal-400/30 hover:bg-white/[0.06] active:scale-[0.97] sm:min-h-9"
             >
               <span className="text-[0.8rem] font-semibold text-slate-100">
                 {currency.currency.code}
@@ -144,23 +141,67 @@ export const MarketPulseHero: React.FC<MarketPulseHeroProps> = ({
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
             <p className="velqo-eyebrow mb-3 text-teal-300/80">Market Pulse</p>
-            <h1 className="velqo-display max-w-md text-2xl text-white sm:text-[2.1rem]">
-              {basketNarrative.statement}
-            </h1>
 
             {/*
-             * The evidence behind the headline is stated, not implied. Support
-             * and gaps are both derived from layers that are actually present,
-             * so the sentence above can never overstate the case.
+             * Observed / Macro context / Reading are kept visually and
+             * semantically apart. The measurement is never dressed up as the
+             * interpretation, and the interpretation never claims causation the
+             * evidence model does not establish.
              */}
-            {basketNarrative.supportedBy.length > 0 && (
-              <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-400">
-                Supported by {joinClauses(basketNarrative.supportedBy)}.
-              </p>
+            {basket?.observed ? (
+              <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                <span className="velqo-eyebrow !text-teal-300/80">Observed</span>
+                <h1 className="velqo-display max-w-md text-2xl text-white sm:text-[2.1rem]">
+                  {basket.leader?.code}{' '}
+                  <span className={strengthTone(basket.observed.strength)}>
+                    {basket.observed.strength >= 0 ? '+' : ''}
+                    {basket.observed.strength.toFixed(2)}%
+                  </span>
+                </h1>
+              </div>
+            ) : (
+              <h1 className="velqo-display max-w-md text-2xl text-white sm:text-[2.1rem]">
+                {basket?.statement ?? 'Reading the live currency basket'}
+              </h1>
             )}
-            {basketNarrative.incomplete.length > 0 && (
-              <p className="mt-1.5 max-w-md text-[0.78rem] leading-relaxed text-slate-500">
-                {capitalise(joinClauses(basketNarrative.incomplete))}.
+
+            <p className="mt-2 max-w-md text-[0.78rem] leading-relaxed text-slate-400">
+              {basket?.statement ?? ''}
+            </p>
+
+            {basket && basket.macroContext.length > 0 && (
+              <div className="mt-3 max-w-md">
+                <p className="velqo-eyebrow mb-1.5">Macro context</p>
+                <ul className="space-y-1">
+                  {basket.macroContext.map((observation) => (
+                    <li
+                      key={`${observation.indicator}-${observation.releaseDate ?? ''}`}
+                      className="text-[0.78rem] leading-relaxed text-slate-300"
+                    >
+                      <span className="text-slate-100">{observation.indicator}</span>
+                      <span className="text-slate-500"> · {observation.category.toLowerCase()}</span>
+                      <span className="tnum"> · {observation.actual}{observation.unit}</span>
+                      {observation.previous !== null && (
+                        <span className="text-slate-500 tnum">
+                          {' '}vs previous {observation.previous}{observation.unit}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {basket?.reading && (
+              <div className="mt-3 max-w-md">
+                <p className="velqo-eyebrow mb-1.5">VELQAURATH read</p>
+                <p className="text-[0.8rem] leading-relaxed text-slate-300">{basket.reading}</p>
+              </div>
+            )}
+
+            {basket && basket.incomplete.length > 0 && (
+              <p className="mt-2 max-w-md text-[0.75rem] leading-relaxed text-slate-500">
+                {capitalise(joinClauses(basket.incomplete))}.
               </p>
             )}
           </div>
@@ -196,8 +237,7 @@ export const MarketPulseHero: React.FC<MarketPulseHeroProps> = ({
             <p className="mt-1 text-[0.65rem] leading-relaxed text-slate-600">
               {withMarketEvidence}/{universeSize} currencies carry current market evidence
             </p>
-          </div>
-        </div>
+          </div>        </div>
 
         {/* Landscape read */}
         <div className="mt-7 grid gap-5 sm:grid-cols-3">
@@ -270,14 +310,14 @@ export const MarketPulseHero: React.FC<MarketPulseHeroProps> = ({
                   </div>
                 ) : (
                   <p className="mt-1 text-[0.8rem] text-slate-400">
-                    No pair is held at a primary watch state on current evidence.
+                    No primary pair — the research lead is named below.
                   </p>
                 )}
               </div>
             </div>
 
             <p className="max-w-sm text-[0.7rem] leading-relaxed text-slate-500 sm:text-right">
-              {evidenceSentence}
+              {coverage.market}.
             </p>
           </div>
         </div>

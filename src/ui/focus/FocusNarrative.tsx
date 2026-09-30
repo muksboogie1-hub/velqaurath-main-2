@@ -9,7 +9,8 @@ import {
   CalendarClock,
   Clock,
   ListOrdered,
-  CircleSlash
+  CircleSlash,
+  Compass
 } from 'lucide-react';
 import type {
   FocusBias,
@@ -29,6 +30,7 @@ import {
   MetricValue,
   StateChip
 } from './atoms';
+import { evidenceLabel } from '../feedStatus';
 
 const LAYER_LABEL: Record<FocusEvidenceItem['layer'], string> = {
   MARKET: 'Market',
@@ -150,23 +152,53 @@ export function SupportingEvidence({
   );
 }
 
-export function ChangeConditions({
-  conditions,
-  hasVerified
-}: {
-  conditions: FocusChangeCondition[];
-  hasVerified: boolean;
-}) {
+/**
+ * Splits change conditions for the primary user-facing surface.
+ *
+ * A condition the engine could not evaluate is not a change condition the user
+ * can act on, so it is not shown as one. It is never reinterpreted as
+ * triggered, and it is never removed from the underlying projection — the full
+ * set stays in the payload for the inspector and for debugging.
+ */
+export function selectDisplayableChangeConditions(conditions: FocusChangeCondition[]): {
+  evaluable: FocusChangeCondition[];
+  unevaluableCount: number;
+} {
+  const evaluable = conditions.filter(
+    (entry) => entry.evaluationStatus === 'VALID'
+  );
+  return { evaluable, unevaluableCount: conditions.length - evaluable.length };
+}
+
+export function ChangeConditions({ conditions }: { conditions: FocusChangeCondition[] }) {
+  const { evaluable, unevaluableCount } = selectDisplayableChangeConditions(conditions);
+
   return (
     <FocusSection
-      title="What could change this bias"
+      title="What could change the view"
       icon={<HelpCircle className="h-3.5 w-3.5" />}
+      aside={
+        evaluable.length > 0 ? (
+          <span className="velqo-chip !py-0 !text-[0.6rem] tnum">{evaluable.length}</span>
+        ) : null
+      }
     >
-      {!hasVerified || conditions.length === 0 ? (
-        <HonestEmpty>No verified bias-change condition available.</HonestEmpty>
+      {evaluable.length === 0 ? (
+        <>
+          <HonestEmpty>
+            No verified change conditions can currently be evaluated.
+          </HonestEmpty>
+          {unevaluableCount > 0 && (
+            <p className="mt-2 text-[0.68rem] leading-relaxed text-slate-500">
+              {unevaluableCount === 1
+                ? 'One condition remains unevaluable because required evidence is unavailable.'
+                : `${unevaluableCount} conditions remain unevaluable because required evidence is unavailable.`}
+            </p>
+          )}
+        </>
       ) : (
         <ul className="space-y-2">
-          {conditions.map((entry) => (
+          {evaluable.map((entry) => (
             <li
               key={entry.condition.id}
               className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2"
@@ -179,12 +211,10 @@ export function ChangeConditions({
                   className={`velqo-chip shrink-0 !py-0.5 !text-[0.6rem] ${
                     entry.triggered
                       ? '!border-rose-400/30 !text-rose-200'
-                      : entry.evaluationStatus === 'UNABLE_TO_EVALUATE'
-                      ? '!border-slate-500/30 !text-slate-400'
                       : '!border-amber-400/25 !text-amber-200'
                   }`}
                 >
-                  {entry.triggered ? 'triggered' : entry.evaluationStatus.replace(/_/g, ' ').toLowerCase()}
+                  {entry.triggered ? 'triggered' : 'not triggered'}
                 </span>
               </div>
               <dl className="mt-1.5 space-y-0.5 text-[0.68rem]">
@@ -201,6 +231,14 @@ export function ChangeConditions({
           ))}
         </ul>
       )}
+
+      {unevaluableCount > 0 && evaluable.length > 0 && (
+        <p className="mt-2.5 border-t border-white/[0.05] pt-2 text-[0.65rem] leading-relaxed text-slate-600">
+          {unevaluableCount === 1
+            ? 'One further condition is recorded but cannot be evaluated, because required evidence is unavailable.'
+            : `${unevaluableCount} further conditions are recorded but cannot be evaluated, because required evidence is unavailable.`}
+        </p>
+      )}
     </FocusSection>
   );
 }
@@ -216,9 +254,9 @@ export function DataTrust({ quality }: { quality: FocusDataQuality }) {
   return (
     <FocusSection title="Evidence quality" icon={<Radio className="h-3.5 w-3.5" />}>
       <div className="mb-2.5 flex flex-wrap gap-1.5">
-        <span className="velqo-chip">{quality.dataQuality}</span>
-        <span className="velqo-chip">{quality.evidenceQuality}</span>
-        <span className="velqo-chip">{quality.thesisStatus.replace(/_/g, ' ').toLowerCase()}</span>
+        <span className="velqo-chip">{evidenceLabel(quality.dataQuality)}</span>
+        <span className="velqo-chip">{evidenceLabel(quality.evidenceQuality)}</span>
+        <span className="velqo-chip">{evidenceLabel(quality.thesisStatus)}</span>
         <span
           className={`velqo-chip ${
             quality.marketEvidenceState === 'AVAILABLE'
@@ -546,6 +584,118 @@ export function ResearchQueue({
 }
 
 /* ------------------------------------------------------------------ *
+ * LEAD EXPLANATION
+ * ------------------------------------------------------------------ */
+
+/**
+ * The research lead's complete explanation, shown when no pair cleared the
+ * primary evidence threshold.
+ *
+ * Every field is projected by the same focus engine that explains a promoted
+ * pair, from the same intelligence, under the same rules. Nothing here promotes
+ * the lead, and every claim is conditional on evidence being present.
+ */
+export function LeadExplanation({
+  focus,
+  onSelectPair
+}: {
+  focus: MarketFocus;
+  onSelectPair?: (symbol: string) => void;
+}) {
+  const lead = focus.researchLead;
+  if (!lead) return null;
+
+  return (
+    <div className="space-y-3">
+      <FocusSection
+        title="Next research"
+        icon={<Compass className="h-3.5 w-3.5" />}
+        aside={<StateChip state={lead.opportunityState} />}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          {onSelectPair ? (
+            <button
+              onClick={() => onSelectPair(lead.symbol)}
+              className="velqo-display min-h-11 text-lg text-white transition-colors hover:text-teal-200"
+            >
+              {lead.symbol}
+            </button>
+          ) : (
+            <span className="velqo-display text-lg text-white">{lead.symbol}</span>
+          )}
+          <span className={`velqo-chip !py-0 !text-[0.6rem] ${BIAS_TONE[lead.bias]}`}>
+            {BIAS_SHORT[lead.bias]}
+          </span>
+        </div>
+        <p className="mt-1.5 text-[0.8rem] font-medium leading-relaxed text-slate-200">
+          {lead.headline}
+        </p>
+        {focus.leadReason && (
+          <p className="mt-2 border-t border-white/[0.05] pt-2 text-[0.72rem] leading-relaxed text-slate-500">
+            {focus.leadReason}
+          </p>
+        )}
+        <LeadGapChips quality={lead.dataQuality} />
+      </FocusSection>
+
+      <WhyThisBias why={focus.leadWhy} />
+      <SupportingEvidence
+        supporting={focus.leadSupportingEvidence}
+        contradicting={focus.leadContradictingEvidence}
+      />
+      <ChangeConditions conditions={focus.leadChangeConditions} />
+      <WhenToWatch window={focus.leadResearchWindow} />
+      <TodaysCatalysts catalysts={focus.leadCatalysts} leadSymbol={lead.symbol} />
+    </div>
+  );
+}
+
+/** Missing, stale and reference-only layers, named from the lead's own record. */
+function LeadGapChips({ quality }: { quality: FocusDataQuality }) {
+  const chips: { label: string; tone: string }[] = [];
+
+  if (quality.availableComponents.length > 0) {
+    chips.push({
+      label: `present: ${quality.availableComponents.length} layers`,
+      tone: '!border-teal-400/25 !text-teal-200'
+    });
+  }
+  for (const component of quality.missingComponents) {
+    chips.push({
+      label: `missing: ${component}`,
+      tone: '!border-slate-500/30 !text-slate-400'
+    });
+  }
+  for (const component of quality.staleComponents) {
+    chips.push({
+      label: `stale: ${component}`,
+      tone: '!border-amber-400/25 !text-amber-200'
+    });
+  }
+  for (const component of quality.referenceOnlyComponents) {
+    chips.push({
+      label: `reference only: ${component}`,
+      tone: '!border-violet-400/25 !text-violet-200'
+    });
+  }
+
+  if (chips.length === 0) return null;
+
+  return (
+    <div className="mt-2.5 flex flex-wrap gap-1.5">
+      {chips.map((chip) => (
+        <span
+          key={chip.label}
+          className={`velqo-chip !py-0 !text-[0.6rem] ${chip.tone}`}
+        >
+          {chip.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
  * NO PRIMARY PAIR
  * ------------------------------------------------------------------ */
 
@@ -554,95 +704,40 @@ export function ResearchQueue({
  * states the decision, the strongest candidate that did not qualify, the
  * evidence behind it and the condition that would change it.
  */
+/**
+ * The decision itself: nothing cleared the primary evidence threshold.
+ *
+ * This states the decision and why. The lead, its bias, its evidence and its
+ * gaps are owned by LeadExplanation so the two never repeat each other.
+ */
 export function NoPrimaryFocus({
   reason,
-  lead,
-  leadReason
+  lead
 }: {
   reason: string | null;
   lead: FocusPair | null;
-  leadReason: string | null;
+  leadReason?: string | null;
 }) {
-  if (!lead) {
-    return (
-      <FocusSection title="Pair in focus" icon={<CircleSlash className="h-3.5 w-3.5" />}>
-        <div className="flex flex-col items-center gap-2 py-4 text-center">
-          <CircleSlash className="h-5 w-5 text-slate-600" />
-          <p className="text-[0.8rem] font-medium text-slate-300">No primary pair</p>
-          <p className="max-w-sm text-[0.72rem] leading-relaxed text-slate-500">
-            {reason ??
-              'No pair is held at a verified watch state on the current evidence, so none is promoted.'}
-          </p>
-        </div>
-      </FocusSection>
-    );
-  }
-
-  const quality = lead.dataQuality;
-
   return (
     <FocusSection title="Pair in focus" icon={<CircleSlash className="h-3.5 w-3.5" />}>
-      <div className="mb-3 flex items-start gap-2">
+      <div className="flex items-start gap-2">
         <CircleSlash className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
         <div className="min-w-0">
           <p className="text-[0.85rem] font-semibold text-slate-200">No primary pair</p>
           <p className="mt-1 text-[0.73rem] leading-relaxed text-slate-400">
-            {reason ?? 'No pair currently meets the evidence threshold for primary attention.'}
+            {reason ??
+              'No pair is held at a verified watch state on the current evidence, so none is promoted.'}
           </p>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-3.5 py-3">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="velqo-eyebrow">Next research</span>
-          <StateChip state={lead.opportunityState} />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="velqo-display text-lg text-white">{lead.symbol}</span>
-          <span className={`velqo-chip !py-0 !text-[0.6rem] ${BIAS_TONE[lead.bias]}`}>
-            {BIAS_SHORT[lead.bias]}
-          </span>
-        </div>
-
-        <p className="mt-1.5 text-[0.75rem] leading-relaxed text-slate-300">{lead.headline}</p>
-
-        {leadReason && (
-          <p className="mt-2 border-t border-white/[0.05] pt-2 text-[0.7rem] leading-relaxed text-slate-500">
-            {leadReason}
-          </p>
-        )}
-
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {quality.availableComponents.length > 0 && (
-            <span className="velqo-chip !py-0 !text-[0.6rem] !border-teal-400/25 !text-teal-200">
-              present: {quality.availableComponents.length} layers
-            </span>
+          {lead && (
+            <p className="mt-1.5 text-[0.73rem] leading-relaxed text-slate-500">
+              The research lead is{' '}
+              <span className="text-slate-300">{lead.symbol}</span> at{' '}
+              <span className="text-slate-300">
+                {lead.opportunityState.replace(/_/g, ' ').toLowerCase()}
+              </span>
+              . It is not a primary pair and has not been promoted.
+            </p>
           )}
-          {quality.missingComponents.map((component) => (
-            <span
-              key={component}
-              className="velqo-chip !py-0 !text-[0.6rem] !border-slate-500/30 !text-slate-400"
-            >
-              missing: {component}
-            </span>
-          ))}
-          {quality.staleComponents.map((component) => (
-            <span
-              key={component}
-              className="velqo-chip !py-0 !text-[0.6rem] !border-amber-400/25 !text-amber-200"
-            >
-              stale: {component}
-            </span>
-          ))}
-          {quality.referenceOnlyComponents.map((component) => (
-            <span
-              key={component}
-              className="velqo-chip !py-0 !text-[0.6rem] !border-violet-400/25 !text-violet-200"
-            >
-              reference only: {component}
-            </span>
-          ))}
         </div>
       </div>
     </FocusSection>

@@ -2,7 +2,14 @@ import React from 'react';
 import { Telescope } from 'lucide-react';
 import type { MarketFocus } from '../types/focus';
 import { AlignmentChip, BiasBadge, ConfidenceChip, biasBasisNote, StateChip } from './focus/atoms';
-import { ChangeConditions, DataTrust, NoPrimaryFocus, SupportingEvidence, WhyThisBias } from './focus/FocusNarrative';
+import {
+  ChangeConditions,
+  DataTrust,
+  LeadExplanation,
+  NoPrimaryFocus,
+  SupportingEvidence,
+  WhyThisBias
+} from './focus/FocusNarrative';
 
 interface PairInFocusCardProps {
   focus: MarketFocus | null;
@@ -35,11 +42,19 @@ export const PairInFocusCard: React.FC<PairInFocusCardProps> = ({
         </div>
         <div className="px-4 py-4 sm:px-6">
           {focus ? (
-            <NoPrimaryFocus
-              reason={focus.noPrimaryReason}
-              lead={focus.researchLead}
-              leadReason={focus.leadReason}
-            />
+            <div className="space-y-3">
+              <NoPrimaryFocus
+                reason={focus.noPrimaryReason}
+                lead={focus.researchLead}
+                leadReason={focus.leadReason}
+              />
+              {/*
+               * The lead keeps its own explanation. The absence of a primary
+               * pair must never cost the product its reasoning, and none of
+               * this promotes the lead.
+               */}
+              <LeadExplanation focus={focus} onSelectPair={onSelectPair} />
+            </div>
           ) : (
             <div className="flex flex-col items-center gap-2 py-6 text-center">
               <Telescope className="h-6 w-6 text-slate-600" />
@@ -165,10 +180,7 @@ export const PairInFocusCard: React.FC<PairInFocusCardProps> = ({
             supporting={focus.supportingEvidence}
             contradicting={focus.contradictingEvidence}
           />
-          <ChangeConditions
-            conditions={focus.changeConditions}
-            hasVerified={focus.hasVerifiedChangeConditions}
-          />
+          <ChangeConditions conditions={focus.changeConditions} />
           <DataTrust quality={dataQuality} />
         </div>      </div>
     </section>

@@ -1,5 +1,5 @@
-﻿/**
- * VELQUARATH â€” MARKET FOCUS TEST SUITE
+/**
+ * VELQUARATH — MARKET FOCUS TEST SUITE
  *
  * Market Focus is a projection layer. These tests pin the contract that makes
  * it safe to show on the opening screen:
@@ -37,6 +37,7 @@ import {
   buildMarketFocus,
   buildResearchWindow,
   collectSupportingEvidence,
+  deriveBasketStanding,
   deriveBias,
   deriveDataQuality,
   isLayerVerified,
@@ -45,8 +46,8 @@ import {
 } from '../src/engines/focus/marketFocus';
 import { evaluateIndicatorImpact } from '../src/engines/catalyst/catalystEngine';
 import { isUnusableMarketRecordStatus } from '../src/fundamentals/engine/currencyIntelligenceEngine';
-import { describeEvidenceCoverage, deriveFeedStatus } from '../src/ui/feedStatus';
-import { deriveBasketNarrative } from '../src/ui/focus/basketNarrative';
+import { deriveFeedStatus, describeEvidenceCoverage, evidenceLabel } from '../src/ui/feedStatus';
+import { selectDisplayableChangeConditions } from '../src/ui/focus/FocusNarrative';
 
 const NOW = new Date('2026-09-30T12:00:00.000Z');
 const MINUTE = 60 * 1000;
@@ -62,10 +63,10 @@ function check(desc: string, fn: () => void) {
   total++;
   try {
     fn();
-    console.log(`âœ… PASS: ${desc}`);
+    console.log(`✅ PASS: ${desc}`);
     passed++;
   } catch (err) {
-    console.error(`âŒ FAIL: ${desc}`);
+    console.error(`❌ FAIL: ${desc}`);
     console.error(`   ${(err as Error).message}`);
     process.exitCode = 1;
   }
@@ -1250,7 +1251,7 @@ check('22. The research lead keeps its own verified catalyst evidence', () => {
     throw new Error(`an imminent future event must be COUNTDOWN, got ${focus.leadNextCatalyst?.countdownState}`);
   }
   if (focus.catalysts.length !== 0) {
-    throw new Error('lead catalysts must not be presented as a promoted primaryâ€™s catalysts');
+    throw new Error('lead catalysts must not be presented as a promoted primary’s catalysts');
   }
 });
 
@@ -1396,61 +1397,80 @@ check('24. Evidence wording is derived from the recorded state, never softened',
  * ------------------------------------------------------------------ */
 
 check('25. The basket narrative names only the layers that are actually present', () => {
-  const basket = {
-    leader: { code: 'GBP', strength: 0.49, classification: 'STRONG' },
-    laggard: { code: 'AUD', strength: -0.29, classification: 'WEAK' },
-    currenciesWithEvidence: 8,
-    currenciesAssessed: 8,
-    statement: 'GBP is leading the current currency basket at +0.49% relative to the basket average.'
-  };
+  const strengths = [
+    { currency: 'GBP', marketStrength: 0.49, classification: 'STRONG', contributors: 4 },
+    { currency: 'AUD', marketStrength: -0.29, classification: 'WEAK', contributors: 2 }
+  ];
 
-  const gbp = {
-    currency: { code: 'GBP' },
-    evidenceAssessment: {
-      market: { availability: 'AVAILABLE', provenance: 'LIVE', freshness: 'FRESH', evidenceCount: 4 },
-      fundamentals: { availability: 'PARTIAL', provenance: 'LIVE', freshness: 'FRESH', evidenceCount: 2 },
-      policy: { availability: 'UNAVAILABLE', provenance: 'REFERENCE', evidenceCount: 0 }
+  const withMacro = deriveBasketStanding(strengths, [
+    {
+      currency: 'GBP',
+      marketEvidenceCount: 4,
+      marketProvenance: 'LIVE',
+      macroEvidenceCount: 2,
+      macroProvenance: 'LIVE',
+      policyAvailability: 'UNAVAILABLE',
+      policyProvenance: 'REFERENCE',
+      observations: [
+        {
+          indicator: 'UK GDP',
+          category: 'GROWTH',
+          actual: 0.4,
+          previous: 0.3,
+          forecast: null,
+          unit: '%',
+          releaseDate: '2026-09-11T06:00:00Z'
+        }
+      ]
     }
-  } as any;
+  ]);
 
-  const narrative = deriveBasketNarrative(basket, [gbp]);
-  const support = narrative.supportedBy.join(' ');
+  const support = withMacro.supportedBy.join(' ');
   if (!support.includes('live market evidence for GBP across 4 pairs')) {
     throw new Error(`the live market layer must be cited, got: ${support}`);
   }
-  if (!support.includes('2 live GBP macro observations')) {
+  if (!support.includes('1 live GBP macro observation')) {
     throw new Error(`the live macro layer must be cited, got: ${support}`);
   }
-  if (narrative.incomplete.join(' ').includes('policy confirmation is reference context only') === false) {
-    throw new Error(`reference policy must be named as reference, got: ${narrative.incomplete.join(' ')}`);
+  if (!withMacro.incomplete.join(' ').includes('policy confirmation is reference context only')) {
+    throw new Error(`reference policy must be named as reference, got: ${withMacro.incomplete.join(' ')}`);
   }
-  if (narrative.incomplete.join(' ').includes('macro observation')) {
+  if (withMacro.incomplete.join(' ').includes('macro observation')) {
     throw new Error('GBP has live macro evidence, so it must not be reported as a gap');
+  }
+  if (withMacro.laggard?.code !== 'AUD') {
+    throw new Error(`the laggard must come from the same ranking, got ${withMacro.laggard?.code}`);
   }
 
   // A leader with no macro or live policy evidence must report both gaps.
-  const bare = {
-    currency: { code: 'EUR' },
-    evidenceAssessment: {
-      market: { availability: 'AVAILABLE', provenance: 'LIVE', freshness: 'FRESH', evidenceCount: 4 },
-      fundamentals: { availability: 'UNAVAILABLE', provenance: 'UNAVAILABLE', evidenceCount: 0 },
-      policy: { availability: 'UNAVAILABLE', provenance: 'UNAVAILABLE', evidenceCount: 0 }
-    }
-  } as any;
-
-  const bareNarrative = deriveBasketNarrative(
-    { ...basket, leader: { code: 'EUR', strength: 0.1, classification: 'STRONG' } },
-    [bare]
+  const bare = deriveBasketStanding(
+    [{ currency: 'EUR', marketStrength: 0.1, classification: 'STRONG', contributors: 4 }],
+    [
+      {
+        currency: 'EUR',
+        marketEvidenceCount: 4,
+        marketProvenance: 'LIVE',
+        macroEvidenceCount: 0,
+        macroProvenance: 'UNAVAILABLE',
+        policyAvailability: 'UNAVAILABLE',
+        policyProvenance: 'UNAVAILABLE',
+        observations: []
+      }
+    ]
   );
-  const gaps = bareNarrative.incomplete.join(' ');
+
+  const gaps = bare.incomplete.join(' ');
   if (!gaps.includes('no live EUR macro observation has arrived')) {
     throw new Error(`the missing macro layer must be named, got: ${gaps}`);
   }
   if (!gaps.includes('EUR policy confirmation is incomplete')) {
     throw new Error(`the missing policy layer must be named, got: ${gaps}`);
   }
-  if (bareNarrative.supportedBy.join(' ').includes('macro')) {
+  if (bare.supportedBy.join(' ').includes('macro')) {
     throw new Error('a currency with no macro evidence must not be described as macro-supported');
+  }
+  if (bare.macroContext.length !== 0) {
+    throw new Error('no observation may be invented for a currency without one');
   }
 });
 
@@ -1475,6 +1495,491 @@ check('26. A connection phase never disqualifies an otherwise verified quote', (
   }
   if (!isUnusableMarketRecordStatus(undefined)) {
     throw new Error('an unknown status must not be treated as verified');
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * 27. Catalyst reason strings
+ * ------------------------------------------------------------------ */
+
+check('27. Catalyst reason strings render a single sign and never claim a consensus', () => {
+  // Positive deviation, no consensus: exactly one sign, no "vs consensus".
+  const positive = evaluateIndicatorImpact('UK GDP', 0.4, null, 0.3);
+  if (!/(\+\d|-)/.test(positive.reason)) {
+    throw new Error(`positive deviation must carry a sign: ${positive.reason}`);
+  }
+  if (positive.reason.includes('++')) {
+    throw new Error(`double sign must never be printed: ${positive.reason}`);
+  }
+  if (!positive.reason.includes('+0.1')) {
+    throw new Error(`positive deviation must read +0.1: ${positive.reason}`);
+  }
+  if (/consensus/i.test(positive.reason.replace(/no consensus was published/i, ''))) {
+    throw new Error(`no consensus was published, so none may be claimed: ${positive.reason}`);
+  }
+
+  // Negative deviation, no consensus.
+  const negative = evaluateIndicatorImpact('UK GDP', 0.2, null, 0.3);
+  if (negative.reason.includes('--') || !negative.reason.includes('-0.1')) {
+    throw new Error(`negative deviation must read -0.1: ${negative.reason}`);
+  }
+  if (negative.reason.includes('+')) {
+    throw new Error(`negative deviation must not carry a positive sign: ${negative.reason}`);
+  }
+
+  // With a consensus the sign is still single and the claim is legitimate.
+  const consensus = evaluateIndicatorImpact('UK GDP', 0.4, 0.3, 0.2);
+  if (consensus.reason.includes('++') || !consensus.reason.includes('+0.1')) {
+    throw new Error(`consensus deviation must read +0.1: ${consensus.reason}`);
+  }
+  if (consensus.surprise === null) {
+    throw new Error('a consensus-based deviation must still report a surprise');
+  }
+  if (!consensus.isVerifiedInterpretation) {
+    throw new Error('a consensus-based interpretation must remain verified');
+  }
+
+  // Neither benchmark at all.
+  const noBenchmark = evaluateIndicatorImpact('UK GDP', 0.4, null, null);
+  if (noBenchmark.reason.includes('++') || noBenchmark.surprise !== null) {
+    throw new Error(`an unbenchmarked print must stay unbenchmarked: ${noBenchmark.reason}`);
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * 28. Research lead keeps its full explanation when no primary exists
+ * ------------------------------------------------------------------ */
+
+check('28. The research lead keeps its full explanation when no primary exists', () => {
+  const template = makeIntelligence();
+  const lead = makeIntelligence({
+    symbol: 'GBP/CHF',
+    pair: {
+      ...template.pair,
+      id: 'pair-GBP/CHF',
+      symbol: 'GBP/CHF',
+      baseCurrency: 'GBP',
+      quoteCurrency: 'CHF'
+    },
+    relativeStrengthDelta: 0.69,
+    supportingEvidence: ['GBP has superior live relative strength versus CHF.'],
+    counterEvidence: ['The CHF leg carries the stronger policy reference.'],
+    structuredOpportunity: {
+      state: 'MONITOR',
+      whyThisPair: 'queued',
+      confluenceScore: 49,
+      directionalConfidence: 'LOW'
+    } as any,
+    structuredInvalidation: [
+      makeCondition({
+        id: 'inv-gbp-chf',
+        description: 'The GBP relative-strength advantage over CHF unwinds.',
+        triggered: false
+      })
+    ],
+    catalystIntelligence: [
+      makeCatalyst({
+        id: 'evt-gbp-gdp',
+        currency: 'GBP',
+        name: 'UK GDP',
+        scheduledTime: new Date(NOW.getTime() + 60 * MINUTE).toISOString(),
+        timeToEventMinutes: 60,
+        lifecycle: 'IMMINENT',
+        status: 'UPCOMING'
+      })
+    ]
+  });
+
+  const focus = buildMarketFocus([lead], { now: NOW, activeOverlaps: ['London / New York overlap'] });
+
+  if (focus.selected !== null) throw new Error('no primary may be promoted');
+  if (focus.researchLead?.symbol !== 'GBP/CHF') {
+    throw new Error(`expected the GBP/CHF lead, got ${focus.researchLead?.symbol}`);
+  }
+
+  // The primary fields stay empty so the lead is never a disguised promotion.
+  if (focus.why !== null) throw new Error('the primary why must stay null when there is no primary');
+  if (focus.supportingEvidence.length !== 0) {
+    throw new Error('primary supporting evidence must stay empty when there is no primary');
+  }
+  if (focus.catalysts.length !== 0) {
+    throw new Error('primary catalysts must stay empty when there is no primary');
+  }
+
+  // The lead keeps its own explanation.
+  if (!focus.leadWhy || !focus.leadWhy.includes('0.69')) {
+    throw new Error(`the lead must explain itself, got: ${focus.leadWhy}`);
+  }
+  if (focus.leadSupportingEvidence.length === 0) {
+    throw new Error('the lead must keep its verified supporting evidence');
+  }
+  if (focus.leadSupportingEvidence.some((item) => item.text.includes('relative strength') === false)) {
+    throw new Error('the lead supporting evidence must be the pair’s real statement');
+  }
+  if (focus.leadContradictingEvidence.length === 0) {
+    throw new Error('the lead must keep its real contradicting evidence');
+  }
+  if (focus.leadContradictingEvidence.some((item) => item.text.includes('policy reference') === false)) {
+    throw new Error('the lead contradicting evidence must be the pair’s real statement');
+  }
+  if (focus.leadChangeConditions.length !== 1) {
+    throw new Error(`the lead must keep its invalidation conditions, got ${focus.leadChangeConditions.length}`);
+  }
+  if (focus.leadHasVerifiedChangeConditions !== true) {
+    throw new Error('an untriggered, evaluated invalidation condition is still a verified condition');
+  }
+  if (focus.leadResearchWindow === null) {
+    throw new Error('the lead must keep its research window when there is no primary');
+  }
+  if (focus.leadResearchWindow.watchState !== 'ACTIVE') {
+    throw new Error(`the lead window state must pass through, got ${focus.leadResearchWindow.watchState}`);
+  }
+  if (focus.leadResearchWindow.headline !== 'London / New York overlap') {
+    throw new Error(`the lead window must use the active overlap, got ${focus.leadResearchWindow.headline}`);
+  }
+  if (focus.leadNextCatalyst?.event.id !== 'evt-gbp-gdp') {
+    throw new Error(`the lead must keep its upcoming catalyst, got ${focus.leadNextCatalyst?.event.id}`);
+  }
+});
+
+check('28b. A lead with no verified change condition says so honestly', () => {
+  const lead = makeIntelligence({
+    structuredOpportunity: { state: 'MONITOR', whyThisPair: 'q', confluenceScore: 30, directionalConfidence: 'LOW' } as any
+  });
+  delete (lead as any).structuredInvalidation;
+
+  const focus = buildMarketFocus([lead], { now: NOW });
+  if (focus.leadChangeConditions.length !== 0) {
+    throw new Error('no invalidation conditions must project as none');
+  }
+  if (focus.leadHasVerifiedChangeConditions !== false) {
+    throw new Error('a lead with no conditions must not claim verified change conditions');
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * 29. Basket narrative names verified macro observations
+ * ------------------------------------------------------------------ */
+
+check('29. The basket narrative names verified macro observations rather than counting them', () => {
+  const focus = buildMarketFocus([makeIntelligence()], {
+    now: NOW,
+    currencyStrengths: [
+      { currency: 'GBP', marketStrength: 0.49, classification: 'STRONG', contributors: 4 },
+      { currency: 'JPY', marketStrength: 0.3, classification: 'STRONG', contributors: 6 }
+    ],
+    currencyEvidence: [
+      {
+        currency: 'GBP',
+        marketEvidenceCount: 4,
+        marketProvenance: 'LIVE',
+        macroEvidenceCount: 2,
+        macroProvenance: 'LIVE',
+        policyAvailability: 'UNAVAILABLE',
+        policyProvenance: 'REFERENCE',
+        observations: [
+          {
+            indicator: 'UK GDP',
+            category: 'GROWTH',
+            actual: 0.4,
+            previous: 0.3,
+            forecast: null,
+            unit: '%',
+            releaseDate: '2026-09-11T06:00:00Z'
+          },
+          {
+            indicator: 'UK CPI Inflation',
+            category: 'INFLATION',
+            actual: 3.1,
+            previous: 2.9,
+            forecast: null,
+            unit: '%',
+            releaseDate: '2026-09-16T06:00:00Z'
+          }
+        ]
+      }
+    ]
+  });
+
+  const basket = focus.basket;
+  if (basket.macroContext.length !== 2) {
+    throw new Error(`both observations must be named, got ${basket.macroContext.length}`);
+  }
+  if (basket.macroContext[0].indicator !== 'UK GDP' || basket.macroContext[0].actual !== 0.4) {
+    throw new Error('the UK GDP observation must be carried through unchanged');
+  }
+  if (basket.macroContext[0].forecast !== null) {
+    throw new Error('a missing forecast must stay missing');
+  }
+  if (basket.observed?.code !== 'GBP' || basket.observed.contributors !== 4) {
+    throw new Error('the observed measurement must be reported separately from the reading');
+  }
+  if (!basket.reading.includes('does not assert they caused the move')) {
+    throw new Error(`the reading must not claim causation: ${basket.reading}`);
+  }
+  if (!basket.incomplete.join(' ').includes('reference context only')) {
+    throw new Error('reference policy must be reported as incomplete support');
+  }
+});
+
+check('29b. A leader with no macro evidence names the gap and claims no context', () => {
+  const focus = buildMarketFocus([makeIntelligence()], {
+    now: NOW,
+    currencyStrengths: [{ currency: 'EUR', marketStrength: 0.2, classification: 'STRONG', contributors: 4 }],
+    currencyEvidence: [
+      {
+        currency: 'EUR',
+        marketEvidenceCount: 4,
+        marketProvenance: 'LIVE',
+        macroEvidenceCount: 0,
+        macroProvenance: 'UNAVAILABLE',
+        policyAvailability: 'UNAVAILABLE',
+        policyProvenance: 'UNAVAILABLE',
+        observations: []
+      }
+    ]
+  });
+
+  if (focus.basket.macroContext.length !== 0) {
+    throw new Error('no observation may be invented for a currency without one');
+  }
+  if (!focus.basket.reading.includes('No live macro observation')) {
+    throw new Error(`the reading must state that no macro context exists: ${focus.basket.reading}`);
+  }
+  if (!focus.basket.incomplete.join(' ').includes('no live EUR macro observation has arrived')) {
+    throw new Error(`the macro gap must be named: ${focus.basket.incomplete.join(' ')}`);
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * 30. Evidence language mapping
+ * ------------------------------------------------------------------ */
+
+check('30. Raw evidence states map to human language without losing the truth', () => {
+  const expected: [string, string][] = [
+    ['FRESH', 'Current'],
+    ['STALE', 'Stale'],
+    ['PARTIAL', 'Partial coverage'],
+    ['DEGRADED', 'Coverage needs attention'],
+    ['UNAVAILABLE', 'Not available'],
+    ['REFERENCE', 'Reference context'],
+    ['LIVE', 'Live evidence'],
+    ['CONNECTED', 'Feed connected'],
+    ['DATA_UNAVAILABLE', 'Not available']
+  ];
+  for (const [raw, label] of expected) {
+    if (evidenceLabel(raw) !== label) {
+      throw new Error(`${raw} must read as "${label}", got "${evidenceLabel(raw)}"`);
+    }
+  }
+  if (evidenceLabel(null) !== 'Not available' || evidenceLabel(undefined) !== 'Not available') {
+    throw new Error('an absent state must read as not available');
+  }
+  if (evidenceLabel('SOMETHING_NEW') !== 'SOMETHING_NEW') {
+    throw new Error('an unmapped state must pass through rather than be invented');
+  }
+  if (evidenceLabel('DATA_AVAILABLE') === 'DATA_AVAILABLE') {
+    throw new Error('known engine states must be mapped');
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * 31. Session projection stays consistent
+ * ------------------------------------------------------------------ */
+
+check('31. The research window is projected from the existing session truth', () => {
+  const live = makeIntelligence();
+  const window = buildResearchWindow(live, ['London / New York overlap'], true);
+
+  // The window must read from the pair's own session relevance, not a new clock.
+  if (window.primarySession !== live.sessionRelevance.primarySession) {
+    throw new Error('the primary session must come from the pair session relevance');
+  }
+  if (window.watchState !== live.watchWindow.watchState) {
+    throw new Error('the watch state must pass through unchanged');
+  }
+  if (window.window !== live.watchWindow.watchWindow) {
+    throw new Error('the window string must pass through unchanged');
+  }
+  if (window.detail.length === 0) {
+    throw new Error('a window must always carry a derived explanation');
+  }
+  if (window.activeOverlaps.length !== 1) {
+    throw new Error('only overlaps the pair actually cares about may be listed');
+  }
+
+  // An overlap the pair does not care about must not be shown.
+  const irrelevant = buildResearchWindow(live, ['Sydney / Tokyo (Asia-Pacific)'], true);
+  if (irrelevant.activeOverlaps.length !== 0) {
+    throw new Error('an unrelated overlap must not be presented as this pair’s window');
+  }
+});
+
+check('31b. A negative differential is never described as outperformance', () => {
+  const template = makeIntelligence();
+  const bearish = makeIntelligence({
+    symbol: 'EUR/GBP',
+    pair: {
+      ...template.pair,
+      id: 'pair-EUR/GBP',
+      symbol: 'EUR/GBP',
+      baseCurrency: 'EUR',
+      quoteCurrency: 'GBP'
+    },
+    orientationDirection: 'BEARISH_BASE',
+    relativeStrengthDelta: -0.49
+  });
+
+  const focus = buildMarketFocus([bearish], { now: NOW });
+  const why = focus.leadWhy ?? focus.why ?? '';
+
+  if (why.includes('outperforming') && !why.includes('underperforming')) {
+    throw new Error(`a negative differential must never be called outperformance: ${why}`);
+  }
+  if (!why.includes('underperforming')) {
+    throw new Error(`a negative differential must read as underperformance: ${why}`);
+  }
+
+  // A verified market-strength statement must be filed as market evidence.
+  const supporting = collectSupportingEvidence(
+    makeIntelligence({
+      supportingEvidence: [
+        'GBP has superior live relative strength versus EUR (Δ = -0.49%).'
+      ]
+    })
+  );
+  const item = supporting[0];
+  if (item.layer !== 'MARKET') {
+    throw new Error(`a relative-strength statement is market evidence, filed as ${item.layer}`);
+  }
+  if (item.verified !== true) {
+    throw new Error('verified market evidence must not be labelled as an unlive layer');
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * 32. Change-condition presentation filter
+ * ------------------------------------------------------------------ */
+
+check('32. The user-facing change section shows only evaluable conditions', () => {
+  // 1. A VALID condition is displayed.
+  const valid = makeCondition({
+    id: 'inv-valid',
+    description: 'The base relative-strength advantage unwinds.',
+    evaluationStatus: 'VALID',
+    triggered: false
+  });
+
+  // Unevaluable conditions are present in the underlying truth.
+  const unevaluableA = makeCondition({
+    id: 'inv-unable-a',
+    description: 'The base central bank pivots to easing.',
+    evaluationStatus: 'UNABLE_TO_EVALUATE',
+    triggered: false
+  });
+  const unevaluableB = makeCondition({
+    id: 'inv-unable-b',
+    description: 'Release surprises persist against the base currency.',
+    evaluationStatus: 'UNABLE_TO_EVALUATE',
+    triggered: false
+  });
+
+  const mixed = [valid, unevaluableA, unevaluableB];
+
+  // Project first: the presentation filter operates on the projection, not on
+  // the engine's raw records.
+  const intelligence = makeIntelligence({
+    structuredInvalidation: mixed,
+    structuredOpportunity: { state: 'MONITOR', whyThisPair: 'q', confluenceScore: 49, directionalConfidence: 'LOW' } as any
+  });
+  const focus = buildMarketFocus([intelligence], { now: NOW });
+  const projected = focus.leadChangeConditions;
+
+  if (projected.length !== 3) {
+    throw new Error(`the projection must retain all three conditions, got ${projected.length}`);
+  }
+
+  const selection = selectDisplayableChangeConditions(projected);
+
+  // 1. The VALID condition is displayed.
+  if (selection.evaluable.length !== 1) {
+    throw new Error(`only the evaluable condition may be displayed, got ${selection.evaluable.length}`);
+  }
+  if (selection.evaluable[0].condition.id !== 'inv-valid') {
+    throw new Error(`the wrong condition was displayed: ${selection.evaluable[0].condition.id}`);
+  }
+
+  // 2. UNABLE_TO_EVALUATE conditions are not displayed as change conditions.
+  if (selection.evaluable.some((entry) => entry.evaluationStatus !== 'VALID')) {
+    throw new Error('an unevaluable condition must never be displayed as a change condition');
+  }
+  if (selection.unevaluableCount !== 2) {
+    throw new Error(`both unevaluable conditions must be counted, got ${selection.unevaluableCount}`);
+  }
+
+  // 3. UNABLE_TO_EVALUATE remains present in the underlying truth data.
+  if (
+    projected.filter((entry) => entry.evaluationStatus === 'UNABLE_TO_EVALUATE').length !== 2
+  ) {
+    throw new Error('the unevaluable conditions must remain in the underlying truth data');
+  }
+  if (focus.leadHasVerifiedChangeConditions !== true) {
+    throw new Error('a recorded condition must still report a verified condition set in the payload');
+  }
+
+  // 4. No condition is incorrectly marked triggered.
+  if (projected.some((entry) => entry.triggered)) {
+    throw new Error('an unevaluable condition must never be reported as triggered');
+  }
+  if (selection.evaluable.some((entry) => entry.triggered)) {
+    throw new Error('a displayed condition must carry the engine’s own triggered flag');
+  }
+  if (unevaluableA.triggered || unevaluableB.triggered || valid.triggered) {
+    throw new Error('the fixture must not pre-trigger any condition');
+  }
+});
+
+check('32b. With no evaluable condition the section says so honestly', () => {
+  const intelligence = makeIntelligence({
+    structuredOpportunity: { state: 'MONITOR', whyThisPair: 'q', confluenceScore: 49, directionalConfidence: 'LOW' } as any,
+    structuredInvalidation: [
+      makeCondition({ id: 'u1', evaluationStatus: 'UNABLE_TO_EVALUATE', triggered: false }),
+      makeCondition({ id: 'u2', evaluationStatus: 'UNABLE_TO_EVALUATE', triggered: false })
+    ]
+  });
+
+  const projected = buildMarketFocus([intelligence], { now: NOW }).leadChangeConditions;
+  const selection = selectDisplayableChangeConditions(projected);
+
+  if (selection.evaluable.length !== 0) {
+    throw new Error('no condition may be displayed when none is evaluable');
+  }
+  if (selection.unevaluableCount !== 2) {
+    throw new Error('the unevaluable conditions must still be counted for the explanation');
+  }
+
+  const empty = selectDisplayableChangeConditions([]);
+  if (empty.evaluable.length !== 0 || empty.unevaluableCount !== 0) {
+    throw new Error('an empty set must project as empty');
+  }
+});
+
+check('32c. A triggered condition is still displayed as triggered', () => {
+  const intelligence = makeIntelligence({
+    structuredOpportunity: { state: 'MONITOR', whyThisPair: 'q', confluenceScore: 49, directionalConfidence: 'LOW' } as any,
+    structuredInvalidation: [
+      makeCondition({ id: 'inv-triggered', evaluationStatus: 'VALID', triggered: true })
+    ]
+  });
+
+  const projected = buildMarketFocus([intelligence], { now: NOW }).leadChangeConditions;
+  const selection = selectDisplayableChangeConditions(projected);
+
+  if (selection.evaluable.length !== 1) {
+    throw new Error('a triggered but evaluable condition must still be displayed');
+  }
+  if (selection.evaluable[0].triggered !== true) {
+    throw new Error('the engine’s triggered state must pass through unchanged');
   }
 });
 

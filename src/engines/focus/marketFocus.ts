@@ -1,5 +1,5 @@
-﻿/**
- * VELQUARATH â€” MARKET FOCUS DERIVATION
+/**
+ * VELQAURATH — MARKET FOCUS DERIVATION
  *
  * This module is deliberately NOT an engine. It performs no scoring, awards no
  * points and invents no evidence. It sequences and explains intelligence that
@@ -43,6 +43,7 @@ import type {
   FocusEvidenceItem,
   FocusPair,
   FocusBasketStanding,
+  FocusMacroObservation,
   FocusResearchWindow,
   MarketFocus
 } from '../../types/focus';
@@ -61,6 +62,8 @@ export interface MarketFocusOptions {
    * layer can never disagree.
    */
   currencyStrengths?: BasketStandingInput[];
+  /** Verified per-currency evidence, used to name the macro context. */
+  currencyEvidence?: BasketEvidenceInput[];
 }
 
 /** The minimum the basket projection needs from the market strength engine. */
@@ -68,6 +71,20 @@ export interface BasketStandingInput {
   currency: string;
   marketStrength: number | null;
   classification: string;
+  contributors?: number;
+}
+
+/** The minimum the basket projection needs to describe a currency's evidence. */
+export interface BasketEvidenceInput {
+  currency: string;
+  marketEvidenceCount: number;
+  marketProvenance: string;
+  macroEvidenceCount: number;
+  macroProvenance: string;
+  policyAvailability: string;
+  policyProvenance: string;
+  /** Live, source-identified observations already verified upstream. */
+  observations: FocusMacroObservation[];
 }
 
 const DEFAULT_RADAR_LIMIT = 6;
@@ -135,7 +152,7 @@ function confluenceComponent(
 
 /**
  * A layer counts as live evidence only when the engine either weighed it as
- * AVAILABLE/PARTIAL, or â€” when no confluence verdict exists â€” the pair engine
+ * AVAILABLE/PARTIAL, or — when no confluence verdict exists — the pair engine
  * recorded it as available. REFERENCE_ONLY and STATIC are context, not live
  * support, and never satisfy this test.
  */
@@ -273,7 +290,7 @@ export function deriveDataQuality(intelligence: PairIntelligence): FocusDataQual
     // a missing cross-asset layer must never read as negative evidence.
     crossAssetAvailable: false,
     crossAssetNote:
-      'Cross-asset confirmation unavailable â€” no verified rates, commodity or risk-context feed is configured.'
+      'Cross-asset confirmation unavailable — no verified rates, commodity or risk-context feed is configured.'
   };
 }
 
@@ -384,7 +401,7 @@ function describeResearchLead(lead: PairIntelligence): string {
   }
 
   parts.push(
-    'It reaches primary attention when the opportunity engine raises it to PRIMARY_WATCH on verified evidence â€” not before.'
+    'It reaches primary attention when the opportunity engine raises it to PRIMARY_WATCH on verified evidence — not before.'
   );
 
   return parts.join(' ');
@@ -439,7 +456,12 @@ const LAYER_PATTERNS: { layer: EvidenceLayer; patterns: RegExp[] }[] = [
   { layer: 'EXPECTATIONS', patterns: [/\bexpectation|\bforecast|\bconsensus|\bsurprise/i] },
   { layer: 'POLICY', patterns: [/\bpolicy\b|\bcarry\b|\brate\b|\bcentral bank\b|\bhawkish|\bdovish/i] },
   { layer: 'FUNDAMENTALS', patterns: [/\bfundamental|\binflation|\bgrowth\b|\bemployment|\bgdp\b|\bmacro/i] },
-  { layer: 'MARKET', patterns: [/\bmarket\b|\bprice|\bquote|\bbasket|\brelative position|\bdelta/i] }
+  {
+    layer: 'MARKET',
+    patterns: [
+      /\bmarket\b|\bprice|\bquote|\bbasket|\brelative position|\brelative strength|\bdelta|\bΔ|\boutperform|\bunderperform/i
+    ]
+  }
 ];
 
 function classifyLayer(text: string): EvidenceLayer {
@@ -537,8 +559,9 @@ export function synthesiseWhy(
   const delta = intelligence.relativeStrengthDelta;
 
   if (basis === 'MARKET_CONFIRMED' && delta !== null) {
+    const direction = delta >= 0 ? 'outperforming' : 'underperforming';
     parts.push(
-      `${intelligence.symbol} has a ${bias.toLowerCase()} bias because ${base} is outperforming ${quote} by ${formatDelta(
+      `${intelligence.symbol} has a ${bias.toLowerCase()} bias because ${base} is ${direction} ${quote} by ${formatDelta(
         delta
       )} across the observed basket, and the pair engine classified that relative position as ${intelligence.orientationDirection}.`
     );
@@ -786,12 +809,12 @@ export function buildResearchWindow(
     // Unavailability is never dressed up as an active window.
     headline = WATCH_STATE_HEADLINES.DATA_UNAVAILABLE;
   } else if (relevantOverlaps.length > 0) {
-    headline = relevantOverlaps.join(' Â· ');
+    headline = relevantOverlaps.join(' · ');
   } else {
     // An unmapped watch state is shown as the session it belongs to rather
     // than being assigned an invented state name.
     const stateHeadline = WATCH_STATE_HEADLINES[watchState];
-    headline = stateHeadline ? `${stateHeadline} â€” ${primarySession}` : `${primarySession} session`;
+    headline = stateHeadline ? `${stateHeadline} — ${primarySession}` : `${primarySession} session`;
   }
 
   const detailParts: string[] = [];
@@ -821,13 +844,32 @@ export function buildResearchWindow(
  * BASKET STANDING
  * ------------------------------------------------------------------ */
 
+function isLiveCounted(
+  availability?: string,
+  provenance?: string,
+  count = 0
+): boolean {
+  return (
+    count > 0 &&
+    (availability === 'AVAILABLE' || availability === 'PARTIAL') &&
+    provenance === 'LIVE'
+  );
+}
+
 /**
- * Projects where the live basket stands. This is a reading of the market
- * strength engine, not a second score: it only ranks currencies the engine
- * already gave a numeric value, and it never treats a missing value as zero.
+ * Projects where the live basket stands, what was measured, and what VELQAURATH
+ * reads from it.
+ *
+ * This is a reading of the market strength engine, not a second score: it only
+ * ranks currencies the engine already gave a numeric value, and it never treats
+ * a missing value as zero. The result is deliberately split into `observed`
+ * (what the provider measured), `macroContext` (the named live observations
+ * that add context) and `reading` (the product's interpretation), so the user
+ * is never shown an interpretation dressed up as a raw market fact.
  */
 export function deriveBasketStanding(
-  strengths: BasketStandingInput[] = []
+  strengths: BasketStandingInput[] = [],
+  evidence: BasketEvidenceInput[] = []
 ): FocusBasketStanding {
   const usable = strengths.filter(
     (entry) =>
@@ -837,19 +879,31 @@ export function deriveBasketStanding(
       entry.classification !== 'INSUFFICIENT_COVERAGE'
   );
 
+  const evidenceByCode = new Map(
+    evidence.map((entry) => [entry.currency.toUpperCase(), entry])
+  );
+
   if (usable.length === 0) {
     return {
       leader: null,
       laggard: null,
       currenciesWithEvidence: 0,
       currenciesAssessed: strengths.length,
-      statement: 'No currency carries a verified market value in the current basket.'
+      statement: 'No currency carries a verified market value in the current basket.',
+      observed: null,
+      macroContext: [],
+      reading: 'Nothing is claimed while the market layer carries no verified value.',
+      supportedBy: [],
+      incomplete: ['Live market evidence is unavailable']
     };
   }
 
-  const sorted = [...usable].sort((a, b) => (b.marketStrength as number) - (a.marketStrength as number));
+  const sorted = [...usable].sort(
+    (a, b) => (b.marketStrength as number) - (a.marketStrength as number)
+  );
   const top = sorted[0];
   const bottom = sorted[sorted.length - 1];
+
   const leader = {
     code: top.currency,
     strength: top.marketStrength as number,
@@ -861,22 +915,155 @@ export function deriveBasketStanding(
     classification: bottom.classification
   };
 
+  const signed = (value: number) => `${value >= 0 ? '+' : ''}${value}`;
+
   const statement =
     leader.strength > 0
-      ? `${leader.code} is leading the current currency basket at ${leader.strength >= 0 ? '+' : ''}${leader.strength}% relative to the basket average.`
-      : `No currency is ahead of the basket average on current market evidence; ${leader.code} is the closest at ${leader.strength >= 0 ? '+' : ''}${leader.strength}%.`;
+      ? `${leader.code} is leading the current currency basket at ${signed(
+          leader.strength
+        )}% relative to the basket average.`
+      : `No currency is ahead of the basket average on current market evidence; ${leader.code} is the closest at ${signed(
+          leader.strength
+        )}%.`;
 
   const spreadNote =
     sorted.length > 1 && laggard.code !== leader.code
-      ? ` ${laggard.code} trails at ${laggard.strength >= 0 ? '+' : ''}${laggard.strength}%.`
+      ? ` ${laggard.code} trails at ${signed(laggard.strength)}%.`
       : '';
+
+  /*
+   * Only observations that are already source-identified and live are carried
+   * through. They are named individually rather than counted, so the user can
+   * see what is actually behind the reading.
+   */
+  const leaderEvidence = evidenceByCode.get(leader.code.toUpperCase());
+  const macroContext = (leaderEvidence?.observations ?? []).filter(
+    (observation) =>
+      typeof observation.actual === 'number' &&
+      Number.isFinite(observation.actual)
+  );
+
+  const supportedBy = [
+    `current market strength across ${usable.length} of ${strengths.length} currencies`
+  ];
+  const incomplete: string[] = [];
+
+  if (
+    leaderEvidence &&
+    isLiveCounted(
+      leaderEvidence.marketProvenance === 'LIVE' ? 'AVAILABLE' : 'UNAVAILABLE',
+      leaderEvidence.marketProvenance,
+      leaderEvidence.marketEvidenceCount
+    )
+  ) {
+    supportedBy.push(
+      `live market evidence for ${leader.code} across ${leaderEvidence.marketEvidenceCount} pairs`
+    );
+  }
+
+  if (
+    macroContext.length > 0 &&
+    leaderEvidence &&
+    isLiveCounted('PARTIAL', leaderEvidence.macroProvenance, leaderEvidence.macroEvidenceCount)
+  ) {
+    supportedBy.push(
+      `${macroContext.length} live ${leader.code} macro observation${
+        macroContext.length === 1 ? '' : 's'
+      }`
+    );
+  } else {
+    incomplete.push(`no live ${leader.code} macro observation has arrived`);
+  }
+
+  if (
+    !leaderEvidence ||
+    !isLiveCounted(
+      leaderEvidence.policyAvailability,
+      leaderEvidence.policyProvenance,
+      leaderEvidence.policyAvailability === 'AVAILABLE' ? 1 : 0
+    )
+  ) {
+    incomplete.push(
+      leaderEvidence?.policyProvenance === 'REFERENCE' ||
+        leaderEvidence?.policyProvenance === 'STATIC'
+        ? `${leader.code} policy confirmation is reference context only`
+        : `${leader.code} policy confirmation is incomplete`
+    );
+  }
+
+  /*
+   * The reading states what the measured evidence shows. It deliberately does
+   * not claim the macro observations caused the move — they provide context.
+   */
+  const reading =
+    macroContext.length > 0
+      ? `Market evidence currently shows ${leader.code} leading the basket. The ${macroContext.length} live ${
+          macroContext.length === 1 ? 'observation adds' : 'observations add'
+        } macro context; VELQAURATH does not assert they caused the move.`
+      : `Market evidence currently shows ${leader.code} leading the basket. No live macro observation is available to add context.`;
 
   return {
     leader,
     laggard,
     currenciesWithEvidence: usable.length,
     currenciesAssessed: strengths.length,
-    statement: statement + spreadNote
+    statement: statement + spreadNote,
+    observed: {
+      code: leader.code,
+      strength: leader.strength,
+      classification: leader.classification,
+      contributors: top.contributors ?? 0
+    },
+    macroContext,
+    reading,
+    supportedBy,
+    incomplete
+  };
+}
+
+/**
+ * The complete explanatory projection for one pair.
+ *
+ * Both the promoted primary and the research lead are projected through this
+ * single function, from the same intelligence, with the same rules. The only
+ * difference between them is the opportunity state the opportunity engine
+ * already assigned — never a second selection or scoring pass.
+ */
+function projectExplanation(
+  intelligence: PairIntelligence,
+  activeOverlaps: string[],
+  now: Date
+): {
+  bias: FocusBias;
+  basis: FocusBiasBasis;
+  why: string;
+  supportingEvidence: FocusEvidenceItem[];
+  contradictingEvidence: FocusEvidenceItem[];
+  changeConditions: FocusChangeCondition[];
+  hasVerifiedChangeConditions: boolean;
+  researchWindow: FocusResearchWindow;
+  catalysts: FocusCatalyst[];
+  nextCatalyst: FocusCatalyst | null;
+} {
+  const { bias, basis } = deriveBias(intelligence);
+  const changeConditions = collectChangeConditions(intelligence);
+  const catalysts = projectCatalysts(intelligence, bias, now);
+
+  return {
+    bias,
+    basis,
+    why: synthesiseWhy(intelligence, bias, basis),
+    supportingEvidence: collectSupportingEvidence(intelligence),
+    contradictingEvidence: collectContradictingEvidence(intelligence),
+    changeConditions,
+    hasVerifiedChangeConditions: changeConditions.length > 0,
+    researchWindow: buildResearchWindow(
+      intelligence,
+      activeOverlaps,
+      intelligence.dataQuality !== 'UNAVAILABLE'
+    ),
+    catalysts,
+    nextCatalyst: selectNextCatalyst(catalysts)
   };
 }
 
@@ -919,7 +1106,7 @@ export function buildMarketFocus(
   const radarLimit = options.radarLimit ?? DEFAULT_RADAR_LIMIT;
   const activeOverlaps = options.activeOverlaps ?? [];
   const iso = now.toISOString();
-  const basket = deriveBasketStanding(options.currencyStrengths ?? []);
+  const basket = deriveBasketStanding(options.currencyStrengths ?? [], options.currencyEvidence ?? []);
 
   const buckets: Record<FocusBand, PairIntelligence[]> = {
     PRIMARY_WATCH: [],
@@ -972,9 +1159,11 @@ export function buildMarketFocus(
 
   if (!primary) {
     /*
-     * No pair is promoted, but the research decision is still reported. The
-     * lead is taken from the same queue ordering used everywhere else, so the
-     * strongest available candidate is shown without inventing a primary.
+     * No pair is promoted, but the research decision is still reported and the
+     * lead is still explained. The lead comes from the same queue ordering used
+     * everywhere else, and is projected through the same explanation function
+     * as a promoted pair — so nothing is invented, nothing is promoted, and no
+     * reasoning is lost just because nothing cleared the primary threshold.
      */
     const lead = buckets.SECONDARY_WATCH[0] ?? buckets.RADAR[0] ?? null;
     const reason = lead
@@ -983,12 +1172,9 @@ export function buildMarketFocus(
         }.`
       : 'No pair is held at a verified watch state on the current evidence, so no research lead can be named.';
 
-    /*
-     * The lead's own catalyst evidence is projected through the same verified
-     * pipeline. These are the lead's catalysts, never a promoted primary's, and
-     * past or unverified records are still excluded from the "next" selection.
-     */
-    const leadCatalysts = lead ? projectCatalysts(lead, deriveBias(lead).bias, now) : [];
+    const explanation = lead
+      ? projectExplanation(lead, activeOverlaps, now)
+      : null;
 
     return {
       basket,
@@ -998,9 +1184,16 @@ export function buildMarketFocus(
         ? buildFocusPair(lead, bandForState(lead.structuredOpportunity?.state ?? 'INSUFFICIENT_DATA'))
         : null,
       leadReason: lead ? describeResearchLead(lead) : null,
-      leadCatalysts,
-      leadNextCatalyst: selectNextCatalyst(leadCatalysts),
+      leadWhy: explanation?.why ?? null,
+      leadSupportingEvidence: explanation?.supportingEvidence ?? [],
+      leadContradictingEvidence: explanation?.contradictingEvidence ?? [],
+      leadChangeConditions: explanation?.changeConditions ?? [],
+      leadHasVerifiedChangeConditions: explanation?.hasVerifiedChangeConditions ?? false,
+      leadResearchWindow: explanation?.researchWindow ?? null,
+      leadCatalysts: explanation?.catalysts ?? [],
+      leadNextCatalyst: explanation?.nextCatalyst ?? null,
       selectionReason: null,
+      // A lead is not a promotion, so the primary fields stay empty.
       why: null,
       supportingEvidence: [],
       contradictingEvidence: [],
@@ -1016,13 +1209,7 @@ export function buildMarketFocus(
     };
   }
 
-  const { bias, basis } = deriveBias(primary);
-  const base = primary.pair.baseCurrency;
-  const quote = primary.pair.quoteCurrency;
-
-  const catalysts = projectCatalysts(primary, bias, now);
-
-  const changeConditions = collectChangeConditions(primary);
+  const explanation = projectExplanation(primary, activeOverlaps, now);
 
   return {
     basket,
@@ -1030,23 +1217,25 @@ export function buildMarketFocus(
     noPrimaryReason: null,
     researchLead: null,
     leadReason: null,
+    leadWhy: null,
+    leadSupportingEvidence: [],
+    leadContradictingEvidence: [],
+    leadChangeConditions: [],
+    leadHasVerifiedChangeConditions: false,
+    leadResearchWindow: null,
     leadCatalysts: [],
     leadNextCatalyst: null,
     selectionReason:
       primary.structuredOpportunity?.whyThisPair ??
       'Highest-ranked PRIMARY_WATCH opportunity on current evidence.',
-    why: synthesiseWhy(primary, bias, basis),
-    supportingEvidence: collectSupportingEvidence(primary),
-    contradictingEvidence: collectContradictingEvidence(primary),
-    changeConditions,
-    hasVerifiedChangeConditions: changeConditions.length > 0,
-    catalysts,
-    nextCatalyst: selectNextCatalyst(catalysts),
-    researchWindow: buildResearchWindow(
-      primary,
-      activeOverlaps,
-      primary.dataQuality !== 'UNAVAILABLE'
-    ),
+    why: explanation.why,
+    supportingEvidence: explanation.supportingEvidence,
+    contradictingEvidence: explanation.contradictingEvidence,
+    changeConditions: explanation.changeConditions,
+    hasVerifiedChangeConditions: explanation.hasVerifiedChangeConditions,
+    catalysts: explanation.catalysts,
+    nextCatalyst: explanation.nextCatalyst,
+    researchWindow: explanation.researchWindow,
     contradictions: primary.structuredContradictions ?? primary.contradictions ?? [],
     ...queue,
     queueSummary,

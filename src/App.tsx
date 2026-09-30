@@ -49,23 +49,53 @@ export function App() {
   const [isThresholdsOpen, setIsThresholdsOpen] = useState(false);
 
   useEffect(() => {
+    /*
+     * Lifecycle guard. Every async path checks this before touching state so
+     * that an unmount cannot receive a late update, and both timers are cleared
+     * on teardown so no interval survives the component.
+     */
+    let cancelled = false;
+    let lightPollInFlight = false;
+    let pairPollInFlight = false;
+
     const updateLocalState = () => {
+      if (cancelled) return;
       setDashboard(globalStore.getDashboard());
       setPairIntelligences(globalStore.getAllPairIntelligences());
     };
 
-    const fetchServerData = async () => {
+    /*
+     * MARKET FOCUS is fetched and applied on its own.
+     *
+     * It is a small, self-sufficient payload that already carries the research
+     * lead and its full explanation, so it must never sit behind another
+     * response. It is resolved and committed independently of the dashboard and
+     * of pair intelligence, and a failed refresh keeps the last known valid
+     * value rather than clearing it.
+     */
+    const applyMarketFocus = async () => {
+      if (cancelled) return;
       try {
-        const [dashRes, pairsRes, focusRes] = await Promise.all([
-          fetch('/api/dashboard'),
-          fetch('/api/pairs/intelligence'),
-          fetch('/api/market-focus')
-        ]);
+        const res = await fetch('/api/market-focus');
+        if (!res.ok) return;
+        const data: MarketFocus = await res.json();
+        if (cancelled || !data) return;
+        setMarketFocus(data);
+      } catch {
+        // Transient network or parse failure: the previously rendered
+        // market focus stays exactly as it is.
+      }
+    };
 
-        if (dashRes.ok) {
-          const dashData: DashboardPayload = await dashRes.json();
+    const applyDashboard = async () => {
+      if (cancelled) return;
+      try {
+        const res = await fetch('/api/dashboard');
+        if (!res.ok) return;
+        const dashData: DashboardPayload = await res.json();
+        if (cancelled) return;
 
-          if (dashData.marketProviderStatus && dashData.allCurrencies) {
+        if (dashData.marketProviderStatus && dashData.allCurrencies) {
             const strengthsMap = new Map();
             dashData.allCurrencies.forEach((c) => {
               const breakdown = c.relativeStrengthBreakdown;
@@ -123,37 +153,69 @@ export function App() {
           // Authoritative state update from server payload
           setDashboard(dashData);
           setCurrencyIntelligences(dashData.currencyIntelligence || []);
-        }
-
-        if (pairsRes.ok) {
-          const pairsData = await pairsRes.json();
-          setPairIntelligences(pairsData);
-        }
-
-        /*
-         * The focus payload is served from the same intelligence the rest of
-         * the product consumes, so the narrative and the underlying evidence
-         * cannot diverge.
-         */
-        if (focusRes.ok) {
-          setMarketFocus(await focusRes.json());
-        } else {
-          setMarketFocus(null);
-        }
       } catch {
-        // Fallback to local store only on network failure
+        // Fallback to the local store only on network failure
         updateLocalState();
       }
     };
 
-    fetchServerData();
+    /*
+     * Pair intelligence is a large payload (megabytes) and is not required to
+     * render the Market Focus experience. It is fetched on its own schedule so
+     * that it can never gate the narrative, and a slow or failing transfer
+     * never blocks anything else.
+     */
+    const applyPairIntelligences = async () => {
+      if (cancelled) return;
+      try {
+        const res = await fetch('/api/pairs/intelligence');
+        if (!res.ok) return;
+        const pairsData: PairIntelligence[] = await res.json();
+        if (cancelled) return;
+        setPairIntelligences(pairsData);
+      } catch {
+        // Keep the previously loaded pair intelligence.
+      }
+    };
+
+    /*
+     * The fast poll carries only the small, narrative-bearing payloads. Each
+     * cycle is guarded so a slow response cannot stack with the next tick.
+     */
+    const pollLight = async () => {
+      if (lightPollInFlight || cancelled) return;
+      lightPollInFlight = true;
+      try {
+        await Promise.all([applyDashboard(), applyMarketFocus()]);
+      } finally {
+        lightPollInFlight = false;
+      }
+    };
+
+    const pollPairIntelligences = async () => {
+      if (pairPollInFlight || cancelled) return;
+      pairPollInFlight = true;
+      try {
+        await applyPairIntelligences();
+      } finally {
+        pairPollInFlight = false;
+      }
+    };
 
     const unsubscribe = globalStore.subscribe(updateLocalState);
-    const pollInterval = setInterval(fetchServerData, 3000);
+
+    // Immediate first load, then each stream settles on its own cadence.
+    void pollPairIntelligences();
+    void pollLight();
+
+    const lightInterval = setInterval(pollLight, 3000);
+    const pairInterval = setInterval(pollPairIntelligences, 60000);
 
     return () => {
+      cancelled = true;
       unsubscribe();
-      clearInterval(pollInterval);
+      clearInterval(lightInterval);
+      clearInterval(pairInterval);
     };
   }, []);
 
@@ -370,7 +432,7 @@ export function App() {
             <p className="velqo-eyebrow mb-1.5">Evidence</p>
             <h2 className="velqo-display text-lg text-white">Provenance & source directory</h2>
             <p className="mt-2 max-w-xl text-[0.78rem] leading-relaxed text-slate-400">
-              VELQUARATH does not fabricate evidence. Every macro observation, policy record and
+              VELQAURATH does not fabricate evidence. Every macro observation, policy record and
               market quote below is traceable to a primary agency or market-data provider, and a
               layer without a verified live record is reported as unavailable rather than inferred.
             </p>
@@ -386,9 +448,9 @@ export function App() {
       </main>
 
       <footer className="border-t border-white/[0.05] px-4 py-6 text-center">
-        <p className="text-[0.72rem] font-medium text-slate-500">VELQUARATH · Global Market Intelligence</p>
+        <p className="text-[0.72rem] font-medium text-slate-500">VELQAURATH · Global Market Intelligence</p>
         <p className="mt-1 text-[0.7rem] text-slate-600">
-          Built by Boogie · Fundamental intelligence for currencies. Not an execution venue.
+          Built by Boogie · Read the market. Understand the why. Not an execution venue.
         </p>
       </footer>
 

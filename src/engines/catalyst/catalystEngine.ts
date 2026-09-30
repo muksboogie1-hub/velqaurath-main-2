@@ -245,8 +245,8 @@ export function evaluateIndicatorImpact(
       bias: 'BULLISH',
       weight: 6,
       reason: hasConsensus
-        ? `Macro outperformance (+${deviation} vs consensus): reinforces domestic economic momentum.`
-        : `Macro print above the previous release (+${signed(deviation)}); no consensus was published.`,
+        ? `Macro outperformance (${signed(deviation)} vs consensus): reinforces domestic economic momentum.`
+        : `Macro print above the previous release (${signed(deviation)}); no consensus was published.`,
       isVerifiedInterpretation,
       surprise,
       surprisePercentage
@@ -256,7 +256,7 @@ export function evaluateIndicatorImpact(
       bias: 'BEARISH',
       weight: 6,
       reason: hasConsensus
-        ? `Macro shortfall (${deviation} vs consensus): signals economic deceleration.`
+        ? `Macro shortfall (${signed(deviation)} vs consensus): signals economic deceleration.`
         : `Macro print below the previous release (${signed(deviation)}); no consensus was published.`,
       isVerifiedInterpretation,
       surprise,

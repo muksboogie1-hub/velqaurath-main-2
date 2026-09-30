@@ -1,5 +1,5 @@
 /**
- * VELQUARATH — MARKET FOCUS TYPES
+ * VELQAURATH — MARKET FOCUS TYPES
  *
  * MarketFocus is a *presentation and sequencing* layer. It owns no new
  * intelligence of its own: every field below is a projection of an existing
@@ -153,9 +153,28 @@ export interface FocusPair {
 }
 
 /**
- * Where a currency stands inside the live basket, projected from the existing
- * market strength engine. This is the answer to "what changed", and it is
- * never inferred from a layer that is missing.
+ * A single verified macro observation behind the basket reading.
+ *
+ * Only observations that are present, source-identified and live reach this
+ * type. No forecast is invented and no surprise is computed without a verified
+ * consensus baseline.
+ */
+export interface FocusMacroObservation {
+  indicator: string;
+  category: string;
+  actual: number;
+  previous: number | null;
+  forecast: number | null;
+  unit: string;
+  releaseDate: string | null;
+}
+
+/**
+ * Where the live basket stands, and what is actually behind it.
+ *
+ * This is the answer to "what changed", and it is deliberately split so the
+ * user can tell measurement from reading. Nothing here is inferred from a
+ * layer that is missing.
  */
 export interface FocusBasketStanding {
   /** The strongest currency with a verified market value, if any. */
@@ -168,6 +187,16 @@ export interface FocusBasketStanding {
   currenciesAssessed: number;
   /** The plain-language reading of the basket. */
   statement: string;
+  /** Measured market movement for the leader, in the provider's own units. */
+  observed: { code: string; strength: number; classification: string; contributors: number } | null;
+  /** Verified live macro observations for the leader, named individually. */
+  macroContext: FocusMacroObservation[];
+  /** What VELQAURATH reads from the above. Never presented as a raw fact. */
+  reading: string;
+  /** Which layers support the reading. */
+  supportedBy: string[];
+  /** Which layers are missing, stale or reference-only. */
+  incomplete: string[];
 }
 
 export interface MarketFocus {
@@ -185,6 +214,20 @@ export interface MarketFocus {
   researchLead: FocusPair | null;
   /** What holds the research lead below primary, and what would change that. */
   leadReason: string | null;
+  /**
+   * The lead's own explanatory projection.
+   *
+   * The absence of a PRIMARY_WATCH pair must never cost the product its
+   * reasoning. These fields are projected from exactly the same intelligence
+   * that produces the selected pair's fields — no second selection, no second
+   * scoring, and no promotion. They are populated only when selected is null.
+   */
+  leadWhy: string | null;
+  leadSupportingEvidence: FocusEvidenceItem[];
+  leadContradictingEvidence: FocusEvidenceItem[];
+  leadChangeConditions: FocusChangeCondition[];
+  leadHasVerifiedChangeConditions: boolean;
+  leadResearchWindow: FocusResearchWindow | null;
   /**
    * Catalysts for the research lead's legs, projected through the same
    * verified pipeline as a promoted primary. They belong to the lead, not to a

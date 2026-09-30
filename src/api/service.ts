@@ -763,14 +763,55 @@ export class VelquarathApiService {
       return {
         currency: intelligence.currency.code,
         marketStrength: usable ? market!.strength : null,
-        classification: usable ? market!.classification : 'DATA_UNAVAILABLE'
+        classification: usable ? market!.classification : 'DATA_UNAVAILABLE',
+        contributors: usable ? market!.contributingPairs.length : 0
+      };
+    });
+
+    const currencyEvidence = this.getCurrencyIntelligences(date).map((intelligence) => {
+      const market = intelligence.evidenceAssessment?.market;
+      const fundamentals = intelligence.evidenceAssessment?.fundamentals;
+      const policy = intelligence.evidenceAssessment?.policy;
+
+      /*
+       * Only observations the fundamentals aggregator already accepted into the
+       * evidence assessment are named. The projection never re-validates or
+       * re-derives them, and never invents a forecast or a surprise.
+       */
+      const observations = (fundamentals?.observations ?? [])
+        .filter(
+          (observation) =>
+            observation.classification === 'FACT' &&
+            typeof observation.actual === 'number' &&
+            Number.isFinite(observation.actual)
+        )
+        .map((observation) => ({
+          indicator: observation.indicatorName,
+          category: String(observation.category ?? 'UNCLASSIFIED'),
+          actual: observation.actual as number,
+          previous: observation.previous ?? null,
+          forecast: observation.forecast ?? null,
+          unit: observation.unit ?? '',
+          releaseDate: observation.releaseDate ?? null
+        }));
+
+      return {
+        currency: intelligence.currency.code,
+        marketEvidenceCount: market?.evidenceCount ?? 0,
+        marketProvenance: market?.provenance ?? 'UNAVAILABLE',
+        macroEvidenceCount: fundamentals?.evidenceCount ?? 0,
+        macroProvenance: fundamentals?.provenance ?? 'UNAVAILABLE',
+        policyAvailability: policy?.availability ?? 'UNAVAILABLE',
+        policyProvenance: policy?.provenance ?? 'UNAVAILABLE',
+        observations
       };
     });
 
     return buildMarketFocus(allIntelligences, {
       now: date,
       activeOverlaps: sessionOverview.activeOverlaps,
-      currencyStrengths
+      currencyStrengths,
+      currencyEvidence
     });
   }
 

@@ -50,26 +50,20 @@ export const MarketFocusView: React.FC<MarketFocusViewProps> = ({
       </div>
 
       <div className="space-y-3 px-3.5 pb-4 sm:px-4 sm:pb-5">
-        {selected === null ? (
-          <>
-            {/*
-             * With no promoted primary, the lead's own verified catalyst
-             * evidence is shown. It belongs to the research lead and is never
-             * presented as if a pair had been promoted.
-             */}
-            <TodaysCatalysts
-              catalysts={focus.leadCatalysts}
-              leadSymbol={focus.researchLead?.symbol ?? null}
-            />
-            <ResearchQueue focus={focus} onSelectPair={onSelectPair} />
-          </>
-        ) : (
+        {/*
+         * When no pair is promoted, the Pair in Focus card owns the decision,
+         * the lead and the lead's full explanation — including its research
+         * window and catalysts. Only the queue remains here, so nothing is
+         * stated twice.
+         */}
+        {selected !== null && (
           <>
             <WhenToWatch window={focus.researchWindow} />
             <TodaysCatalysts catalysts={focus.catalysts} leadSymbol={selected.symbol} />
-            <ResearchQueue focus={focus} onSelectPair={onSelectPair} />
           </>
         )}
+
+        <ResearchQueue focus={focus} onSelectPair={onSelectPair} />
       </div>
     </section>
   );
